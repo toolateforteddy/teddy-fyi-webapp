@@ -356,7 +356,10 @@ export function NeedPhase() {
       {/* Floating Action Button (FAB) */}
       <button
         onClick={() => setIsAddOpen(true)}
-        className="fixed bottom-[84px] right-4 md:right-[calc(50vw-210px)] w-14 h-14 rounded-full bg-primary text-black flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-all z-35 cursor-pointer"
+        className={cn(
+          "fixed bottom-[84px] right-4 md:right-[calc(50vw-210px)] w-14 h-14 rounded-full bg-primary text-black flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-all z-35 cursor-pointer duration-200",
+          expandedItemId !== null ? "opacity-0 scale-75 pointer-events-none" : "opacity-100 scale-100"
+        )}
         aria-label="Add grocery item"
       >
         <Plus className="w-6 h-6 stroke-[2.5]" />
