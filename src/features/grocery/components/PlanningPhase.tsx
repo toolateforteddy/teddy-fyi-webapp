@@ -13,7 +13,7 @@ export function PlanningPhase() {
     categories: Category[]
   }>()
 
-  const [selectedStoreId, setSelectedStoreId] = useState<number | null>(1) // Default to Trader Joe's
+  const [selectedStoreId, setSelectedStoreId] = useState<number | null>(null) // Default to null (All Stores)
   const [addedItems, setAddedItems] = useState<Record<string, boolean>>({})
   const timeoutRefs = useRef<Record<string, number>>({})
 
