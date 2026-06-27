@@ -362,9 +362,19 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
     return null
   }
 
-  // Auto-sync on mount
+  // Auto-sync on mount and on online reconnect
   useEffect(() => {
     handleManualSync()
+
+    const handleOnline = () => {
+      console.log('[Sync] Network connection restored. Auto-syncing...')
+      handleManualSync()
+    }
+
+    window.addEventListener('online', handleOnline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

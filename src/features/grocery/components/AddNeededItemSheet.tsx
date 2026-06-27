@@ -86,17 +86,28 @@ export function AddNeededItemSheet({ isOpen, onClose, activeCategories, onAddIte
             value={newItemName}
             onChange={(e) => setNewItemName(e.target.value)}
             autoFocus
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded={filteredSuggestions.length > 0}
+            aria-controls={filteredSuggestions.length > 0 ? "suggestions-listbox" : undefined}
             className="w-full bg-black/40 border border-neutral-800 rounded-lg py-2.5 px-3.5 text-sm focus:outline-none focus:border-primary transition-colors text-white placeholder-neutral-600"
           />
         </div>
 
         {/* Suggestion Chips */}
         {filteredSuggestions.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 animate-in fade-in duration-150">
+          <div 
+            id="suggestions-listbox"
+            role="listbox"
+            aria-label="Autocomplete suggestions"
+            className="flex flex-wrap gap-1.5 animate-in fade-in duration-150"
+          >
             {filteredSuggestions.map((suggestion) => (
               <button
                 key={suggestion}
                 type="button"
+                role="option"
+                aria-selected="false"
                 onClick={() => setNewItemName(suggestion)}
                 className="text-xs bg-neutral-900 border border-neutral-800 hover:border-primary text-text-muted hover:text-primary rounded-full px-3 py-1 transition-all cursor-pointer"
               >

@@ -168,11 +168,13 @@ export function NeedPhase() {
   const deleteItem = (itemId: string) => {
     setItems(prev => prev.map(item => {
       if (item.id !== itemId) return item
+      
+      const hasHistory = (item.timesBought || 0) > 0
       return {
         ...item,
-        is_deleted: true,
+        is_deleted: !hasHistory,
         isActive: false,
-        sync_state: 'PENDING_DELETE',
+        sync_state: hasHistory ? 'PENDING_UPDATE' : 'PENDING_DELETE',
         version: item.version + 1
       }
     }))

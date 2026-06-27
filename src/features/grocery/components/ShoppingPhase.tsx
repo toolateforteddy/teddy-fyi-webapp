@@ -94,6 +94,7 @@ export function ShoppingPhase() {
           return {
             ...item,
             isActive: false,
+            timesBought: (item.timesBought || 0) + 1,
             sync_state: 'PENDING_UPDATE',
             version: item.version + 1
           }
@@ -135,6 +136,11 @@ export function ShoppingPhase() {
     const inCart = activeItems.filter(item => item.isBought)
     return { toBuyItems: toBuy, inCartItems: inCart }
   }, [activeItems])
+
+  const progressPercent = useMemo(() => {
+    if (activeItems.length === 0) return 0
+    return Math.round((inCartItems.length / activeItems.length) * 100)
+  }, [inCartItems.length, activeItems.length])
 
   // Group to-buy items by category
   const toBuyByCategory = useMemo(() => {
@@ -210,6 +216,20 @@ export function ShoppingPhase() {
       ) : (
         <div className="space-y-6 flex-1 flex flex-col min-h-0">
           
+          {/* Progress Bar */}
+          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-3.5 space-y-2 shrink-0">
+            <div className="flex justify-between items-center text-xs">
+              <span className="font-semibold text-text-muted">Trip Progress</span>
+              <span className="font-bold text-primary">{inCartItems.length} of {activeItems.length} items ({progressPercent}%)</span>
+            </div>
+            <div className="w-full bg-black/40 h-2 rounded-full overflow-hidden border border-neutral-800">
+              <div 
+                className="bg-primary h-full transition-all duration-300 ease-out" 
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+          </div>
+
           {/* Active Needed Items */}
           <div className="space-y-4 flex-1 overflow-y-auto">
             {toBuyItems.length === 0 ? (
