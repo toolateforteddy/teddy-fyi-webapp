@@ -1,20 +1,12 @@
-import { useState, useRef, useEffect } from 'react'
-import type { TouchEvent, FormEvent } from 'react'
-import { useOutletContext } from 'react-router-dom'
-import { Plus, Minus, Trash2, Check, Sparkles, X, ShoppingBag } from 'lucide-react'
-import type { GroceryItem, Category, Store, GroceryItemStoreInfo } from '@/types/grocery'
+import { useState, useMemo, useEffect } from 'react'
+import { useGrocery } from '@/features/grocery/context/GroceryContext'
+import { Plus, ShoppingBag } from 'lucide-react'
+import type { GroceryItem, GroceryItemStoreInfo } from '@/types/grocery'
 import { cn } from '@/utils/cn'
 import { generateUuid } from '@/utils/uuid'
-
 import { DEFAULT_CATEGORIES, getCategoryColor, DEFAULT_STORES } from '../config/constants'
-
-// Common suggestion names for autocomplete
-const SUGGESTIONS = [
-  'Apples', 'Almond Milk', 'Butter', 'Broccoli', 'Blueberries',
-  'Chicken Breast', 'Cheddar Cheese', 'Eggs', 'Garlic', 'Hummus',
-  'Lemon', 'Olive Oil', 'Onions', 'Pasta', 'Rice', 'Spinach',
-  'Strawberries', 'Tomatoes', 'Tortillas', 'Water'
-]
+import { GroceryItemTile } from './GroceryItemTile'
+import { AddNeededItemSheet } from './AddNeededItemSheet'
 
 export function NeedPhase() {
   const { 
@@ -25,20 +17,77 @@ export function NeedPhase() {
     stores, 
     itemStoreInfos, 
     setItemStoreInfos
-  } = useOutletContext<{
-    activeListId: string
-    items: GroceryItem[]
-    setItems: React.Dispatch<React.SetStateAction<GroceryItem[]>>
-    categories: Category[]
-    stores: Store[]
-    itemStoreInfos: GroceryItemStoreInfo[]
-    setItemStoreInfos: React.Dispatch<React.SetStateAction<GroceryItemStoreInfo[]>>
-  }>()
+  } = useGrocery()
 
-  const activeStores = [...(stores && stores.length > 0 ? stores : DEFAULT_STORES)]
-    .filter(s => s.listId === activeListId && !s.is_deleted)
-    .sort((a, b) => a.position - b.position)
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null)
+  const [isAddOpen, setIsAddOpen] = useState(false)
 
+  // Reset expanded item if it's deleted remotely
+  useEffect(() => {
+    if (expandedItemId && !items.some(item => item.id === expandedItemId && !item.is_deleted)) {
+      setExpandedItemId(null)
+    }
+  }, [expandedItemId, items])
+
+  // Memoize active stores
+  const activeStores = useMemo(() => {
+    const list = stores && stores.length > 0 ? stores : DEFAULT_STORES
+    return [...list]
+      .filter(s => s.listId === activeListId && !s.is_deleted)
+      .sort((a, b) => a.position - b.position)
+  }, [stores, activeListId])
+
+  // Memoize active categories
+  const activeCategories = useMemo(() => {
+    const list = categories && categories.length > 0 ? categories : DEFAULT_CATEGORIES
+    return list
+      .filter(cat => cat.listId === activeListId && !cat.is_deleted)
+      .sort((a, b) => a.position - b.position)
+      .map(cat => ({
+        id: cat.id,
+        name: cat.name,
+        icon: cat.icon,
+        color: getCategoryColor(cat.id)
+      }))
+  }, [categories, activeListId])
+
+  // Memoize active items
+  const activeItems = useMemo(() => {
+    return items.filter(item => item.listId === activeListId && item.isActive && !item.is_deleted)
+  }, [items, activeListId])
+
+  // Memoize grouped items by category
+  const itemsByCategory = useMemo(() => {
+    const groups = activeCategories.reduce((acc, cat) => {
+      const catItems = activeItems.filter(item => item.categoryId === cat.id)
+      if (catItems.length > 0) {
+        const sortedItems = [...catItems].sort((a, b) => a.name.localeCompare(b.name))
+        acc.push({ category: cat, items: sortedItems })
+      }
+      return acc
+    }, [] as Array<{ category: any; items: GroceryItem[] }>)
+
+    const uncategorizedItems = activeItems.filter(
+      item => !item.categoryId || !activeCategories.some(cat => cat.id === item.categoryId)
+    )
+
+    if (uncategorizedItems.length > 0) {
+      const sortedUncategorized = [...uncategorizedItems].sort((a, b) => a.name.localeCompare(b.name))
+      groups.push({
+        category: {
+          id: '-1',
+          name: 'Uncategorized',
+          color: '#737373',
+          icon: ''
+        },
+        items: sortedUncategorized
+      })
+    }
+
+    return groups
+  }, [activeCategories, activeItems])
+
+  // Handlers for item modifications
   const toggleStoreForItem = (itemId: string, storeId: number) => {
     setItemStoreInfos(prev => {
       const existingIndex = prev.findIndex(info => info.groceryItemId === itemId && info.storeId === storeId)
@@ -80,81 +129,6 @@ export function NeedPhase() {
     })
   }
 
-  const activeCategories = (categories && categories.length > 0 ? categories : DEFAULT_CATEGORIES)
-    .filter(cat => cat.listId === activeListId && !cat.is_deleted)
-    .sort((a, b) => a.position - b.position)
-    .map(cat => ({
-      id: cat.id,
-      name: cat.name,
-      icon: cat.icon,
-      color: getCategoryColor(cat.id)
-    }))
-  const [expandedItemId, setExpandedItemId] = useState<string | null>(null)
-
-
-
-  // Reset expanded item if it's deleted remotely
-  useEffect(() => {
-    if (expandedItemId && !items.some(item => item.id === expandedItemId && !item.is_deleted)) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setExpandedItemId(null)
-    }
-  }, [expandedItemId, items])
-
-  const [isAddOpen, setIsAddOpen] = useState(false)
-  const [newItemName, setNewItemName] = useState('')
-  const [newItemQuantity, setNewItemQuantity] = useState('1')
-  const [newItemCategory, setNewItemCategory] = useState<string | undefined>(undefined)
-  
-  // Slide out delete control state per item
-  const [swipeDeleteId, setSwipeDeleteId] = useState<string | null>(null)
-  
-  // Track swipe touch positions
-  const touchStartX = useRef<number | null>(null)
-  const touchCurrentX = useRef<number | null>(null)
-
-  // Suggestion filtering (derived during render)
-  const query = newItemName.trim().toLowerCase()
-  const filteredSuggestions = query
-    ? SUGGESTIONS.filter(
-        s => s.toLowerCase().includes(query) && s.toLowerCase() !== query
-      ).slice(0, 4)
-    : []
-
-  // Tap-to-toggle details & controls
-  const handleTileClick = (itemId: string) => {
-    if (swipeDeleteId) {
-      setSwipeDeleteId(null)
-      return
-    }
-    setExpandedItemId(expandedItemId === itemId ? null : itemId)
-  }
-
-  // Handle Swipe Interactions
-  const handleTouchStart = (e: TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX
-    touchCurrentX.current = e.touches[0].clientX
-  }
-
-  const handleTouchMove = (e: TouchEvent, itemId: string) => {
-    if (touchStartX.current === null) return
-    touchCurrentX.current = e.touches[0].clientX
-    
-    const diffX = touchStartX.current - touchCurrentX.current
-    // Swipe left (End-to-Start)
-    if (diffX > 80) {
-      setSwipeDeleteId(itemId)
-    } else if (diffX < -50 && swipeDeleteId === itemId) {
-      setSwipeDeleteId(null)
-    }
-  }
-
-  const handleTouchEnd = () => {
-    touchStartX.current = null
-    touchCurrentX.current = null
-  }
-
-  // Quantity updates (Sets sync_state to PENDING_UPDATE)
   const updateQuantity = (itemId: string, increment: boolean) => {
     setItems(prev => prev.map(item => {
       if (item.id !== itemId) return item
@@ -164,11 +138,9 @@ export function NeedPhase() {
       
       if (!isNaN(currentQty)) {
         const nextQty = increment ? currentQty + 1 : Math.max(1, currentQty - 1)
-        // Keep unit if exists (e.g. "1 bunch" -> "2 bunch" or just "2")
         const unitPart = item.quantity.replace(/^\d+\s*/, '')
         nextQtyStr = unitPart ? `${nextQty} ${unitPart}` : `${nextQty}`
       } else {
-        // Fallback for text quantities (toggle or parse)
         nextQtyStr = increment ? '2' : '1'
       }
 
@@ -181,7 +153,6 @@ export function NeedPhase() {
     }))
   }
 
-  // Category updates (Sets sync_state to PENDING_UPDATE)
   const updateCategory = (itemId: string, newCategoryId: string | undefined) => {
     setItems(prev => prev.map(item => {
       if (item.id !== itemId) return item
@@ -194,7 +165,6 @@ export function NeedPhase() {
     }))
   }
 
-  // Item deletion (Sets is_deleted = true and sync_state to PENDING_DELETE)
   const deleteItem = (itemId: string) => {
     setItems(prev => prev.map(item => {
       if (item.id !== itemId) return item
@@ -206,23 +176,18 @@ export function NeedPhase() {
         version: item.version + 1
       }
     }))
-    setSwipeDeleteId(null)
     setExpandedItemId(null)
   }
 
-  // Add Item to Need Phase
-  const handleAddItem = (e?: FormEvent) => {
-    if (e) e.preventDefault()
-    if (!newItemName.trim()) return
-
+  const handleAddItem = (name: string, quantity: string, categoryId: string | undefined) => {
     const newItem: GroceryItem = {
-      id: generateUuid(), // Local client id
-      name: newItemName.trim(),
-      quantity: newItemQuantity || '1',
+      id: generateUuid(),
+      name: name,
+      quantity: quantity || '1',
       isBought: false,
       createdAt: Date.now(),
       position: items.length + 1,
-      categoryId: newItemCategory,
+      categoryId: categoryId,
       timesBought: 0,
       isActive: true,
       listId: activeListId,
@@ -232,50 +197,10 @@ export function NeedPhase() {
     }
 
     setItems(prev => [...prev, newItem])
-    
-    // Reset Form & Close bottom sheet
-    setNewItemName('')
-    setNewItemQuantity('1')
-    setNewItemCategory(undefined)
-    setIsAddOpen(false)
-  }
-
-
-
-  // Active (non-deleted, active) items
-  const activeItems = items.filter(item => item.listId === activeListId && item.isActive && !item.is_deleted)
-
-  // Group active items by category
-  const itemsByCategory = activeCategories.reduce((acc, cat) => {
-    const catItems = activeItems.filter(item => item.categoryId === cat.id)
-    if (catItems.length > 0) {
-      const sortedItems = [...catItems].sort((a, b) => a.name.localeCompare(b.name))
-      acc.push({ category: cat, items: sortedItems })
-    }
-    return acc;
-  }, [] as { category: { id: string | number; name: string; color: string; icon?: string }; items: GroceryItem[] }[])
-
-  const uncategorizedItems = activeItems.filter(
-    item => !item.categoryId || !activeCategories.some(cat => cat.id === item.categoryId)
-  )
-
-  if (uncategorizedItems.length > 0) {
-    const sortedUncategorized = [...uncategorizedItems].sort((a, b) => a.name.localeCompare(b.name))
-    itemsByCategory.push({
-      category: {
-        id: '-1',
-        name: 'Uncategorized',
-        color: '#737373' // neutral gray
-      },
-      items: sortedUncategorized
-    })
   }
 
   return (
     <div className="relative flex-1 flex flex-col min-h-0 space-y-4">
-      
-
-
       {activeItems.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center p-8 mt-12 animate-in fade-in duration-300">
           <div className="w-16 h-16 rounded-full bg-surface-tile border border-neutral-800 flex items-center justify-center text-neutral-600 mb-4">
@@ -286,7 +211,7 @@ export function NeedPhase() {
         </div>
       ) : (
         <div className="space-y-6">
-          {itemsByCategory.map(({ category, items }) => (
+          {itemsByCategory.map(({ category, items: categoryItems }) => (
             <div key={category.id} className="space-y-2">
               {/* Category Header */}
               <div className="flex items-center gap-2 px-1">
@@ -299,161 +224,31 @@ export function NeedPhase() {
                   <span>{category.name}</span>
                 </h4>
                 <span className="text-[10px] text-neutral-600 bg-neutral-900 px-1.5 py-0.5 rounded-full font-medium">
-                  {items.length}
+                  {categoryItems.length}
                 </span>
               </div>
 
-              {/* 2-Column Grid */}
-              <div className="grid grid-cols-2 gap-2">
-                {items.map((item) => {
+              {/* Fluid Responsive Grid */}
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2">
+                {categoryItems.map((item) => {
                   const isExpanded = expandedItemId === item.id
-                  const isSwiped = swipeDeleteId === item.id
                   const isPending = item.sync_state !== 'SYNCED'
 
                   return (
-                    <div
+                    <GroceryItemTile
                       key={item.id}
-                      onTouchStart={(e) => handleTouchStart(e)}
-                      onTouchMove={(e) => handleTouchMove(e, item.id)}
-                      onTouchEnd={handleTouchEnd}
-                      className={cn(
-                        "relative h-12 rounded-lg bg-surface-tile border transition-all duration-200 overflow-hidden select-none touch-pan-y",
-                        isExpanded ? "col-span-2 h-[148px] border-neutral-700 bg-neutral-900/40" : "border-neutral-900",
-                        isPending && !isExpanded && "border-dashed border-primary/20"
-                      )}
-                    >
-                      {/* Swipe Delete Red Overlay */}
-                      <div 
-                        onClick={() => deleteItem(item.id)}
-                        className={cn(
-                          "absolute top-0 right-0 h-full bg-red-600 flex items-center justify-center text-white font-semibold cursor-pointer transition-all duration-200 z-10",
-                          isSwiped ? "w-16 opacity-100" : "w-0 opacity-0"
-                        )}
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </div>
-
-                      {/* Main Tile Content */}
-                      <div 
-                        onClick={() => handleTileClick(item.id)}
-                        className={cn(
-                          "absolute inset-0 px-3 flex items-center justify-between cursor-pointer active:bg-neutral-800/40 transition-all",
-                          isSwiped && "translate-x-[-64px]"
-                        )}
-                      >
-                        <div className="flex items-center gap-2 overflow-hidden mr-2">
-                          <span className="text-sm font-semibold truncate text-white">{item.name}</span>
-                          {isPending && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-text-muted bg-black/40 px-2 py-0.5 rounded-md border border-neutral-800">
-                            {item.quantity}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Expanded Control overlay for quantity adjust & category select */}
-                      {isExpanded && (
-                        <div className="absolute inset-0 bg-neutral-900 border-t border-neutral-800 flex flex-col justify-between p-3 animate-in fade-in duration-100">
-                          {/* Row 1: Item Name / Action buttons */}
-                          <div className="flex items-center justify-between w-full">
-                            <span className="text-sm font-semibold text-white truncate max-w-[70%]">
-                              {item.name}
-                            </span>
-                            <div className="flex items-center gap-2">
-                              <button 
-                                onClick={() => deleteItem(item.id)}
-                                className="p-1.5 text-red-400 hover:text-red-500 rounded-md hover:bg-red-950/20 active:scale-95"
-                                aria-label="Delete item"
-                              >
-                                <Trash2 className="w-4.5 h-4.5" />
-                              </button>
-                              <button 
-                                onClick={() => setExpandedItemId(null)}
-                                className="p-1.5 text-text-muted hover:text-white rounded-md hover:bg-neutral-800 active:scale-95"
-                                aria-label="Close edit"
-                              >
-                                <Check className="w-4.5 h-4.5 text-primary" />
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Row 2: Category and Quantity Controls */}
-                          <div className="flex items-center justify-between gap-4 pt-2 border-t border-neutral-800/60">
-                            {/* Category Selector */}
-                            <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                              <span className="text-[10px] uppercase font-bold text-text-muted shrink-0">Cat:</span>
-                              <select
-                                value={item.categoryId && activeCategories.some(c => c.id === item.categoryId) ? item.categoryId : ''}
-                                onChange={(e) => {
-                                  const newCatId = e.target.value ? e.target.value : undefined
-                                  updateCategory(item.id, newCatId)
-                                }}
-                                className="bg-black/40 border border-neutral-800 rounded-md px-2 py-1 text-xs focus:outline-none focus:border-primary text-white w-full max-w-[130px]"
-                              >
-                                <option value="" className="bg-surface-tile text-neutral-400">Uncategorized</option>
-                                {activeCategories.map(cat => (
-                                  <option key={cat.id} value={cat.id} className="bg-surface-tile text-white">
-                                    {cat.icon ? `${cat.icon} ${cat.name}` : cat.name}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-
-                            {/* Quantity Controls */}
-                            <div className="flex items-center gap-2 shrink-0">
-                              <span className="text-xs font-medium text-text-muted">Qty: {item.quantity}</span>
-                              <div className="flex items-center gap-1 bg-black/40 rounded-lg p-0.5 border border-neutral-800">
-                                <button 
-                                  onClick={() => updateQuantity(item.id, false)}
-                                  className="p-1 text-text-muted hover:text-white hover:bg-surface-tile rounded-md active:scale-95"
-                                >
-                                  <Minus className="w-3.5 h-3.5" />
-                                </button>
-                                <button 
-                                  onClick={() => updateQuantity(item.id, true)}
-                                  className="p-1 text-text-muted hover:text-white hover:bg-surface-tile rounded-md active:scale-95"
-                                >
-                                  <Plus className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Row 3: Store Selector */}
-                          <div className="flex items-center gap-1.5 pt-2 border-t border-neutral-800/60 overflow-x-auto scrollbar-none">
-                            <span className="text-[10px] uppercase font-bold text-text-muted shrink-0">Stores:</span>
-                            <div className="flex gap-1.5 overflow-x-auto pb-0.5">
-                              {activeStores.length === 0 ? (
-                                <span className="text-[10px] text-neutral-500 italic">No stores configured</span>
-                              ) : (
-                                activeStores.map(store => {
-                                  const isSelected = itemStoreInfos.some(
-                                    info => info.groceryItemId === item.id && info.storeId === store.id && !info.is_deleted && info.isAvailable
-                                  )
-                                  return (
-                                    <button
-                                      key={store.id}
-                                      onClick={() => toggleStoreForItem(item.id, store.id)}
-                                      className={cn(
-                                        "px-2 py-0.5 rounded-full text-[10px] font-semibold border transition-all cursor-pointer whitespace-nowrap",
-                                        isSelected
-                                          ? "bg-primary/20 text-primary border-primary/40 hover:bg-primary/30"
-                                          : "bg-black/40 text-text-muted border-neutral-800 hover:border-neutral-700 hover:text-white"
-                                      )}
-                                    >
-                                      {store.name}
-                                    </button>
-                                  )
-                                })
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                      item={item}
+                      isExpanded={isExpanded}
+                      isPending={isPending}
+                      activeCategories={activeCategories}
+                      activeStores={activeStores}
+                      itemStoreInfos={itemStoreInfos}
+                      onToggleExpand={() => setExpandedItemId(isExpanded ? null : item.id)}
+                      onUpdateQuantity={updateQuantity}
+                      onUpdateCategory={updateCategory}
+                      onToggleStore={toggleStoreForItem}
+                      onDeleteItem={deleteItem}
+                    />
                   )
                 })}
               </div>
@@ -475,111 +270,12 @@ export function NeedPhase() {
       </button>
 
       {/* Slide-Up Bottom Sheet Modal */}
-      {isAddOpen && (
-        <>
-          {/* Backdrop */}
-          <div 
-            onClick={() => setIsAddOpen(false)}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 animate-in fade-in duration-200"
-          />
-          {/* Bottom Sheet content */}
-          <div className="fixed bottom-0 left-0 right-0 md:left-auto md:right-auto md:w-full md:max-w-md bg-surface-tile border-t border-neutral-800 rounded-t-2xl z-50 px-4 pt-4 pb-8 shadow-2xl animate-in slide-in-from-bottom duration-250 ease-out">
-            <div className="flex items-center justify-between mb-4 border-b border-neutral-800 pb-3">
-              <div className="flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-primary" />
-                <h3 className="font-semibold text-white">Add Needed Item</h3>
-              </div>
-              <button 
-                onClick={() => setIsAddOpen(false)}
-                className="p-1 text-text-muted hover:text-white rounded-md"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleAddItem} className="space-y-4">
-              {/* Input name */}
-              <div>
-                <label htmlFor="item-name" className="sr-only">Item Name</label>
-                <input
-                  id="item-name"
-                  type="text"
-                  placeholder="What is needed? (e.g. Milk, Eggs)"
-                  value={newItemName}
-                  onChange={(e) => setNewItemName(e.target.value)}
-                  autoFocus
-                  className="w-full bg-black/40 border border-neutral-800 rounded-lg py-2.5 px-3.5 text-sm focus:outline-none focus:border-primary transition-colors text-white placeholder-neutral-600"
-                />
-              </div>
-
-              {/* Suggestion Chips */}
-              {filteredSuggestions.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 animate-in fade-in duration-150">
-                  {filteredSuggestions.map((suggestion) => (
-                    <button
-                      key={suggestion}
-                      type="button"
-                      onClick={() => {
-                        setNewItemName(suggestion)
-                      }}
-                      className="text-xs bg-neutral-900 border border-neutral-800 hover:border-primary text-text-muted hover:text-primary rounded-full px-3 py-1 transition-all"
-                    >
-                      {suggestion}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Quantity and Category Grid */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] uppercase tracking-wider font-bold text-text-muted block mb-1">
-                    Quantity
-                  </label>
-                  <input
-                    type="text"
-                    value={newItemQuantity}
-                    onChange={(e) => setNewItemQuantity(e.target.value)}
-                    className="w-full bg-black/40 border border-neutral-800 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-primary text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] uppercase tracking-wider font-bold text-text-muted block mb-1">
-                    Category
-                  </label>
-                  <select
-                    value={newItemCategory ?? ''}
-                    onChange={(e) => setNewItemCategory(e.target.value ? e.target.value : undefined)}
-                    className="w-full bg-black/40 border border-neutral-800 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-primary text-white"
-                  >
-                    <option value="" className="bg-surface-tile text-white">
-                      Uncategorized
-                    </option>
-                    {activeCategories.map(cat => (
-                      <option key={cat.id} value={cat.id} className="bg-surface-tile text-white">
-                        {cat.icon ? `${cat.icon} ${cat.name}` : cat.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Submit Button */}
-              <button
-                type="submit"
-                className="w-full bg-primary hover:bg-[#c0a9f5] text-black font-semibold rounded-lg py-2.5 mt-2 active:scale-[0.99] transition-all cursor-pointer flex items-center justify-center gap-1.5 text-sm"
-              >
-                <Plus className="w-4 h-4 stroke-[2.5]" />
-                Add Item
-              </button>
-            </form>
-          </div>
-        </>
-      )}
-
-
-
+      <AddNeededItemSheet
+        isOpen={isAddOpen}
+        onClose={() => setIsAddOpen(false)}
+        activeCategories={activeCategories}
+        onAddItem={handleAddItem}
+      />
     </div>
   )
 }

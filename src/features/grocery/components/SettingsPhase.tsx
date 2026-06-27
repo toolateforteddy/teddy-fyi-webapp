@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { useGrocery } from '@/features/grocery/context/GroceryContext'
 import { 
   Database, 
   RefreshCw, 
@@ -20,7 +20,7 @@ import {
   Tag
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
-import type { GroceryItem, GroceryList, Store, Category } from '@/types/grocery'
+import type { Store, Category } from '@/types/grocery'
 import { storage } from '@/utils/storage'
 import { STORAGE_KEYS } from '@/config/storageKeys'
 import { setApiBaseUrl } from '@/lib/axios'
@@ -44,16 +44,7 @@ export function SettingsPhase() {
     categories, 
     setCategories, 
     handleManualSync 
-  } = useOutletContext<{
-    activeListId: string
-    items: GroceryItem[]
-    lists: GroceryList[]
-    stores: Store[]
-    setStores: React.Dispatch<React.SetStateAction<Store[]>>
-    categories: Category[]
-    setCategories: React.Dispatch<React.SetStateAction<Category[]>>
-    handleManualSync: () => Promise<unknown>
-  }>()
+  } = useGrocery()
 
   const { user, logout } = useAuth()
   const [loggingOut, setLoggingOut] = useState(false)

@@ -1,29 +1,21 @@
-import { useState, useEffect } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import { useGrocery } from '@/features/grocery/context/GroceryContext'
 import { CheckSquare, Square, Check, MapPin, ClipboardList } from 'lucide-react'
-import type { GroceryItem, Store, Category, GroceryItemStoreInfo } from '@/types/grocery'
+import type { GroceryItem } from '@/types/grocery'
 import { cn } from '@/utils/cn'
 import { DEFAULT_STORES, DEFAULT_CATEGORIES } from '../config/constants'
 import { storage } from '@/utils/storage'
 import { STORAGE_KEYS } from '@/config/storageKeys'
 
 export function ShoppingPhase() {
-  const { activeListId, items, setItems, stores, categories, itemStoreInfos } = useOutletContext<{
-    activeListId: string
-    items: GroceryItem[]
-    setItems: React.Dispatch<React.SetStateAction<GroceryItem[]>>
-    stores: Store[]
-    categories: Category[]
-    itemStoreInfos: GroceryItemStoreInfo[]
-  }>()
+  const { activeListId, items, setItems, stores, categories, itemStoreInfos } = useGrocery()
+
   const [selectedStoreId, setSelectedStoreId] = useState<number | null>(() => {
     return storage.getItem<number | null>(STORAGE_KEYS.SELECTED_STORE_ID, null)
   })
-  const [isConfirmTripOpen, setIsConfirmTripOpen] = useState(false)
 
-  const activeStores = [...(stores && stores.length > 0 ? stores : DEFAULT_STORES)]
-    .filter(s => s.listId === activeListId && !s.is_deleted)
-    .sort((a, b) => a.position - b.position)
+  const [isConfirmTripOpen, setIsConfirmTripOpen] = useState(false)
+  const confirmDialogRef = useRef<HTMLDialogElement>(null)
 
   // Sync selectedStoreId with storage
   useEffect(() => {
@@ -34,101 +26,152 @@ export function ShoppingPhase() {
     }
   }, [selectedStoreId])
 
-  // Clear selection if the store is deleted/missing
-  if (selectedStoreId !== null && !activeStores.some(s => s.id === selectedStoreId)) {
-    setSelectedStoreId(null)
-  }
-  const activeCategories = (categories && categories.length > 0 ? categories : DEFAULT_CATEGORIES)
-    .filter(c => c.listId === activeListId && !c.is_deleted)
-    .sort((a, b) => a.position - b.position)
+  // Handle native confirmation dialog visibility
+  useEffect(() => {
+    const dialog = confirmDialogRef.current
+    if (!dialog) return
 
-  // Toggle "Bought" state (Moves items in cart)
-  const toggleBought = (itemId: string) => {
-    setItems(prev => prev.map(item => {
-      if (item.id !== itemId) return item
-      return {
-        ...item,
-        isBought: !item.isBought,
-        sync_state: 'PENDING_UPDATE',
-        version: item.version + 1
+    if (isConfirmTripOpen) {
+      if (!dialog.open) {
+        dialog.showModal()
       }
-    }))
+    } else {
+      if (dialog.open) {
+        dialog.close()
+      }
+    }
+  }, [isConfirmTripOpen])
+
+  // Memoize active stores
+  const activeStores = useMemo(() => {
+    const list = stores && stores.length > 0 ? stores : DEFAULT_STORES
+    return [...list]
+      .filter(s => s.listId === activeListId && !s.is_deleted)
+      .sort((a, b) => a.position - b.position)
+  }, [stores, activeListId])
+
+  // Clear selection if the store is deleted/missing
+  useEffect(() => {
+    if (selectedStoreId !== null && !activeStores.some(s => s.id === selectedStoreId)) {
+      setSelectedStoreId(null)
+    }
+  }, [selectedStoreId, activeStores])
+
+  // Memoize active categories
+  const activeCategories = useMemo(() => {
+    const list = categories && categories.length > 0 ? categories : DEFAULT_CATEGORIES
+    return list
+      .filter(c => c.listId === activeListId && !c.is_deleted)
+      .sort((a, b) => a.position - b.position)
+  }, [categories, activeListId])
+
+  // Toggle "Bought" state with View Transitions API
+  const toggleBought = (itemId: string) => {
+    const performUpdate = () => {
+      setItems(prev => prev.map(item => {
+        if (item.id !== itemId) return item
+        return {
+          ...item,
+          isBought: !item.isBought,
+          sync_state: 'PENDING_UPDATE',
+          version: item.version + 1
+        }
+      }))
+    }
+
+    if (document.startViewTransition) {
+      document.startViewTransition(performUpdate)
+    } else {
+      performUpdate()
+    }
   }
 
   // Clear in-cart items (Complete trip workflow)
   const handleCompleteTrip = () => {
-    setItems(prev => prev.map(item => {
-      if (item.isBought) {
-        return {
-          ...item,
-          isActive: false,
-          sync_state: 'PENDING_UPDATE',
-          version: item.version + 1
+    const performArchive = () => {
+      setItems(prev => prev.map(item => {
+        if (item.isBought) {
+          return {
+            ...item,
+            isActive: false,
+            sync_state: 'PENDING_UPDATE',
+            version: item.version + 1
+          }
         }
-      }
-      return item
-    }))
-    setIsConfirmTripOpen(false)
+        return item
+      }))
+      setIsConfirmTripOpen(false)
+    }
+
+    if (document.startViewTransition) {
+      document.startViewTransition(performArchive)
+    } else {
+      performArchive()
+    }
   }
 
-  // Filter items to show: active items, and filter by selected store if in high-velocity isolation mode
-  const activeItems = items.filter(item => {
-    if (item.listId !== activeListId || !item.isActive || item.is_deleted) {
-      return false
-    }
-    if (selectedStoreId === null) {
-      return true
-    }
-    // Check if this item has any store mappings for the active list
-    const itemMappings = itemStoreInfos.filter(
-      info => info.groceryItemId === item.id && info.listId === activeListId && !info.is_deleted && info.isAvailable
-    )
-    // If no stores are mapped to this item, show it everywhere
-    if (itemMappings.length === 0) {
-      return true
-    }
-    // Otherwise, only show it if the selected store matches one of the mapped stores
-    return itemMappings.some(info => info.storeId === selectedStoreId)
-  })
-  
-  // Split items into "To Buy" (needed) vs "In Cart" (bought)
-  const toBuyItems = activeItems.filter(item => !item.isBought)
-  const inCartItems = activeItems.filter(item => item.isBought)
+  // Filter items dynamically based on selected list & isolated store
+  const activeItems = useMemo(() => {
+    return items.filter(item => {
+      if (item.listId !== activeListId || !item.isActive || item.is_deleted) {
+        return false
+      }
+      if (selectedStoreId === null) {
+        return true
+      }
+      const itemMappings = itemStoreInfos.filter(
+        info => info.groceryItemId === item.id && info.listId === activeListId && !info.is_deleted && info.isAvailable
+      )
+      if (itemMappings.length === 0) {
+        return true
+      }
+      return itemMappings.some(info => info.storeId === selectedStoreId)
+    })
+  }, [items, activeListId, selectedStoreId, itemStoreInfos])
+
+  // Split to buy vs in cart
+  const { toBuyItems, inCartItems } = useMemo(() => {
+    const toBuy = activeItems.filter(item => !item.isBought)
+    const inCart = activeItems.filter(item => item.isBought)
+    return { toBuyItems: toBuy, inCartItems: inCart }
+  }, [activeItems])
 
   // Group to-buy items by category
-  const toBuyByCategory = activeCategories.reduce((acc, cat) => {
-    const catItems = toBuyItems.filter(item => item.categoryId === cat.id)
-    if (catItems.length > 0) {
-      const sortedItems = [...catItems].sort((a, b) => a.name.localeCompare(b.name))
-      acc.push({ category: cat, items: sortedItems })
+  const toBuyByCategory = useMemo(() => {
+    const groups = activeCategories.reduce((acc, cat) => {
+      const catItems = toBuyItems.filter(item => item.categoryId === cat.id)
+      if (catItems.length > 0) {
+        const sortedItems = [...catItems].sort((a, b) => a.name.localeCompare(b.name))
+        acc.push({ category: cat, items: sortedItems })
+      }
+      return acc
+    }, [] as Array<{ category: typeof categories[0]; items: GroceryItem[] }>)
+
+    const uncategorizedToBuyItems = toBuyItems.filter(
+      item => !item.categoryId || !activeCategories.some(cat => cat.id === item.categoryId)
+    )
+
+    if (uncategorizedToBuyItems.length > 0) {
+      const sortedUncategorized = [...uncategorizedToBuyItems].sort((a, b) => a.name.localeCompare(b.name))
+      groups.push({
+        category: {
+          id: '-1',
+          name: 'Uncategorized',
+          position: 999,
+          listId: activeListId,
+          sync_state: 'SYNCED',
+          version: 1,
+          is_deleted: false
+        },
+        items: sortedUncategorized
+      })
     }
-    return acc
-  }, [] as { category: Category; items: GroceryItem[] }[])
 
-  const uncategorizedToBuyItems = toBuyItems.filter(
-    item => !item.categoryId || !activeCategories.some(cat => cat.id === item.categoryId)
-  )
-
-  if (uncategorizedToBuyItems.length > 0) {
-    const sortedUncategorized = [...uncategorizedToBuyItems].sort((a, b) => a.name.localeCompare(b.name))
-    toBuyByCategory.push({
-      category: {
-        id: '-1',
-        name: 'Uncategorized',
-        position: 999,
-        listId: activeListId,
-        sync_state: 'SYNCED',
-        version: 1,
-        is_deleted: false
-      },
-      items: sortedUncategorized
-    })
-  }
+    return groups
+  }, [activeCategories, toBuyItems, activeListId])
 
   return (
     <div className="space-y-5 flex-1 flex flex-col min-h-0 animate-in fade-in duration-200">
-      
-
       <div className="space-y-2">
         <label className="text-[10px] uppercase tracking-wider font-bold text-text-muted px-1 block mb-1">
           Active Store Isolation
@@ -176,16 +219,16 @@ export function ShoppingPhase() {
                 <p className="text-xs text-text-muted">Nice work. Proceed to complete your trip.</p>
               </div>
             ) : (
-              toBuyByCategory.map(({ category, items }) => (
+              toBuyByCategory.map(({ category, items: categoryItems }) => (
                 <div key={category.id} className="space-y-2">
                   <h5 className="text-[10px] font-bold tracking-widest text-text-muted px-1 uppercase flex items-center gap-1">
                     {category.icon && <span className="text-xs normal-case">{category.icon}</span>}
                     <span>{category.name}</span>
                   </h5>
 
-                  {/* 2-Column Grid */}
-                  <div className="grid grid-cols-2 gap-2">
-                    {items.map((item) => (
+                  {/* Fluid responsive columns layout */}
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2">
+                    {categoryItems.map((item) => (
                       <button
                         key={item.id}
                         onClick={() => toggleBought(item.id)}
@@ -216,7 +259,7 @@ export function ShoppingPhase() {
                   </h5>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 opacity-35">
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2 opacity-35">
                   {inCartItems.map((item) => (
                     <button
                       key={item.id}
@@ -254,33 +297,31 @@ export function ShoppingPhase() {
         </div>
       )}
 
-      {/* Complete Trip Confirmation Dialog */}
-      {isConfirmTripOpen && (
-        <>
-          <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 animate-in fade-in duration-200" />
-          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-32px)] max-w-sm bg-surface-tile border border-neutral-800 p-6 rounded-2xl z-50 shadow-2xl animate-in scale-in duration-200">
-            <h3 className="text-base font-bold text-white mb-2">Complete Grocery Trip?</h3>
-            <p className="text-xs text-text-muted mb-6">
-              This will archive and clear all {inCartItems.length} checked items from the current shopping cart. Unchecked items will remain on your list.
-            </p>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => setIsConfirmTripOpen(false)}
-                className="bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors cursor-pointer"
-              >
-                Keep Shopping
-              </button>
-              <button
-                onClick={handleCompleteTrip}
-                className="bg-emerald-500 hover:bg-emerald-600 text-black text-xs font-bold py-2.5 rounded-lg transition-colors cursor-pointer"
-              >
-                Yes, Archive Trip
-              </button>
-            </div>
-          </div>
-        </>
-      )}
-
+      {/* Complete Trip Confirmation Native Dialog */}
+      <dialog
+        ref={confirmDialogRef}
+        onClose={() => setIsConfirmTripOpen(false)}
+        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-32px)] max-w-sm bg-surface-tile border border-neutral-800 p-6 rounded-2xl z-50 shadow-2xl backdrop:bg-black/75 backdrop:backdrop-blur-sm animate-in scale-in duration-200 focus:outline-none"
+      >
+        <h3 className="text-base font-bold text-white mb-2">Complete Grocery Trip?</h3>
+        <p className="text-xs text-text-muted mb-6">
+          This will archive and clear all {inCartItems.length} checked items from the current shopping cart. Unchecked items will remain on your list.
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => setIsConfirmTripOpen(false)}
+            className="bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors cursor-pointer"
+          >
+            Keep Shopping
+          </button>
+          <button
+            onClick={handleCompleteTrip}
+            className="bg-emerald-500 hover:bg-emerald-600 text-black text-xs font-bold py-2.5 rounded-lg transition-colors cursor-pointer"
+          >
+            Yes, Archive Trip
+          </button>
+        </div>
+      </dialog>
     </div>
   )
 }
