@@ -87,7 +87,7 @@ export function NeedPhase() {
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [newItemName, setNewItemName] = useState('')
   const [newItemQuantity, setNewItemQuantity] = useState('1')
-  const [newItemCategory, setNewItemCategory] = useState<number | undefined>(undefined)
+  const [newItemCategory, setNewItemCategory] = useState<string | undefined>(undefined)
   
   // Slide out delete control state per item
   const [swipeDeleteId, setSwipeDeleteId] = useState<string | null>(null)
@@ -165,7 +165,7 @@ export function NeedPhase() {
   }
 
   // Category updates (Sets sync_state to PENDING_UPDATE)
-  const updateCategory = (itemId: string, newCategoryId: number | undefined) => {
+  const updateCategory = (itemId: string, newCategoryId: string | undefined) => {
     setItems(prev => prev.map(item => {
       if (item.id !== itemId) return item
       return {
@@ -233,7 +233,7 @@ export function NeedPhase() {
       acc.push({ category: cat, items: catItems })
     }
     return acc;
-  }, [] as { category: { id: number; name: string; color: string; icon?: string }; items: GroceryItem[] }[])
+  }, [] as { category: { id: string | number; name: string; color: string; icon?: string }; items: GroceryItem[] }[])
 
   const uncategorizedItems = activeItems.filter(
     item => !item.categoryId || !activeCategories.some(cat => cat.id === item.categoryId)
@@ -242,7 +242,7 @@ export function NeedPhase() {
   if (uncategorizedItems.length > 0) {
     itemsByCategory.push({
       category: {
-        id: -1,
+        id: '-1',
         name: 'Uncategorized',
         color: '#737373' // neutral gray
       },
@@ -386,7 +386,7 @@ export function NeedPhase() {
                               <select
                                 value={item.categoryId && activeCategories.some(c => c.id === item.categoryId) ? item.categoryId : ''}
                                 onChange={(e) => {
-                                  const newCatId = e.target.value ? parseInt(e.target.value, 10) : undefined
+                                  const newCatId = e.target.value ? e.target.value : undefined
                                   updateCategory(item.id, newCatId)
                                 }}
                                 className="bg-black/40 border border-neutral-800 rounded-md px-2 py-1 text-xs focus:outline-none focus:border-primary text-white w-full max-w-[130px]"
@@ -548,7 +548,7 @@ export function NeedPhase() {
                   </label>
                   <select
                     value={newItemCategory ?? ''}
-                    onChange={(e) => setNewItemCategory(e.target.value ? parseInt(e.target.value, 10) : undefined)}
+                    onChange={(e) => setNewItemCategory(e.target.value ? e.target.value : undefined)}
                     className="w-full bg-black/40 border border-neutral-800 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-primary text-white"
                   >
                     <option value="" className="bg-surface-tile text-white">

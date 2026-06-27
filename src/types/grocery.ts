@@ -7,7 +7,7 @@ export interface GroceryItem {
   isBought: boolean;
   createdAt: number; // timestamp
   position: number;
-  categoryId?: number;
+  categoryId?: string;
   timesBought: number;
   userId?: string;
   isActive: boolean;
@@ -53,7 +53,7 @@ export interface Store {
 }
 
 export interface Category {
-  id: number;
+  id: string;
   name: string;
   position: number;
   userId?: string;

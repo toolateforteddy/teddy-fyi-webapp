@@ -44,7 +44,7 @@ export function PlanningPhase() {
     .filter(item => item.listId === activeListId && !item.isActive && !item.is_deleted && item.timesBought > 0)
     .map(item => ({
       name: item.name,
-      categoryId: item.categoryId || 1,
+      categoryId: item.categoryId || '1',
       storeId: selectedStoreId || 1,
       timesBought: item.timesBought
     }))
@@ -78,7 +78,7 @@ export function PlanningPhase() {
       isBought: false,
       createdAt: Date.now(),
       position: items.length + 1,
-      categoryId: 1, // Default category
+      categoryId: '1', // Default category
       timesBought: 1,
       isActive: true,
       listId: activeListId,

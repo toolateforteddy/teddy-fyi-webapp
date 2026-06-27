@@ -113,7 +113,7 @@ export function ShoppingPhase() {
   if (uncategorizedToBuyItems.length > 0) {
     toBuyByCategory.push({
       category: {
-        id: -1,
+        id: '-1',
         name: 'Uncategorized',
         position: 999,
         listId: activeListId,

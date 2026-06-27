@@ -13,13 +13,30 @@ export const CATEGORY_COLORS: Record<number, string> = {
   6: '#C18C5D',      // Frozen
 }
 
-export function getCategoryColor(categoryId: number): string {
-  if (CATEGORY_COLORS[categoryId]) return CATEGORY_COLORS[categoryId]
+export function getCategoryColor(categoryId: string | number | undefined): string {
+  if (!categoryId) return '#737373'
+  
+  if (typeof categoryId === 'number') {
+    if (CATEGORY_COLORS[categoryId]) return CATEGORY_COLORS[categoryId]
+    const colors = Object.values(CATEGORY_COLORS)
+    if (colors.length === 0) return '#737373'
+    return colors[Math.abs(categoryId) % colors.length]
+  }
+
+  const parsedInt = parseInt(String(categoryId), 10)
+  if (!isNaN(parsedInt) && String(parsedInt) === String(categoryId)) {
+    if (CATEGORY_COLORS[parsedInt]) return CATEGORY_COLORS[parsedInt]
+  }
+
+  let hash = 0
+  const str = String(categoryId)
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash)
+  }
   const colors = Object.values(CATEGORY_COLORS)
-  // Ensure we don't try to access an empty colors array
   if (colors.length === 0) return '#737373'
-  return colors[Math.abs(categoryId) % colors.length]
+  return colors[Math.abs(hash) % colors.length]
 }
 
-export const DEFAULT_RECOMMENDATIONS: { name: string; categoryId: number; storeId: number; timesBought: number }[] = []
+export const DEFAULT_RECOMMENDATIONS: { name: string; categoryId: string; storeId: number; timesBought: number }[] = []
 

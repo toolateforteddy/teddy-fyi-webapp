@@ -27,6 +27,7 @@ import { setApiBaseUrl } from '@/lib/axios'
 import { env } from '@/config/env'
 import { useAuth } from '@/features/auth/hooks/useAuth'
 import { getCategoryColor } from '../config/constants'
+import { generateUuid } from '@/utils/uuid'
 
 const EMOJI_PRESETS = ['🍎', '🥦', '🍞', '🥩', '🥛', '🍦', '🥫', '🧼', '🍿', '🥤', '🐶', '🧴']
 
@@ -76,7 +77,7 @@ export function SettingsPhase() {
   // Category management state
   const [newCategoryName, setNewCategoryName] = useState('')
   const [newCategoryIcon, setNewCategoryIcon] = useState('')
-  const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null)
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
   const [editingCategoryName, setEditingCategoryName] = useState('')
   const [editingCategoryIcon, setEditingCategoryIcon] = useState('')
 
@@ -256,7 +257,7 @@ export function SettingsPhase() {
     const activeCategoriesList = (categories || []).filter(c => c.listId === activeListId && !c.is_deleted)
 
     const newCategory: Category = {
-      id: generateUniqueId(),
+      id: generateUuid(),
       name: newCategoryName.trim(),
       icon: newCategoryIcon.trim() || undefined,
       position: activeCategoriesList.length + 1,
@@ -273,7 +274,7 @@ export function SettingsPhase() {
     triggerSync()
   }
 
-  const handleUpdateCategory = (categoryId: number) => {
+  const handleUpdateCategory = (categoryId: string) => {
     if (!editingCategoryName.trim()) return
     setCategories(prev => prev.map(c => {
       if (c.id !== categoryId) return c
@@ -292,7 +293,7 @@ export function SettingsPhase() {
     triggerSync()
   }
 
-  const handleDeleteCategory = (categoryId: number) => {
+  const handleDeleteCategory = (categoryId: string) => {
     const category = categories.find(c => c.id === categoryId)
     if (!category) return
 
@@ -309,7 +310,7 @@ export function SettingsPhase() {
     triggerSync()
   }
 
-  const handleMoveCategory = (categoryId: number, direction: 'up' | 'down') => {
+  const handleMoveCategory = (categoryId: string, direction: 'up' | 'down') => {
     const active = (categories || []).filter(c => c.listId === activeListId && !c.is_deleted).sort((a, b) => a.position - b.position)
     const index = active.findIndex(c => c.id === categoryId)
     if (index === -1) return
