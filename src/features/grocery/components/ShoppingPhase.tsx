@@ -101,7 +101,8 @@ export function ShoppingPhase() {
   const toBuyByCategory = activeCategories.reduce((acc, cat) => {
     const catItems = toBuyItems.filter(item => item.categoryId === cat.id)
     if (catItems.length > 0) {
-      acc.push({ category: cat, items: catItems })
+      const sortedItems = [...catItems].sort((a, b) => a.name.localeCompare(b.name))
+      acc.push({ category: cat, items: sortedItems })
     }
     return acc
   }, [] as { category: Category; items: GroceryItem[] }[])
@@ -111,6 +112,7 @@ export function ShoppingPhase() {
   )
 
   if (uncategorizedToBuyItems.length > 0) {
+    const sortedUncategorized = [...uncategorizedToBuyItems].sort((a, b) => a.name.localeCompare(b.name))
     toBuyByCategory.push({
       category: {
         id: '-1',
@@ -121,7 +123,7 @@ export function ShoppingPhase() {
         version: 1,
         is_deleted: false
       },
-      items: uncategorizedToBuyItems
+      items: sortedUncategorized
     })
   }
 

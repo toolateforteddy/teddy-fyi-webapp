@@ -442,7 +442,9 @@ export function DashboardLayout() {
             <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-xs">
               G
             </div>
-            <span className="text-sm font-bold tracking-wider text-white">grocery.fyi</span>
+            <span className="text-sm font-bold tracking-wider text-white">
+              Grocery: {activeList.name}
+            </span>
           </div>
 
           {/* Title & Sync Feedback */}

@@ -341,7 +341,8 @@ export function NeedPhase() {
   const itemsByCategory = activeCategories.reduce((acc, cat) => {
     const catItems = activeItems.filter(item => item.categoryId === cat.id)
     if (catItems.length > 0) {
-      acc.push({ category: cat, items: catItems })
+      const sortedItems = [...catItems].sort((a, b) => a.name.localeCompare(b.name))
+      acc.push({ category: cat, items: sortedItems })
     }
     return acc;
   }, [] as { category: { id: string | number; name: string; color: string; icon?: string }; items: GroceryItem[] }[])
@@ -351,13 +352,14 @@ export function NeedPhase() {
   )
 
   if (uncategorizedItems.length > 0) {
+    const sortedUncategorized = [...uncategorizedItems].sort((a, b) => a.name.localeCompare(b.name))
     itemsByCategory.push({
       category: {
         id: '-1',
         name: 'Uncategorized',
         color: '#737373' // neutral gray
       },
-      items: uncategorizedItems
+      items: sortedUncategorized
     })
   }
 

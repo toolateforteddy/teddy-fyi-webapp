@@ -29,7 +29,7 @@ export function PlanningPhase() {
       Object.values(currentTimeouts).forEach(clearTimeout)
     }
   }, [])
-  
+
   const activeStores = [...(stores && stores.length > 0 ? stores : DEFAULT_STORES)]
     .filter(s => s.listId === activeListId && !s.is_deleted)
     .sort((a, b) => a.position - b.position)
@@ -104,7 +104,7 @@ export function PlanningPhase() {
         }
       ])
     }
-    
+
     // Auto-clear added state checkmark after 2 seconds safely
     const timer = setTimeout(() => {
       setAddedItems(prev => ({ ...prev, [itemName]: false }))
@@ -115,7 +115,7 @@ export function PlanningPhase() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
-      
+
       {/* List Selector Header */}
       <div className="flex items-center justify-between bg-surface-tile border border-neutral-900 rounded-xl p-3.5 gap-3">
         <div className="flex items-center gap-2 min-w-0">
@@ -140,13 +140,13 @@ export function PlanningPhase() {
         <label className="text-[10px] uppercase tracking-wider font-bold text-text-muted px-1 block">
           Select Store Filter
         </label>
-        
+
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none -mx-4 px-4 mask-right">
           <button
             onClick={() => setSelectedStoreId(null)}
             className={cn(
               "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all whitespace-nowrap cursor-pointer",
-              selectedStoreId === null 
+              selectedStoreId === null
                 ? "bg-primary text-black border-primary"
                 : "bg-surface-tile text-text-muted border-neutral-800 hover:border-neutral-700"
             )}
@@ -160,8 +160,8 @@ export function PlanningPhase() {
               onClick={() => setSelectedStoreId(store.id)}
               className={cn(
                 "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all whitespace-nowrap cursor-pointer",
-                selectedStoreId === store.id 
-                  ? "bg-primary text-black border-primary" 
+                selectedStoreId === store.id
+                  ? "bg-primary text-black border-primary"
                   : "bg-surface-tile text-text-muted border-neutral-800 hover:border-neutral-700"
               )}
             >
@@ -193,16 +193,16 @@ export function PlanningPhase() {
           <div className="grid grid-cols-2 gap-2.5">
             {filteredRecs.map((rec) => {
               const isAdded = addedItems[rec.name]
-              
+
               return (
                 <button
                   key={rec.name}
                   onClick={() => handleAddRecommendation(rec.name)}
                   disabled={isAdded}
                   className={cn(
-                    "flex flex-col justify-between items-start text-left p-3 h-20 rounded-lg border transition-all cursor-pointer",
-                    isAdded 
-                      ? "bg-emerald-950/20 border-emerald-800 text-emerald-400" 
+                    "flex flex-col justify-between items-start text-left p-3 h-12 rounded-lg border transition-all cursor-pointer",
+                    isAdded
+                      ? "bg-emerald-950/20 border-emerald-800 text-emerald-400"
                       : "bg-surface-tile border-neutral-950 hover:border-neutral-800 hover:bg-neutral-900/50"
                   )}
                 >
@@ -220,10 +220,6 @@ export function PlanningPhase() {
                       {isAdded ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
                     </div>
                   </div>
-
-                  <span className="text-[9px] text-neutral-500">
-                    Bought {rec.timesBought}x
-                  </span>
                 </button>
               )
             })}
