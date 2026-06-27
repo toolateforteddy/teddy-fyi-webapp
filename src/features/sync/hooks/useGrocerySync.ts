@@ -50,14 +50,14 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
       // Default to true (pull data) if the endpoint returns 404 or fails.
       let hasRemoteChanges = true
       try {
-        const checkRes = await api.get<{ hasChanges: boolean }>('/api/sync/status', {
+        const checkRes = await api.get<{ needs_sync: boolean }>('/api/sync/status', {
           params: {
             client_id: clientId.current,
             last_synced_at: lastSyncedAt,
             scope: 'GROCERY'
           }
         })
-        hasRemoteChanges = checkRes.data.hasChanges
+        hasRemoteChanges = checkRes.data.needs_sync
       } catch (err: unknown) {
         // Fallback: If 404 (or other status) is returned, assume remote has changes to fetch silently
         const errorResponse = (err as { response?: { status?: number } }).response

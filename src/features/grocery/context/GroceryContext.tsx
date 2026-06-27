@@ -171,41 +171,6 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
     isSyncing 
   } = useGrocerySync()
 
-  // Helper to initialize a default list offline/on sync failure
-  const initializeDefaultList = () => {
-    setLists(curr => {
-      if (curr.filter(l => !l.is_deleted).length === 0) {
-        const defaultListId = generateUuid()
-        const defaultList: GroceryList = {
-          id: defaultListId,
-          name: 'My List',
-          ownerId: user?.id,
-          createdAt: Date.now(),
-          sync_state: 'PENDING_INSERT',
-          version: 1,
-          is_deleted: false,
-        }
-        const defaultMember: GroceryListMember = {
-          id: generateUuid(),
-          listId: defaultListId,
-          userId: user?.id || '',
-          role: 'OWNER',
-          joinedAt: Date.now(),
-          sync_state: 'PENDING_INSERT',
-          version: 1,
-          is_deleted: false,
-        }
-        setListMembers(prev => {
-          const updated = [...prev, defaultMember]
-          storage.setItem(STORAGE_KEYS.LIST_MEMBERS, updated)
-          return updated
-        })
-        return [...curr, defaultList]
-      }
-      return curr
-    })
-  }
-
   // Triggers manual sync using the real syncNow hook
   const handleManualSync = async () => {
     if (isSyncing) return null
@@ -319,12 +284,9 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
         setLastSyncedAt(response.server_timestamp)
         storage.setItem(STORAGE_KEYS.LAST_SYNCED, response.server_timestamp)
         return response
-      } else {
-        initializeDefaultList()
       }
     } catch (err) {
       console.error('[Sync] Manual sync failed:', err)
-      initializeDefaultList()
     }
     return null
   }
@@ -348,19 +310,6 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading, user])
 
-  // Initialize default list if there are no active lists and auth is loaded
-  useEffect(() => {
-    if (isLoading) return
-
-    const activeLists = lists.filter(l => !l.is_deleted)
-    if (activeLists.length === 0) {
-      const lastSynced = storage.getItem<string>(STORAGE_KEYS.LAST_SYNCED, '')
-      if (lastSynced || lists.length === 0) {
-        initializeDefaultList()
-      }
-    }
-  }, [isLoading, lists])
-
   // Update local list owner and member user IDs once auth boots/changes
   useEffect(() => {
     if (user?.id) {
@@ -378,7 +327,14 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
 
       setListMembers(curr => {
         let changed = false
-        const updated = curr.map(member => {
+        const listIds = new Set(lists.map(l => l.id))
+        const updated = curr.filter(member => {
+          if (!listIds.has(member.listId)) {
+            changed = true
+            return false
+          }
+          return true
+        }).map(member => {
           if ((!member.userId || member.userId === '') && !member.is_deleted) {
             changed = true
             return { ...member, userId: user.id }
@@ -388,7 +344,7 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
         return changed ? updated : curr
       })
     }
-  }, [user])
+  }, [user, lists])
 
   // Derive sync status
   const isStale = (() => {

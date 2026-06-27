@@ -107,15 +107,32 @@ describe('GroceryContext Provider', () => {
     expect(screen.getByTestId('lists-count').textContent).toBe('1')
   })
 
-  it('should initialize a default list if storage is empty and last synced check triggers it', async () => {
-    // To trigger default list creation in initializer, lastSynced key needs to exist
-    storage.setItem(STORAGE_KEYS.LAST_SYNCED, '2026-06-27T12:00:00Z')
+  it('should initialize a default list after a successful sync returns no lists', async () => {
+    const mockSyncResponse = {
+      server_timestamp: '2026-06-27T18:00:00Z',
+      remote_grocery_changes: [],
+      remote_grocery_list_changes: [],
+      remote_grocery_list_member_changes: [],
+      remote_store_changes: [],
+      remote_category_changes: [],
+      remote_grocery_item_store_info_changes: [],
+    }
+
+    mockSyncNow.mockResolvedValueOnce(mockSyncResponse)
 
     render(
       <GroceryProvider>
         <ConsumerComponent />
       </GroceryProvider>
     )
+
+    // Initially, lists count should be 0 since default list is not generated on mount/failure
+    expect(screen.getByTestId('lists-count').textContent).toBe('0')
+
+    const syncBtn = screen.getByTestId('sync-btn')
+    await act(async () => {
+      fireEvent.click(syncBtn)
+    })
 
     expect(screen.getByTestId('lists-count').textContent).toBe('1')
     expect(screen.getByTestId('active-list').textContent).not.toBe('')

@@ -90,6 +90,10 @@ export function SettingsPhase() {
       storage.removeItem(STORAGE_KEYS.STORES)
       storage.removeItem(STORAGE_KEYS.CATEGORIES)
       storage.removeItem(STORAGE_KEYS.LAST_SYNCED)
+      storage.removeItem(STORAGE_KEYS.ACTIVE_LIST_ID)
+      storage.removeItem(STORAGE_KEYS.ITEM_STORE_INFOS)
+      storage.removeItem(STORAGE_KEYS.LIST_MEMBERS)
+      storage.removeItem(STORAGE_KEYS.SELECTED_STORE_ID)
       setClearing(false)
       showToast('Local cache cleared successfully. Reloading...')
       
