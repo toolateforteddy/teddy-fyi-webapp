@@ -33,7 +33,7 @@ export function GroceryItemTile({
     <div
       className={cn(
         "relative rounded-lg bg-surface-tile border transition-all duration-200 overflow-hidden select-none",
-        isExpanded ? "col-span-2 h-[148px] border-neutral-700 bg-neutral-900/40" : "border-neutral-900",
+        isExpanded ? "col-span-2 h-[148px] border-neutral-700 bg-neutral-900/40" : "border-neutral-900 h-12",
         isPending && !isExpanded && "border-dashed border-primary/20"
       )}
     >
