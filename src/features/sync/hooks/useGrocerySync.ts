@@ -3,15 +3,15 @@ import api from '@/lib/axios'
 import { storage } from '@/utils/storage'
 import { STORAGE_KEYS } from '@/config/storageKeys'
 import { getClientUuid } from '@/utils/uuid'
-import type { 
-  GroceryItem, 
+import type {
+  GroceryItem,
   GroceryList,
   GroceryListMember,
-  Store, 
-  Category, 
+  Store,
+  Category,
   GroceryItemStoreInfo,
-  ChangeDelta, 
-  SyncRequest, 
+  ChangeDelta,
+  SyncRequest,
   SyncResponse
 } from '@/types/grocery'
 
@@ -24,7 +24,7 @@ interface UseGrocerySyncOptions {
 export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
   const [isSyncing, setIsSyncing] = useState(false)
   const [error, setError] = useState<Error | null>(null)
-  
+
   // Client Identifier (saved or generated)
   const clientId = useRef<string | null>(null)
   if (clientId.current === null) {
@@ -45,15 +45,16 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
 
     try {
       const lastSyncedAt = storage.getItem<string>(STORAGE_KEYS.LAST_SYNCED, '') || new Date(0).toISOString()
-      
+
       // 1. Check KV status change flag to minimize payload size and query costs.
       // Default to true (pull data) if the endpoint returns 404 or fails.
       let hasRemoteChanges = true
       try {
-        const checkRes = await api.get<{ hasChanges: boolean }>('/api/sync/check-status', {
+        const checkRes = await api.get<{ hasChanges: boolean }>('/api/sync/status', {
           params: {
             client_id: clientId.current,
-            last_synced_at: lastSyncedAt
+            last_synced_at: lastSyncedAt,
+            scope: 'GROCERY'
           }
         })
         hasRemoteChanges = checkRes.data.hasChanges
@@ -225,11 +226,11 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
         })
 
       // Skip heavy network request if neither the remote server nor local client has changes
-      const hasLocalChanges = 
-        groceryChanges.length > 0 || 
-        listChanges.length > 0 || 
+      const hasLocalChanges =
+        groceryChanges.length > 0 ||
+        listChanges.length > 0 ||
         listMemberChanges.length > 0 ||
-        storeChanges.length > 0 || 
+        storeChanges.length > 0 ||
         categoryChanges.length > 0 ||
         groceryItemStoreInfoChanges.length > 0
 
@@ -258,7 +259,7 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
 
       // 5. Update local tracking states
       storage.setItem(STORAGE_KEYS.LAST_SYNCED, syncResponse.server_timestamp)
-      
+
       if (options.onSyncSuccess) {
         options.onSyncSuccess(syncResponse)
       }
@@ -271,7 +272,7 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
       const errorObj = err instanceof Error ? err : new Error((err as { message?: string }).message || 'Sync failed')
       setError(errorObj)
       setIsSyncing(false)
-      
+
       if (options.onSyncError) {
         options.onSyncError(errorObj)
       }
@@ -317,7 +318,7 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
         })
       } else {
         const localItem = merged[localIndex]
-        
+
         if (change.version >= localItem.version) {
           merged[localIndex] = {
             ...remoteItem,

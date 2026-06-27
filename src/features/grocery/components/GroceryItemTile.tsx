@@ -125,12 +125,14 @@ export function GroceryItemTile({
                 <button 
                   onClick={() => onUpdateQuantity(item.id, false)}
                   className="p-1 text-text-muted hover:text-white hover:bg-surface-tile rounded-md active:scale-95 cursor-pointer"
+                  aria-label="Decrease quantity"
                 >
                   <Minus className="w-3.5 h-3.5" />
                 </button>
                 <button 
                   onClick={() => onUpdateQuantity(item.id, true)}
                   className="p-1 text-text-muted hover:text-white hover:bg-surface-tile rounded-md active:scale-95 cursor-pointer"
+                  aria-label="Increase quantity"
                 >
                   <Plus className="w-3.5 h-3.5" />
                 </button>
