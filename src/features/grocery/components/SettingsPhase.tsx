@@ -37,7 +37,6 @@ const generateUniqueId = (): number => Date.now()
 export function SettingsPhase() {
   const { 
     activeListId,
-    setActiveListId,
     items, 
     lists, 
     stores, 
@@ -47,7 +46,6 @@ export function SettingsPhase() {
     handleManualSync 
   } = useOutletContext<{
     activeListId: string
-    setActiveListId: React.Dispatch<React.SetStateAction<string>>
     items: GroceryItem[]
     lists: GroceryList[]
     stores: Store[]
@@ -374,26 +372,7 @@ export function SettingsPhase() {
           </div>
         </div>
 
-        {/* List Selector Header */}
-        <div className="flex items-center justify-between bg-surface-tile border border-neutral-900 rounded-xl p-3.5 gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <MapPin className="w-4 h-4 text-primary shrink-0" />
-            <span className="text-xs font-bold text-text-muted uppercase tracking-wider truncate">Active List</span>
-          </div>
-          <div className="relative shrink-0">
-            <select
-              value={activeListId}
-              onChange={(e) => setActiveListId(e.target.value)}
-              className="bg-black border border-neutral-850 rounded-lg px-3 py-1.5 text-xs font-semibold focus:outline-none focus:border-primary text-white cursor-pointer active:scale-95 transition-all max-w-[180px]"
-            >
-              {lists.filter(l => !l.is_deleted).map(list => (
-                <option key={list.id} value={list.id} className="bg-surface-tile text-white">
-                  {list.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+
 
         {/* Add Store Form */}
         <div className="space-y-2">
@@ -546,26 +525,7 @@ export function SettingsPhase() {
           </div>
         </div>
 
-        {/* List Selector Header */}
-        <div className="flex items-center justify-between bg-surface-tile border border-neutral-900 rounded-xl p-3.5 gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <Tag className="w-4 h-4 text-primary shrink-0" />
-            <span className="text-xs font-bold text-text-muted uppercase tracking-wider truncate">Active List</span>
-          </div>
-          <div className="relative shrink-0">
-            <select
-              value={activeListId}
-              onChange={(e) => setActiveListId(e.target.value)}
-              className="bg-black border border-neutral-850 rounded-lg px-3 py-1.5 text-xs font-semibold focus:outline-none focus:border-primary text-white cursor-pointer active:scale-95 transition-all max-w-[180px]"
-            >
-              {lists.filter(l => !l.is_deleted).map(list => (
-                <option key={list.id} value={list.id} className="bg-surface-tile text-white">
-                  {list.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+
 
         {/* Add Category Form */}
         <div className="space-y-2">

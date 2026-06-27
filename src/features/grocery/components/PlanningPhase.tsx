@@ -1,18 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { Plus, Check, MapPin, Sparkles, AlertCircle } from 'lucide-react'
-import type { Store, GroceryItem, Category, GroceryList, GroceryItemStoreInfo } from '@/types/grocery'
+import type { Store, GroceryItem, Category, GroceryItemStoreInfo } from '@/types/grocery'
 import { cn } from '@/utils/cn'
 import { DEFAULT_STORES, DEFAULT_RECOMMENDATIONS } from '../config/constants'
 import { generateUuid } from '@/utils/uuid'
 
 export function PlanningPhase() {
-  const { activeListId, setActiveListId, items, setItems, lists, stores, setItemStoreInfos } = useOutletContext<{
+  const { activeListId, items, setItems, stores, setItemStoreInfos } = useOutletContext<{
     activeListId: string
-    setActiveListId: React.Dispatch<React.SetStateAction<string>>
     items: GroceryItem[]
     setItems: React.Dispatch<React.SetStateAction<GroceryItem[]>>
-    lists: GroceryList[]
     stores: Store[]
     categories: Category[]
     setItemStoreInfos: React.Dispatch<React.SetStateAction<GroceryItemStoreInfo[]>>
@@ -116,26 +114,7 @@ export function PlanningPhase() {
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
 
-      {/* List Selector Header */}
-      <div className="flex items-center justify-between bg-surface-tile border border-neutral-900 rounded-xl p-3.5 gap-3">
-        <div className="flex items-center gap-2 min-w-0">
-          <Sparkles className="w-4 h-4 text-primary shrink-0" />
-          <span className="text-xs font-bold text-text-muted uppercase tracking-wider truncate">Active List</span>
-        </div>
-        <div className="relative shrink-0">
-          <select
-            value={activeListId}
-            onChange={(e) => setActiveListId(e.target.value)}
-            className="bg-black border border-neutral-800 rounded-lg px-3 py-1.5 text-xs font-semibold focus:outline-none focus:border-primary text-white cursor-pointer active:scale-95 transition-all max-w-[180px]"
-          >
-            {lists.filter(l => !l.is_deleted).map(list => (
-              <option key={list.id} value={list.id} className="bg-surface-tile text-white">
-                {list.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+
       <div className="space-y-2">
         <label className="text-[10px] uppercase tracking-wider font-bold text-text-muted px-1 block">
           Select Store Filter
