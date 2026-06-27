@@ -7,7 +7,8 @@ import {
   Settings as SettingsIcon, 
   RefreshCw, 
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { useGrocerySync } from '@/features/sync/hooks/useGrocerySync'
@@ -227,6 +228,41 @@ export function DashboardLayout() {
       ? 'stale'
       : 'synced'
 
+  // Helper to initialize a default list offline/on sync failure
+  const initializeDefaultList = () => {
+    setLists(curr => {
+      if (curr.filter(l => !l.is_deleted).length === 0) {
+        const defaultListId = generateUuid()
+        const defaultList: GroceryList = {
+          id: defaultListId,
+          name: 'My List',
+          ownerId: user?.id,
+          createdAt: Date.now(),
+          sync_state: 'PENDING_INSERT',
+          version: 1,
+          is_deleted: false,
+        }
+        const defaultMember: GroceryListMember = {
+          id: generateUuid(),
+          listId: defaultListId,
+          userId: user?.id || '',
+          role: 'OWNER',
+          joinedAt: Date.now(),
+          sync_state: 'PENDING_INSERT',
+          version: 1,
+          is_deleted: false,
+        }
+        setListMembers(prev => {
+          const updated = [...prev, defaultMember]
+          storage.setItem(STORAGE_KEYS.LIST_MEMBERS, updated)
+          return updated
+        })
+        return [...curr, defaultList]
+      }
+      return curr
+    })
+  }
+
   // Triggers manual sync using the real syncNow hook
   const handleManualSync = async () => {
     if (isSyncing) return null
@@ -339,9 +375,12 @@ export function DashboardLayout() {
         setLastSyncedAt(response.server_timestamp)
         storage.setItem(STORAGE_KEYS.LAST_SYNCED, response.server_timestamp)
         return response
+      } else {
+        initializeDefaultList()
       }
     } catch (err) {
       console.error('[Sync] Manual sync failed:', err)
+      initializeDefaultList()
     }
     return null
   }
@@ -352,6 +391,19 @@ export function DashboardLayout() {
     handleManualSync()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  if (!activeList) {
+    return (
+      <div className="min-h-screen bg-black text-white flex flex-col justify-center items-center font-sans antialiased">
+        <div className="w-full max-w-md min-h-screen bg-black flex flex-col items-center justify-center border-x border-[#1a1a1a] shadow-[0_0_50px_0_rgba(208,188,255,0.05)] space-y-4">
+          <Loader2 className="w-8 h-8 text-primary animate-spin" />
+          <span className="text-xs text-text-muted font-medium tracking-wide animate-pulse">
+            Initializing your lists...
+          </span>
+        </div>
+      </div>
+    )
+  }
 
 
 
