@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { Plus, Check, MapPin, Sparkles, AlertCircle } from 'lucide-react'
-import type { Store, GroceryItem, Category, GroceryList } from '@/types/grocery'
+import type { Store, GroceryItem, Category, GroceryList, GroceryItemStoreInfo } from '@/types/grocery'
 import { cn } from '@/utils/cn'
 import { DEFAULT_STORES, DEFAULT_RECOMMENDATIONS } from '../config/constants'
 
 export function PlanningPhase() {
-  const { activeListId, setActiveListId, items, setItems, lists, stores } = useOutletContext<{
+  const { activeListId, setActiveListId, items, setItems, lists, stores, setItemStoreInfos } = useOutletContext<{
     activeListId: string
     setActiveListId: React.Dispatch<React.SetStateAction<string>>
     items: GroceryItem[]
@@ -14,6 +14,7 @@ export function PlanningPhase() {
     lists: GroceryList[]
     stores: Store[]
     categories: Category[]
+    setItemStoreInfos: React.Dispatch<React.SetStateAction<GroceryItemStoreInfo[]>>
   }>()
 
   const [selectedStoreId, setSelectedStoreId] = useState<number | null>(null) // Default to null (All Stores)
@@ -67,9 +68,10 @@ export function PlanningPhase() {
 
     setAddedItems(prev => ({ ...prev, [itemName]: true }))
 
+    const itemId = Date.now() // Local client ID
     // Create a new real grocery item and append it
     const newItem: GroceryItem = {
-      id: Date.now(), // Local client ID
+      id: itemId,
       name: itemName,
       quantity: '1',
       isBought: false,
@@ -85,6 +87,22 @@ export function PlanningPhase() {
     }
 
     setItems(prev => [...prev, newItem])
+
+    // Automatically map the item to the currently selected store if one is active
+    if (selectedStoreId !== null) {
+      setItemStoreInfos(prev => [
+        ...prev,
+        {
+          groceryItemId: itemId,
+          storeId: selectedStoreId,
+          isAvailable: true,
+          listId: activeListId,
+          sync_state: 'PENDING_INSERT',
+          version: 1,
+          is_deleted: false
+        }
+      ])
+    }
     
     // Auto-clear added state checkmark after 2 seconds safely
     const timer = setTimeout(() => {
@@ -92,7 +110,7 @@ export function PlanningPhase() {
       delete timeoutRefs.current[itemName]
     }, 2000)
     timeoutRefs.current[itemName] = timer as unknown as number
-  }, [addedItems, items.length, setItems, activeListId])
+  }, [addedItems, items.length, setItems, activeListId, selectedStoreId, setItemStoreInfos])
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">

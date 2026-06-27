@@ -2,10 +2,10 @@ import { useState, useRef } from 'react'
 import type { TouchEvent, FormEvent } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { Plus, Minus, Trash2, Check, Sparkles, X, ShoppingBag } from 'lucide-react'
-import type { GroceryItem, Category, GroceryList } from '@/types/grocery'
+import type { GroceryItem, Category, GroceryList, Store, GroceryItemStoreInfo } from '@/types/grocery'
 import { cn } from '@/utils/cn'
 
-import { DEFAULT_CATEGORIES, getCategoryColor } from '../config/constants'
+import { DEFAULT_CATEGORIES, getCategoryColor, DEFAULT_STORES } from '../config/constants'
 
 // Common suggestion names for autocomplete
 const SUGGESTIONS = [
@@ -16,14 +16,62 @@ const SUGGESTIONS = [
 ]
 
 export function NeedPhase() {
-  const { activeListId, setActiveListId, items, setItems, lists, categories } = useOutletContext<{
+  const { activeListId, setActiveListId, items, setItems, lists, categories, stores, itemStoreInfos, setItemStoreInfos } = useOutletContext<{
     activeListId: string
     setActiveListId: React.Dispatch<React.SetStateAction<string>>
     items: GroceryItem[]
     setItems: React.Dispatch<React.SetStateAction<GroceryItem[]>>
     lists: GroceryList[]
     categories: Category[]
+    stores: Store[]
+    itemStoreInfos: GroceryItemStoreInfo[]
+    setItemStoreInfos: React.Dispatch<React.SetStateAction<GroceryItemStoreInfo[]>>
   }>()
+
+  const activeStores = [...(stores && stores.length > 0 ? stores : DEFAULT_STORES)]
+    .filter(s => s.listId === activeListId && !s.is_deleted)
+    .sort((a, b) => a.position - b.position)
+
+  const toggleStoreForItem = (itemId: number, storeId: number) => {
+    setItemStoreInfos(prev => {
+      const existingIndex = prev.findIndex(info => info.groceryItemId === itemId && info.storeId === storeId)
+      if (existingIndex !== -1) {
+        const existing = prev[existingIndex]
+        if (existing.is_deleted || !existing.isAvailable) {
+          return prev.map((info, idx) => idx === existingIndex ? {
+            ...info,
+            isAvailable: true,
+            is_deleted: false,
+            sync_state: existing.sync_state === 'PENDING_INSERT' ? 'PENDING_INSERT' : 'PENDING_UPDATE',
+            version: info.version + 1
+          } : info)
+        } else {
+          if (existing.sync_state === 'PENDING_INSERT') {
+            return prev.filter((_, idx) => idx !== existingIndex)
+          } else {
+            return prev.map((info, idx) => idx === existingIndex ? {
+              ...info,
+              isAvailable: false,
+              is_deleted: true,
+              sync_state: 'PENDING_DELETE',
+              version: info.version + 1
+            } : info)
+          }
+        }
+      } else {
+        const newInfo: GroceryItemStoreInfo = {
+          groceryItemId: itemId,
+          storeId: storeId,
+          isAvailable: true,
+          listId: activeListId,
+          sync_state: 'PENDING_INSERT',
+          version: 1,
+          is_deleted: false
+        }
+        return [...prev, newInfo]
+      }
+    })
+  }
 
   const activeCategories = (categories && categories.length > 0 ? categories : DEFAULT_CATEGORIES)
     .filter(cat => cat.listId === activeListId && !cat.is_deleted)
@@ -267,7 +315,7 @@ export function NeedPhase() {
                       onTouchEnd={handleTouchEnd}
                       className={cn(
                         "relative h-12 rounded-lg bg-surface-tile border transition-all duration-200 overflow-hidden select-none touch-pan-y",
-                        isExpanded ? "col-span-2 h-[88px] border-neutral-700 bg-neutral-900/40" : "border-neutral-900",
+                        isExpanded ? "col-span-2 h-[148px] border-neutral-700 bg-neutral-900/40" : "border-neutral-900",
                         isPending && !isExpanded && "border-dashed border-primary/20"
                       )}
                     >
@@ -368,6 +416,36 @@ export function NeedPhase() {
                                   <Plus className="w-3.5 h-3.5" />
                                 </button>
                               </div>
+                            </div>
+                          </div>
+
+                          {/* Row 3: Store Selector */}
+                          <div className="flex items-center gap-1.5 pt-2 border-t border-neutral-800/60 overflow-x-auto scrollbar-none">
+                            <span className="text-[10px] uppercase font-bold text-text-muted shrink-0">Stores:</span>
+                            <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+                              {activeStores.length === 0 ? (
+                                <span className="text-[10px] text-neutral-500 italic">No stores configured</span>
+                              ) : (
+                                activeStores.map(store => {
+                                  const isSelected = itemStoreInfos.some(
+                                    info => info.groceryItemId === item.id && info.storeId === store.id && !info.is_deleted && info.isAvailable
+                                  )
+                                  return (
+                                    <button
+                                      key={store.id}
+                                      onClick={() => toggleStoreForItem(item.id, store.id)}
+                                      className={cn(
+                                        "px-2 py-0.5 rounded-full text-[10px] font-semibold border transition-all cursor-pointer whitespace-nowrap",
+                                        isSelected
+                                          ? "bg-primary/20 text-primary border-primary/40 hover:bg-primary/30"
+                                          : "bg-black/40 text-text-muted border-neutral-800 hover:border-neutral-700 hover:text-white"
+                                      )}
+                                    >
+                                      {store.name}
+                                    </button>
+                                  )
+                                })
+                              )}
                             </div>
                           </div>
                         </div>

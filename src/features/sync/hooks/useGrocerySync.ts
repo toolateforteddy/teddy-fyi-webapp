@@ -8,6 +8,7 @@ import type {
   GroceryList,
   Store, 
   Category, 
+  GroceryItemStoreInfo,
   ChangeDelta, 
   SyncRequest, 
   SyncResponse
@@ -34,7 +35,8 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
     localItems: GroceryItem[],
     localLists: GroceryList[] = [],
     localStores: Store[] = [],
-    localCategories: Category[] = []
+    localCategories: Category[] = [],
+    localItemStoreInfos: GroceryItemStoreInfo[] = []
   ): Promise<SyncResponse | null> => {
     setIsSyncing(true)
     setError(null)
@@ -126,12 +128,28 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
           }
         })
 
+      const groceryItemStoreInfoChanges: ChangeDelta<GroceryItemStoreInfo>[] = localItemStoreInfos
+        .filter(info => info.sync_state !== 'SYNCED')
+        .map(info => {
+          let deltaType: 'INSERT' | 'UPDATE' | 'DELETE' = 'UPDATE'
+          if (info.sync_state === 'PENDING_INSERT') deltaType = 'INSERT'
+          if (info.sync_state === 'PENDING_DELETE' || info.is_deleted) deltaType = 'DELETE'
+
+          return {
+            id: `${info.groceryItemId}-${info.storeId}`,
+            type: deltaType,
+            version: info.version,
+            data: deltaType === 'DELETE' ? null : info
+          }
+        })
+
       // Skip heavy network request if neither the remote server nor local client has changes
       const hasLocalChanges = 
         groceryChanges.length > 0 || 
         listChanges.length > 0 || 
         storeChanges.length > 0 || 
-        categoryChanges.length > 0
+        categoryChanges.length > 0 ||
+        groceryItemStoreInfoChanges.length > 0
 
       if (!hasRemoteChanges && !hasLocalChanges) {
         console.log('[Sync] Caching optimization hit. Client and remote match. Skipping sync payload.')
@@ -148,6 +166,7 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
         grocery_list_changes: listChanges,
         store_changes: storeChanges,
         category_changes: categoryChanges,
+        grocery_item_store_info_changes: groceryItemStoreInfoChanges,
       }
 
       // 4. Transport payload to atomic sync endpoint
@@ -376,12 +395,66 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
     })
   }, [])
 
+  // Conflict Resolution helper for Store Info mapping
+  const resolveStoreInfoConflicts = useCallback((
+    localInfos: GroceryItemStoreInfo[],
+    remoteChanges: ChangeDelta<GroceryItemStoreInfo>[] = []
+  ): GroceryItemStoreInfo[] => {
+    let merged = [...localInfos]
+
+    remoteChanges.forEach(change => {
+      // The id in remote changes is in the format "groceryItemId-storeId"
+      const remoteInfo = change.data as GroceryItemStoreInfo
+      const itemId = remoteInfo ? remoteInfo.groceryItemId : parseInt(String(change.id).split('-')[0], 10)
+      const storeId = remoteInfo ? remoteInfo.storeId : parseInt(String(change.id).split('-')[1], 10)
+
+      const localIndex = merged.findIndex(info => info.groceryItemId === itemId && info.storeId === storeId)
+
+      if (change.type === 'DELETE') {
+        if (localIndex !== -1) {
+          merged.splice(localIndex, 1)
+        }
+        return
+      }
+
+      if (!remoteInfo) return
+
+      if (localIndex === -1) {
+        merged.push({
+          ...remoteInfo,
+          sync_state: 'SYNCED'
+        })
+      } else {
+        const localInfo = merged[localIndex]
+        if (change.version >= localInfo.version) {
+          merged[localIndex] = {
+            ...remoteInfo,
+            sync_state: 'SYNCED'
+          }
+        }
+      }
+    })
+
+    merged = merged.filter(info => !(info.sync_state === 'PENDING_DELETE' && info.is_deleted))
+
+    return merged.map(info => {
+      if (info.sync_state === 'PENDING_INSERT' || info.sync_state === 'PENDING_UPDATE') {
+        return {
+          ...info,
+          sync_state: 'SYNCED'
+        }
+      }
+      return info
+    })
+  }, [])
+
   return {
     syncNow,
     resolveConflicts,
     resolveListConflicts,
     resolveStoreConflicts,
     resolveCategoryConflicts,
+    resolveStoreInfoConflicts,
     isSyncing,
     error
   }

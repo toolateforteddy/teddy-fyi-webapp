@@ -10,6 +10,7 @@ export const STORAGE_KEYS = {
   CATEGORIES: 'grocery_categories',
   API_BASE_URL: 'grocery_api_base_url',
   ACTIVE_LIST_ID: 'grocery_active_list_id',
+  ITEM_STORE_INFOS: 'grocery_item_store_infos',
 } as const;
 
 export type StorageKey = typeof STORAGE_KEYS[keyof typeof STORAGE_KEYS];

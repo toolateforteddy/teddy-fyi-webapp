@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { CheckSquare, Square, Check, MapPin, ClipboardList } from 'lucide-react'
-import type { GroceryItem, Store, Category, GroceryList } from '@/types/grocery'
+import type { GroceryItem, Store, Category, GroceryList, GroceryItemStoreInfo } from '@/types/grocery'
 import { cn } from '@/utils/cn'
 import { DEFAULT_STORES, DEFAULT_CATEGORIES } from '../config/constants'
 import { storage } from '@/utils/storage'
 import { STORAGE_KEYS } from '@/config/storageKeys'
 
 export function ShoppingPhase() {
-  const { activeListId, setActiveListId, items, setItems, lists, stores, categories } = useOutletContext<{
+  const { activeListId, setActiveListId, items, setItems, lists, stores, categories, itemStoreInfos } = useOutletContext<{
     activeListId: string
     setActiveListId: React.Dispatch<React.SetStateAction<string>>
     items: GroceryItem[]
@@ -16,6 +16,7 @@ export function ShoppingPhase() {
     lists: GroceryList[]
     stores: Store[]
     categories: Category[]
+    itemStoreInfos: GroceryItemStoreInfo[]
   }>()
   const [selectedStoreId, setSelectedStoreId] = useState<number | null>(() => {
     return storage.getItem<number | null>(STORAGE_KEYS.SELECTED_STORE_ID, null)
@@ -72,8 +73,25 @@ export function ShoppingPhase() {
     setIsConfirmTripOpen(false)
   }
 
-  // Filter items to show: only active items
-  const activeItems = items.filter(item => item.listId === activeListId && item.isActive && !item.is_deleted)
+  // Filter items to show: active items, and filter by selected store if in high-velocity isolation mode
+  const activeItems = items.filter(item => {
+    if (item.listId !== activeListId || !item.isActive || item.is_deleted) {
+      return false
+    }
+    if (selectedStoreId === null) {
+      return true
+    }
+    // Check if this item has any store mappings for the active list
+    const itemMappings = itemStoreInfos.filter(
+      info => info.groceryItemId === item.id && info.listId === activeListId && !info.is_deleted && info.isAvailable
+    )
+    // If no stores are mapped to this item, show it everywhere
+    if (itemMappings.length === 0) {
+      return true
+    }
+    // Otherwise, only show it if the selected store matches one of the mapped stores
+    return itemMappings.some(info => info.storeId === selectedStoreId)
+  })
   
   // Split items into "To Buy" (needed) vs "In Cart" (bought)
   const toBuyItems = activeItems.filter(item => !item.isBought)

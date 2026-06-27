@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { useGrocerySync } from '@/features/sync/hooks/useGrocerySync'
-import type { GroceryItem, GroceryList, Store, Category, SyncState } from '@/types/grocery'
+import type { GroceryItem, GroceryList, Store, Category, SyncState, GroceryItemStoreInfo } from '@/types/grocery'
 import { storage } from '@/utils/storage'
 import { STORAGE_KEYS } from '@/config/storageKeys'
 import { getSyncedTimeString } from '@/utils/date'
@@ -59,6 +59,15 @@ export function DashboardLayout() {
     }))
   })
 
+  // Unified item store mappings state loaded from storage (defaults to empty)
+  const [itemStoreInfos, setItemStoreInfos] = useState<GroceryItemStoreInfo[]>(() => {
+    const raw = storage.getItem<GroceryItemStoreInfo[]>(STORAGE_KEYS.ITEM_STORE_INFOS, [])
+    return raw.map(info => ({
+      ...info,
+      listId: info.listId || '1'
+    }))
+  })
+
   // Persist items locally
   useEffect(() => {
     storage.setItem(STORAGE_KEYS.ITEMS, items)
@@ -79,12 +88,18 @@ export function DashboardLayout() {
     storage.setItem(STORAGE_KEYS.CATEGORIES, categories)
   }, [categories])
 
+  // Persist item store mappings locally
+  useEffect(() => {
+    storage.setItem(STORAGE_KEYS.ITEM_STORE_INFOS, itemStoreInfos)
+  }, [itemStoreInfos])
+
   const { 
     syncNow, 
     resolveConflicts, 
     resolveListConflicts, 
     resolveStoreConflicts, 
     resolveCategoryConflicts, 
+    resolveStoreInfoConflicts,
     isSyncing 
   } = useGrocerySync()
 
@@ -127,7 +142,7 @@ export function DashboardLayout() {
     if (isSyncing) return
     
     try {
-      const response = await syncNow(items, lists, stores, categories)
+      const response = await syncNow(items, lists, stores, categories, itemStoreInfos)
       if (response) {
         const mergedItems = resolveConflicts(items, response.remote_grocery_changes)
         setItems(mergedItems.map(item => ({ ...item, listId: item.listId || '1' })))
@@ -143,6 +158,9 @@ export function DashboardLayout() {
 
         const mergedCategories = resolveCategoryConflicts(categories, response.remote_category_changes)
         setCategories(mergedCategories.map(cat => ({ ...cat, listId: cat.listId || '1' })))
+
+        const mergedStoreInfos = resolveStoreInfoConflicts(itemStoreInfos, response.remote_grocery_item_store_info_changes)
+        setItemStoreInfos(mergedStoreInfos.map(info => ({ ...info, listId: info.listId || '1' })))
 
         setLastSyncedAt(response.server_timestamp)
         storage.setItem(STORAGE_KEYS.LAST_SYNCED, response.server_timestamp)
@@ -254,7 +272,7 @@ export function DashboardLayout() {
 
         {/* Primary Page Outlet */}
         <main className="flex-1 overflow-y-auto px-4 py-4 scroll-smooth">
-          <Outlet context={{ activeListId: activeList.id, setActiveListId, handleManualSync, syncStatus, items, setItems, lists, setLists, stores, setStores, categories, setCategories }} />
+          <Outlet context={{ activeListId: activeList.id, setActiveListId, handleManualSync, syncStatus, items, setItems, lists, setLists, stores, setStores, categories, setCategories, itemStoreInfos, setItemStoreInfos }} />
         </main>
 
         {/* Bottom Navigation Bar */}
