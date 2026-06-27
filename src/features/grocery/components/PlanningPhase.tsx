@@ -4,6 +4,7 @@ import { Plus, Check, MapPin, Sparkles, AlertCircle } from 'lucide-react'
 import type { Store, GroceryItem, Category, GroceryList, GroceryItemStoreInfo } from '@/types/grocery'
 import { cn } from '@/utils/cn'
 import { DEFAULT_STORES, DEFAULT_RECOMMENDATIONS } from '../config/constants'
+import { generateUuid } from '@/utils/uuid'
 
 export function PlanningPhase() {
   const { activeListId, setActiveListId, items, setItems, lists, stores, setItemStoreInfos } = useOutletContext<{
@@ -68,7 +69,7 @@ export function PlanningPhase() {
 
     setAddedItems(prev => ({ ...prev, [itemName]: true }))
 
-    const itemId = Date.now() // Local client ID
+    const itemId = generateUuid() // Local client ID
     // Create a new real grocery item and append it
     const newItem: GroceryItem = {
       id: itemId,

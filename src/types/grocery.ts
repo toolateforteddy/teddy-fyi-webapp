@@ -1,7 +1,7 @@
 export type SyncState = 'SYNCED' | 'PENDING_INSERT' | 'PENDING_UPDATE' | 'PENDING_DELETE';
 
 export interface GroceryItem {
-  id: number; // Primary Key (Int)
+  id: string; // Primary Key (UUID)
   name: string;
   quantity: string;
   isBought: boolean;
@@ -65,7 +65,7 @@ export interface Category {
 }
 
 export interface GroceryItemStoreInfo {
-  groceryItemId: number;
+  groceryItemId: string;
   storeId: number;
   price?: number;
   isAvailable: boolean;

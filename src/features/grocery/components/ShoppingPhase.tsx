@@ -45,7 +45,7 @@ export function ShoppingPhase() {
     .sort((a, b) => a.position - b.position)
 
   // Toggle "Bought" state (Moves items in cart)
-  const toggleBought = (itemId: number) => {
+  const toggleBought = (itemId: string) => {
     setItems(prev => prev.map(item => {
       if (item.id !== itemId) return item
       return {

@@ -4,6 +4,7 @@ import { useOutletContext } from 'react-router-dom'
 import { Plus, Minus, Trash2, Check, Sparkles, X, ShoppingBag } from 'lucide-react'
 import type { GroceryItem, Category, GroceryList, Store, GroceryItemStoreInfo } from '@/types/grocery'
 import { cn } from '@/utils/cn'
+import { generateUuid } from '@/utils/uuid'
 
 import { DEFAULT_CATEGORIES, getCategoryColor, DEFAULT_STORES } from '../config/constants'
 
@@ -32,7 +33,7 @@ export function NeedPhase() {
     .filter(s => s.listId === activeListId && !s.is_deleted)
     .sort((a, b) => a.position - b.position)
 
-  const toggleStoreForItem = (itemId: number, storeId: number) => {
+  const toggleStoreForItem = (itemId: string, storeId: number) => {
     setItemStoreInfos(prev => {
       const existingIndex = prev.findIndex(info => info.groceryItemId === itemId && info.storeId === storeId)
       if (existingIndex !== -1) {
@@ -82,14 +83,14 @@ export function NeedPhase() {
       icon: cat.icon,
       color: getCategoryColor(cat.id)
     }))
-  const [expandedItemId, setExpandedItemId] = useState<number | null>(null)
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null)
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [newItemName, setNewItemName] = useState('')
   const [newItemQuantity, setNewItemQuantity] = useState('1')
   const [newItemCategory, setNewItemCategory] = useState<number | undefined>(undefined)
   
   // Slide out delete control state per item
-  const [swipeDeleteId, setSwipeDeleteId] = useState<number | null>(null)
+  const [swipeDeleteId, setSwipeDeleteId] = useState<string | null>(null)
   
   // Track swipe touch positions
   const touchStartX = useRef<number | null>(null)
@@ -104,7 +105,7 @@ export function NeedPhase() {
     : []
 
   // Tap-to-toggle details & controls
-  const handleTileClick = (itemId: number) => {
+  const handleTileClick = (itemId: string) => {
     if (swipeDeleteId) {
       setSwipeDeleteId(null)
       return
@@ -118,7 +119,7 @@ export function NeedPhase() {
     touchCurrentX.current = e.touches[0].clientX
   }
 
-  const handleTouchMove = (e: TouchEvent, itemId: number) => {
+  const handleTouchMove = (e: TouchEvent, itemId: string) => {
     if (touchStartX.current === null) return
     touchCurrentX.current = e.touches[0].clientX
     
@@ -137,7 +138,7 @@ export function NeedPhase() {
   }
 
   // Quantity updates (Sets sync_state to PENDING_UPDATE)
-  const updateQuantity = (itemId: number, increment: boolean) => {
+  const updateQuantity = (itemId: string, increment: boolean) => {
     setItems(prev => prev.map(item => {
       if (item.id !== itemId) return item
       
@@ -164,7 +165,7 @@ export function NeedPhase() {
   }
 
   // Category updates (Sets sync_state to PENDING_UPDATE)
-  const updateCategory = (itemId: number, newCategoryId: number | undefined) => {
+  const updateCategory = (itemId: string, newCategoryId: number | undefined) => {
     setItems(prev => prev.map(item => {
       if (item.id !== itemId) return item
       return {
@@ -177,7 +178,7 @@ export function NeedPhase() {
   }
 
   // Item deletion (Sets is_deleted = true and sync_state to PENDING_DELETE)
-  const deleteItem = (itemId: number) => {
+  const deleteItem = (itemId: string) => {
     setItems(prev => prev.map(item => {
       if (item.id !== itemId) return item
       return {
@@ -198,7 +199,7 @@ export function NeedPhase() {
     if (!newItemName.trim()) return
 
     const newItem: GroceryItem = {
-      id: Date.now(), // Local client id
+      id: generateUuid(), // Local client id
       name: newItemName.trim(),
       quantity: newItemQuantity || '1',
       isBought: false,

@@ -8,10 +8,17 @@ import { storage } from '@/utils/storage';
 export function getClientUuid(): string {
   let id = storage.getItem<string>(STORAGE_KEYS.CLIENT_UUID, '');
   if (!id) {
-    id = typeof crypto !== 'undefined' && crypto.randomUUID 
-      ? crypto.randomUUID() 
-      : Math.random().toString(36).substring(2) + Date.now().toString(36);
+    id = generateUuid();
     storage.setItem(STORAGE_KEYS.CLIENT_UUID, id);
   }
   return id;
+}
+
+/**
+ * Generates a random UUID string.
+ */
+export function generateUuid(): string {
+  return typeof crypto !== 'undefined' && crypto.randomUUID 
+    ? crypto.randomUUID() 
+    : Math.random().toString(36).substring(2) + Date.now().toString(36);
 }

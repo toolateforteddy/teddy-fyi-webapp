@@ -488,10 +488,10 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
     let merged = [...localInfos]
 
     remoteChanges.forEach(change => {
-      // The id in remote changes is in the format "groceryItemId-storeId"
       const remoteRaw = change.data as any
-      const itemId = remoteRaw ? (remoteRaw.groceryItemId || remoteRaw.grocery_item_id) : parseInt(String(change.id).split('-')[0], 10)
-      const storeId = remoteRaw ? (remoteRaw.storeId || remoteRaw.store_id) : parseInt(String(change.id).split('-')[1], 10)
+      const lastHyphenIndex = String(change.id).lastIndexOf('-')
+      const itemId = remoteRaw ? String(remoteRaw.groceryItemId || remoteRaw.grocery_item_id) : String(change.id).substring(0, lastHyphenIndex)
+      const storeId = remoteRaw ? (remoteRaw.storeId || remoteRaw.store_id) : parseInt(String(change.id).substring(lastHyphenIndex + 1), 10)
 
       const localIndex = merged.findIndex(info => info.groceryItemId === itemId && info.storeId === storeId)
 
