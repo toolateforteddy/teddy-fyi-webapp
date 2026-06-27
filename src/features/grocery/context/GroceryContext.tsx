@@ -30,7 +30,7 @@ interface GroceryContextType {
 const GroceryContext = createContext<GroceryContextType | undefined>(undefined)
 
 export function GroceryProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth()
+  const { user, isLoading } = useAuth()
 
   // Hydrate items state
   const [items, setItems] = useState<GroceryItem[]>(() => {
@@ -53,7 +53,7 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
   // Hydrate lists state
   const [lists, setLists] = useState<GroceryList[]>(() => {
     const raw = storage.getItem<GroceryList[]>(STORAGE_KEYS.LISTS, [])
-    const mapped = raw.map(list => {
+    return raw.map(list => {
       const remoteRaw = list as any
       return {
         ...list,
@@ -61,40 +61,6 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
         createdAt: remoteRaw.createdAt || remoteRaw.created_at,
       }
     })
-    const active = mapped.filter(l => !l.is_deleted)
-    if (active.length > 0) {
-      return mapped
-    }
-
-    // Create default list only if synced before
-    const lastSynced = storage.getItem<string>(STORAGE_KEYS.LAST_SYNCED, '')
-    if (!lastSynced) {
-      return []
-    }
-
-    const defaultListId = generateUuid()
-    const defaultList: GroceryList = {
-      id: defaultListId,
-      name: 'My List',
-      ownerId: user?.id,
-      createdAt: Date.now(),
-      sync_state: 'PENDING_INSERT',
-      version: 1,
-      is_deleted: false,
-    }
-    const defaultMember: GroceryListMember = {
-      id: generateUuid(),
-      listId: defaultListId,
-      userId: user?.id || '',
-      role: 'OWNER',
-      joinedAt: Date.now(),
-      sync_state: 'PENDING_INSERT',
-      version: 1,
-      is_deleted: false,
-    }
-
-    storage.setItem(STORAGE_KEYS.LIST_MEMBERS, [defaultMember])
-    return [defaultList]
   })
 
   // Hydrate members state
@@ -243,6 +209,7 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
   // Triggers manual sync using the real syncNow hook
   const handleManualSync = async () => {
     if (isSyncing) return null
+    if (!user) return null
     
     try {
       const response = await syncNow(items, lists, stores, categories, itemStoreInfos, listMembers)
@@ -364,6 +331,9 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
 
   // Auto-sync on mount and on online reconnect
   useEffect(() => {
+    if (isLoading) return
+    if (!user) return
+
     handleManualSync()
 
     const handleOnline = () => {
@@ -376,7 +346,49 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener('online', handleOnline)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [isLoading, user])
+
+  // Initialize default list if there are no active lists and auth is loaded
+  useEffect(() => {
+    if (isLoading) return
+
+    const activeLists = lists.filter(l => !l.is_deleted)
+    if (activeLists.length === 0) {
+      const lastSynced = storage.getItem<string>(STORAGE_KEYS.LAST_SYNCED, '')
+      if (lastSynced || lists.length === 0) {
+        initializeDefaultList()
+      }
+    }
+  }, [isLoading, lists])
+
+  // Update local list owner and member user IDs once auth boots/changes
+  useEffect(() => {
+    if (user?.id) {
+      setLists(curr => {
+        let changed = false
+        const updated = curr.map(list => {
+          if (!list.ownerId && !list.is_deleted) {
+            changed = true
+            return { ...list, ownerId: user.id }
+          }
+          return list
+        })
+        return changed ? updated : curr
+      })
+
+      setListMembers(curr => {
+        let changed = false
+        const updated = curr.map(member => {
+          if ((!member.userId || member.userId === '') && !member.is_deleted) {
+            changed = true
+            return { ...member, userId: user.id }
+          }
+          return member
+        })
+        return changed ? updated : curr
+      })
+    }
+  }, [user])
 
   // Derive sync status
   const isStale = (() => {
