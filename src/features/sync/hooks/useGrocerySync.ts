@@ -79,7 +79,24 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
             type: deltaType,
             version: item.version,
             // Don't send data details on deletes
-            data: deltaType === 'DELETE' ? null : item
+            data: deltaType === 'DELETE' ? null : {
+              id: item.id,
+              name: item.name,
+              quantity: item.quantity,
+              is_bought: item.isBought,
+              created_at: item.createdAt,
+              position: item.position,
+              category_id: item.categoryId || null,
+              times_bought: item.timesBought,
+              user_id: item.userId || null,
+              is_active: item.isActive,
+              list_id: item.listId,
+              unit: item.unit || null,
+              notes: item.notes || null,
+              sync_state: item.sync_state,
+              version: item.version,
+              is_deleted: item.is_deleted
+            } as any
           }
         })
 
@@ -94,7 +111,15 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
             id: list.id,
             type: deltaType,
             version: list.version,
-            data: deltaType === 'DELETE' ? null : list
+            data: deltaType === 'DELETE' ? null : {
+              id: list.id,
+              name: list.name,
+              owner_id: list.ownerId || null,
+              created_at: list.createdAt,
+              sync_state: list.sync_state,
+              version: list.version,
+              is_deleted: list.is_deleted
+            } as any
           }
         })
 
@@ -109,7 +134,17 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
             id: store.id,
             type: deltaType,
             version: store.version,
-            data: deltaType === 'DELETE' ? null : store
+            data: deltaType === 'DELETE' ? null : {
+              id: store.id,
+              name: store.name,
+              position: store.position,
+              is_default_supported: store.isDefaultSupported,
+              user_id: store.userId || null,
+              list_id: store.listId,
+              sync_state: store.sync_state,
+              version: store.version,
+              is_deleted: store.is_deleted
+            } as any
           }
         })
 
@@ -124,7 +159,17 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
             id: category.id,
             type: deltaType,
             version: category.version,
-            data: deltaType === 'DELETE' ? null : category
+            data: deltaType === 'DELETE' ? null : {
+              id: category.id,
+              name: category.name,
+              position: category.position,
+              user_id: category.userId || null,
+              icon: category.icon || null,
+              list_id: category.listId,
+              sync_state: category.sync_state,
+              version: category.version,
+              is_deleted: category.is_deleted
+            } as any
           }
         })
 
@@ -139,7 +184,17 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
             id: `${info.groceryItemId}-${info.storeId}`,
             type: deltaType,
             version: info.version,
-            data: deltaType === 'DELETE' ? null : info
+            data: deltaType === 'DELETE' ? null : {
+              grocery_item_id: info.groceryItemId,
+              store_id: info.storeId,
+              price: info.price || null,
+              is_available: info.isAvailable,
+              user_id: info.userId || null,
+              list_id: info.listId,
+              sync_state: info.sync_state,
+              version: info.version,
+              is_deleted: info.is_deleted
+            } as any
           }
         })
 
@@ -213,8 +268,19 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
         return
       }
 
-      const remoteItem = change.data as GroceryItem
-      if (!remoteItem) return
+      const remoteRaw = change.data as any
+      if (!remoteRaw) return
+
+      const remoteItem: GroceryItem = {
+        ...remoteRaw,
+        listId: remoteRaw.listId || remoteRaw.list_id || '1',
+        categoryId: remoteRaw.categoryId || remoteRaw.category_id,
+        createdAt: remoteRaw.createdAt || remoteRaw.created_at,
+        isActive: remoteRaw.isActive !== undefined ? remoteRaw.isActive : remoteRaw.is_active,
+        isBought: remoteRaw.isBought !== undefined ? remoteRaw.isBought : remoteRaw.is_bought,
+        timesBought: remoteRaw.timesBought !== undefined ? remoteRaw.timesBought : remoteRaw.times_bought,
+        userId: remoteRaw.userId || remoteRaw.user_id,
+      }
 
       if (localIndex === -1) {
         merged.push({
@@ -265,8 +331,14 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
         return
       }
 
-      const remoteList = change.data as GroceryList
-      if (!remoteList) return
+      const remoteRaw = change.data as any
+      if (!remoteRaw) return
+
+      const remoteList: GroceryList = {
+        ...remoteRaw,
+        ownerId: remoteRaw.ownerId || remoteRaw.owner_id,
+        createdAt: remoteRaw.createdAt || remoteRaw.created_at,
+      }
 
       if (localIndex === -1) {
         merged.push({
@@ -314,8 +386,15 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
         return
       }
 
-      const remoteStore = change.data as Store
-      if (!remoteStore) return
+      const remoteRaw = change.data as any
+      if (!remoteRaw) return
+
+      const remoteStore: Store = {
+        ...remoteRaw,
+        listId: remoteRaw.listId || remoteRaw.list_id || '1',
+        isDefaultSupported: remoteRaw.isDefaultSupported !== undefined ? remoteRaw.isDefaultSupported : remoteRaw.is_default_supported,
+        userId: remoteRaw.userId || remoteRaw.user_id,
+      }
 
       if (localIndex === -1) {
         merged.push({
@@ -363,8 +442,14 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
         return
       }
 
-      const remoteCategory = change.data as Category
-      if (!remoteCategory) return
+      const remoteRaw = change.data as any
+      if (!remoteRaw) return
+
+      const remoteCategory: Category = {
+        ...remoteRaw,
+        listId: remoteRaw.listId || remoteRaw.list_id || '1',
+        userId: remoteRaw.userId || remoteRaw.user_id,
+      }
 
       if (localIndex === -1) {
         merged.push({
@@ -404,9 +489,9 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
 
     remoteChanges.forEach(change => {
       // The id in remote changes is in the format "groceryItemId-storeId"
-      const remoteInfo = change.data as GroceryItemStoreInfo
-      const itemId = remoteInfo ? remoteInfo.groceryItemId : parseInt(String(change.id).split('-')[0], 10)
-      const storeId = remoteInfo ? remoteInfo.storeId : parseInt(String(change.id).split('-')[1], 10)
+      const remoteRaw = change.data as any
+      const itemId = remoteRaw ? (remoteRaw.groceryItemId || remoteRaw.grocery_item_id) : parseInt(String(change.id).split('-')[0], 10)
+      const storeId = remoteRaw ? (remoteRaw.storeId || remoteRaw.store_id) : parseInt(String(change.id).split('-')[1], 10)
 
       const localIndex = merged.findIndex(info => info.groceryItemId === itemId && info.storeId === storeId)
 
@@ -417,7 +502,16 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
         return
       }
 
-      if (!remoteInfo) return
+      if (!remoteRaw) return
+
+      const remoteInfo: GroceryItemStoreInfo = {
+        ...remoteRaw,
+        groceryItemId: itemId,
+        storeId: storeId,
+        listId: remoteRaw.listId || remoteRaw.list_id || '1',
+        isAvailable: remoteRaw.isAvailable !== undefined ? remoteRaw.isAvailable : remoteRaw.is_available,
+        userId: remoteRaw.userId || remoteRaw.user_id,
+      }
 
       if (localIndex === -1) {
         merged.push({

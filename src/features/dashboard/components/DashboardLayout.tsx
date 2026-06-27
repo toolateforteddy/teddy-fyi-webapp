@@ -23,18 +23,35 @@ export function DashboardLayout() {
   // Unified items state loaded from storage (defaults to empty)
   const [items, setItems] = useState<GroceryItem[]>(() => {
     const raw = storage.getItem<GroceryItem[]>(STORAGE_KEYS.ITEMS, [])
-    return raw.map(item => ({
-      ...item,
-      listId: item.listId || '1'
-    }))
+    return raw.map(item => {
+      const remoteRaw = item as any
+      return {
+        ...item,
+        listId: remoteRaw.listId || remoteRaw.list_id || '1',
+        categoryId: remoteRaw.categoryId || remoteRaw.category_id,
+        createdAt: remoteRaw.createdAt || remoteRaw.created_at,
+        isActive: remoteRaw.isActive !== undefined ? remoteRaw.isActive : remoteRaw.is_active,
+        isBought: remoteRaw.isBought !== undefined ? remoteRaw.isBought : remoteRaw.is_bought,
+        timesBought: remoteRaw.timesBought !== undefined ? remoteRaw.timesBought : remoteRaw.times_bought,
+        userId: remoteRaw.userId || remoteRaw.user_id,
+      }
+    })
   })
 
   // Unified lists state loaded from storage (defaults to empty)
   const [lists, setLists] = useState<GroceryList[]>(() => {
     const raw = storage.getItem<GroceryList[]>(STORAGE_KEYS.LISTS, [])
-    const active = raw.filter(l => !l.is_deleted)
+    const mapped = raw.map(list => {
+      const remoteRaw = list as any
+      return {
+        ...list,
+        ownerId: remoteRaw.ownerId || remoteRaw.owner_id,
+        createdAt: remoteRaw.createdAt || remoteRaw.created_at,
+      }
+    })
+    const active = mapped.filter(l => !l.is_deleted)
     if (active.length > 0) {
-      return raw
+      return mapped
     }
     return [
       { id: '1', name: 'Main Grocery List', sync_state: 'SYNCED' as SyncState, version: 1, is_deleted: false, createdAt: Date.now() }
@@ -44,28 +61,44 @@ export function DashboardLayout() {
   // Unified stores state loaded from storage (defaults to empty)
   const [stores, setStores] = useState<Store[]>(() => {
     const raw = storage.getItem<Store[]>(STORAGE_KEYS.STORES, [])
-    return raw.map(store => ({
-      ...store,
-      listId: store.listId || '1'
-    }))
+    return raw.map(store => {
+      const remoteRaw = store as any
+      return {
+        ...store,
+        listId: remoteRaw.listId || remoteRaw.list_id || '1',
+        isDefaultSupported: remoteRaw.isDefaultSupported !== undefined ? remoteRaw.isDefaultSupported : remoteRaw.is_default_supported,
+        userId: remoteRaw.userId || remoteRaw.user_id,
+      }
+    })
   })
 
   // Unified categories state loaded from storage (defaults to empty)
   const [categories, setCategories] = useState<Category[]>(() => {
     const raw = storage.getItem<Category[]>(STORAGE_KEYS.CATEGORIES, [])
-    return raw.map(cat => ({
-      ...cat,
-      listId: cat.listId || '1'
-    }))
+    return raw.map(cat => {
+      const remoteRaw = cat as any
+      return {
+        ...cat,
+        listId: remoteRaw.listId || remoteRaw.list_id || '1',
+        userId: remoteRaw.userId || remoteRaw.user_id,
+      }
+    })
   })
 
   // Unified item store mappings state loaded from storage (defaults to empty)
   const [itemStoreInfos, setItemStoreInfos] = useState<GroceryItemStoreInfo[]>(() => {
     const raw = storage.getItem<GroceryItemStoreInfo[]>(STORAGE_KEYS.ITEM_STORE_INFOS, [])
-    return raw.map(info => ({
-      ...info,
-      listId: info.listId || '1'
-    }))
+    return raw.map(info => {
+      const remoteRaw = info as any
+      return {
+        ...info,
+        listId: remoteRaw.listId || remoteRaw.list_id || '1',
+        groceryItemId: remoteRaw.groceryItemId || remoteRaw.grocery_item_id,
+        storeId: remoteRaw.storeId || remoteRaw.store_id,
+        isAvailable: remoteRaw.isAvailable !== undefined ? remoteRaw.isAvailable : remoteRaw.is_available,
+        userId: remoteRaw.userId || remoteRaw.user_id,
+      }
+    })
   })
 
   // Persist items locally
@@ -145,22 +178,67 @@ export function DashboardLayout() {
       const response = await syncNow(items, lists, stores, categories, itemStoreInfos)
       if (response) {
         const mergedItems = resolveConflicts(items, response.remote_grocery_changes)
-        setItems(mergedItems.map(item => ({ ...item, listId: item.listId || '1' })))
+        setItems(mergedItems.map(item => {
+          const remoteRaw = item as any
+          return {
+            ...item,
+            listId: remoteRaw.listId || remoteRaw.list_id || '1',
+            categoryId: remoteRaw.categoryId || remoteRaw.category_id,
+            createdAt: remoteRaw.createdAt || remoteRaw.created_at,
+            isActive: remoteRaw.isActive !== undefined ? remoteRaw.isActive : remoteRaw.is_active,
+            isBought: remoteRaw.isBought !== undefined ? remoteRaw.isBought : remoteRaw.is_bought,
+            timesBought: remoteRaw.timesBought !== undefined ? remoteRaw.timesBought : remoteRaw.times_bought,
+            userId: remoteRaw.userId || remoteRaw.user_id,
+          }
+        }))
 
         const mergedLists = resolveListConflicts(lists, response.remote_grocery_list_changes)
-        const finalLists = mergedLists.filter(l => !l.is_deleted).length > 0 ? mergedLists : [
+        const mappedLists = mergedLists.map(list => {
+          const remoteRaw = list as any
+          return {
+            ...list,
+            ownerId: remoteRaw.ownerId || remoteRaw.owner_id,
+            createdAt: remoteRaw.createdAt || remoteRaw.created_at,
+          }
+        })
+        const finalLists = mappedLists.filter(l => !l.is_deleted).length > 0 ? mappedLists : [
           { id: '1', name: 'Main Grocery List', sync_state: 'SYNCED' as SyncState, version: 1, is_deleted: false, createdAt: Date.now() }
         ]
         setLists(finalLists)
 
         const mergedStores = resolveStoreConflicts(stores, response.remote_store_changes)
-        setStores(mergedStores.map(store => ({ ...store, listId: store.listId || '1' })))
+        setStores(mergedStores.map(store => {
+          const remoteRaw = store as any
+          return {
+            ...store,
+            listId: remoteRaw.listId || remoteRaw.list_id || '1',
+            isDefaultSupported: remoteRaw.isDefaultSupported !== undefined ? remoteRaw.isDefaultSupported : remoteRaw.is_default_supported,
+            userId: remoteRaw.userId || remoteRaw.user_id,
+          }
+        }))
 
         const mergedCategories = resolveCategoryConflicts(categories, response.remote_category_changes)
-        setCategories(mergedCategories.map(cat => ({ ...cat, listId: cat.listId || '1' })))
+        setCategories(mergedCategories.map(cat => {
+          const remoteRaw = cat as any
+          return {
+            ...cat,
+            listId: remoteRaw.listId || remoteRaw.list_id || '1',
+            userId: remoteRaw.userId || remoteRaw.user_id,
+          }
+        }))
 
         const mergedStoreInfos = resolveStoreInfoConflicts(itemStoreInfos, response.remote_grocery_item_store_info_changes)
-        setItemStoreInfos(mergedStoreInfos.map(info => ({ ...info, listId: info.listId || '1' })))
+        setItemStoreInfos(mergedStoreInfos.map(info => {
+          const remoteRaw = info as any
+          return {
+            ...info,
+            listId: remoteRaw.listId || remoteRaw.list_id || '1',
+            groceryItemId: remoteRaw.groceryItemId || remoteRaw.grocery_item_id,
+            storeId: remoteRaw.storeId || remoteRaw.store_id,
+            isAvailable: remoteRaw.isAvailable !== undefined ? remoteRaw.isAvailable : remoteRaw.is_available,
+            userId: remoteRaw.userId || remoteRaw.user_id,
+          }
+        }))
 
         setLastSyncedAt(response.server_timestamp)
         storage.setItem(STORAGE_KEYS.LAST_SYNCED, response.server_timestamp)
