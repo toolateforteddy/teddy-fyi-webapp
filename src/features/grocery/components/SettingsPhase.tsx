@@ -30,8 +30,13 @@ import { getCategoryColor } from '../config/constants'
 
 const EMOJI_PRESETS = ['🍎', '🥦', '🍞', '🥩', '🥛', '🍦', '🥫', '🧼', '🍿', '🥤', '🐶', '🧴']
 
+// Pure wrapper for Date.now to satisfy ESLint react-hooks/purity rule
+const generateUniqueId = (): number => Date.now()
+
 export function SettingsPhase() {
   const { 
+    activeListId,
+    setActiveListId,
     items, 
     lists, 
     stores, 
@@ -40,6 +45,8 @@ export function SettingsPhase() {
     setCategories, 
     handleManualSync 
   } = useOutletContext<{
+    activeListId: string
+    setActiveListId: React.Dispatch<React.SetStateAction<string>>
     items: GroceryItem[]
     lists: GroceryList[]
     stores: Store[]
@@ -154,11 +161,14 @@ export function SettingsPhase() {
     e.preventDefault()
     if (!newStoreName.trim()) return
 
+    const activeStoresList = (stores || []).filter(s => s.listId === activeListId && !s.is_deleted)
+
     const newStore: Store = {
-      id: Date.now(),
+      id: generateUniqueId(),
       name: newStoreName.trim(),
-      position: (stores || []).filter(s => !s.is_deleted).length + 1,
+      position: activeStoresList.length + 1,
       isDefaultSupported: false,
+      listId: activeListId,
       sync_state: 'PENDING_INSERT',
       version: 1,
       is_deleted: false,
@@ -205,7 +215,7 @@ export function SettingsPhase() {
   }
 
   const handleMoveStore = (storeId: number, direction: 'up' | 'down') => {
-    const active = (stores || []).filter(s => !s.is_deleted).sort((a, b) => a.position - b.position)
+    const active = (stores || []).filter(s => s.listId === activeListId && !s.is_deleted).sort((a, b) => a.position - b.position)
     const index = active.findIndex(s => s.id === storeId)
     if (index === -1) return
     
@@ -243,11 +253,14 @@ export function SettingsPhase() {
     e.preventDefault()
     if (!newCategoryName.trim()) return
 
+    const activeCategoriesList = (categories || []).filter(c => c.listId === activeListId && !c.is_deleted)
+
     const newCategory: Category = {
-      id: Date.now(),
+      id: generateUniqueId(),
       name: newCategoryName.trim(),
       icon: newCategoryIcon.trim() || undefined,
-      position: (categories || []).filter(c => !c.is_deleted).length + 1,
+      position: activeCategoriesList.length + 1,
+      listId: activeListId,
       sync_state: 'PENDING_INSERT',
       version: 1,
       is_deleted: false,
@@ -297,7 +310,7 @@ export function SettingsPhase() {
   }
 
   const handleMoveCategory = (categoryId: number, direction: 'up' | 'down') => {
-    const active = (categories || []).filter(c => !c.is_deleted).sort((a, b) => a.position - b.position)
+    const active = (categories || []).filter(c => c.listId === activeListId && !c.is_deleted).sort((a, b) => a.position - b.position)
     const index = active.findIndex(c => c.id === categoryId)
     if (index === -1) return
     
@@ -333,7 +346,9 @@ export function SettingsPhase() {
   // --- Render Sub-views ---
 
   if (activeSubView === 'stores') {
-    const activeStores = (stores || []).filter(s => !s.is_deleted).sort((a, b) => a.position - b.position)
+    const activeStores = (stores || [])
+      .filter(s => s.listId === activeListId && !s.is_deleted)
+      .sort((a, b) => a.position - b.position)
     return (
       <div className="space-y-6 animate-in fade-in duration-200">
         {successMessage && (
@@ -355,6 +370,27 @@ export function SettingsPhase() {
           <div>
             <h3 className="text-base font-bold text-white">Manage Stores</h3>
             <p className="text-[11px] text-text-muted">Configure active stores for filtering grocery lists</p>
+          </div>
+        </div>
+
+        {/* List Selector Header */}
+        <div className="flex items-center justify-between bg-surface-tile border border-neutral-900 rounded-xl p-3.5 gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <MapPin className="w-4 h-4 text-primary shrink-0" />
+            <span className="text-xs font-bold text-text-muted uppercase tracking-wider truncate">Active List</span>
+          </div>
+          <div className="relative shrink-0">
+            <select
+              value={activeListId}
+              onChange={(e) => setActiveListId(e.target.value)}
+              className="bg-black border border-neutral-850 rounded-lg px-3 py-1.5 text-xs font-semibold focus:outline-none focus:border-primary text-white cursor-pointer active:scale-95 transition-all max-w-[180px]"
+            >
+              {lists.filter(l => !l.is_deleted).map(list => (
+                <option key={list.id} value={list.id} className="bg-surface-tile text-white">
+                  {list.name}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -482,7 +518,9 @@ export function SettingsPhase() {
   }
 
   if (activeSubView === 'categories') {
-    const activeCategories = (categories || []).filter(c => !c.is_deleted).sort((a, b) => a.position - b.position)
+    const activeCategories = (categories || [])
+      .filter(c => c.listId === activeListId && !c.is_deleted)
+      .sort((a, b) => a.position - b.position)
     return (
       <div className="space-y-6 animate-in fade-in duration-200">
         {successMessage && (
@@ -504,6 +542,27 @@ export function SettingsPhase() {
           <div>
             <h3 className="text-base font-bold text-white">Manage Categories</h3>
             <p className="text-[11px] text-text-muted">Configure active product categories and styling preset icons</p>
+          </div>
+        </div>
+
+        {/* List Selector Header */}
+        <div className="flex items-center justify-between bg-surface-tile border border-neutral-900 rounded-xl p-3.5 gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <Tag className="w-4 h-4 text-primary shrink-0" />
+            <span className="text-xs font-bold text-text-muted uppercase tracking-wider truncate">Active List</span>
+          </div>
+          <div className="relative shrink-0">
+            <select
+              value={activeListId}
+              onChange={(e) => setActiveListId(e.target.value)}
+              className="bg-black border border-neutral-850 rounded-lg px-3 py-1.5 text-xs font-semibold focus:outline-none focus:border-primary text-white cursor-pointer active:scale-95 transition-all max-w-[180px]"
+            >
+              {lists.filter(l => !l.is_deleted).map(list => (
+                <option key={list.id} value={list.id} className="bg-surface-tile text-white">
+                  {list.name}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 

@@ -6,13 +6,12 @@ import {
   CheckSquare, 
   Settings as SettingsIcon, 
   RefreshCw, 
-  ChevronDown, 
   CheckCircle2,
   AlertCircle
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { useGrocerySync } from '@/features/sync/hooks/useGrocerySync'
-import type { GroceryItem, GroceryList, Store, Category } from '@/types/grocery'
+import type { GroceryItem, GroceryList, Store, Category, SyncState } from '@/types/grocery'
 import { storage } from '@/utils/storage'
 import { STORAGE_KEYS } from '@/config/storageKeys'
 import { getSyncedTimeString } from '@/utils/date'
@@ -23,24 +22,41 @@ export function DashboardLayout() {
 
   // Unified items state loaded from storage (defaults to empty)
   const [items, setItems] = useState<GroceryItem[]>(() => {
-    return storage.getItem<GroceryItem[]>(STORAGE_KEYS.ITEMS, [])
+    const raw = storage.getItem<GroceryItem[]>(STORAGE_KEYS.ITEMS, [])
+    return raw.map(item => ({
+      ...item,
+      listId: item.listId || '1'
+    }))
   })
 
   // Unified lists state loaded from storage (defaults to empty)
   const [lists, setLists] = useState<GroceryList[]>(() => {
-    return storage.getItem<GroceryList[]>(STORAGE_KEYS.LISTS, [
-      { id: '1', name: 'Main Grocery List', sync_state: 'SYNCED', version: 1, is_deleted: false, createdAt: Date.now() }
-    ])
+    const raw = storage.getItem<GroceryList[]>(STORAGE_KEYS.LISTS, [])
+    const active = raw.filter(l => !l.is_deleted)
+    if (active.length > 0) {
+      return raw
+    }
+    return [
+      { id: '1', name: 'Main Grocery List', sync_state: 'SYNCED' as SyncState, version: 1, is_deleted: false, createdAt: Date.now() }
+    ]
   })
 
   // Unified stores state loaded from storage (defaults to empty)
   const [stores, setStores] = useState<Store[]>(() => {
-    return storage.getItem<Store[]>(STORAGE_KEYS.STORES, [])
+    const raw = storage.getItem<Store[]>(STORAGE_KEYS.STORES, [])
+    return raw.map(store => ({
+      ...store,
+      listId: store.listId || '1'
+    }))
   })
 
   // Unified categories state loaded from storage (defaults to empty)
   const [categories, setCategories] = useState<Category[]>(() => {
-    return storage.getItem<Category[]>(STORAGE_KEYS.CATEGORIES, [])
+    const raw = storage.getItem<Category[]>(STORAGE_KEYS.CATEGORIES, [])
+    return raw.map(cat => ({
+      ...cat,
+      listId: cat.listId || '1'
+    }))
   })
 
   // Persist items locally
@@ -72,8 +88,15 @@ export function DashboardLayout() {
     isSyncing 
   } = useGrocerySync()
 
-  const [activeListId, setActiveListId] = useState('1')
-  const [isListDropdownOpen, setIsListDropdownOpen] = useState(false)
+  const [activeListId, setActiveListId] = useState<string>(() => {
+    const saved = storage.getItem<string>(STORAGE_KEYS.ACTIVE_LIST_ID, '')
+    return saved || '1'
+  })
+
+  // Persist activeListId
+  useEffect(() => {
+    storage.setItem(STORAGE_KEYS.ACTIVE_LIST_ID, activeListId)
+  }, [activeListId])
   
   // Sync state tracking (stored as ISO 8601 string)
   const [lastSyncedAt, setLastSyncedAt] = useState<string>(() => {
@@ -82,7 +105,7 @@ export function DashboardLayout() {
   })
   const [showSyncTooltip, setShowSyncTooltip] = useState(false)
 
-  const activeList = lists.find(l => l.id === activeListId) || lists[0] || { id: '1', name: 'Main Grocery List' }
+  const activeList = lists.find(l => l.id === activeListId && !l.is_deleted) || lists.find(l => !l.is_deleted) || lists[0] || { id: '1', name: 'Main Grocery List' }
 
   // Derive syncStatus dynamically to avoid state synchronization side effects
   const isStale = (() => {
@@ -107,16 +130,19 @@ export function DashboardLayout() {
       const response = await syncNow(items, lists, stores, categories)
       if (response) {
         const mergedItems = resolveConflicts(items, response.remote_grocery_changes)
-        setItems(mergedItems)
+        setItems(mergedItems.map(item => ({ ...item, listId: item.listId || '1' })))
 
         const mergedLists = resolveListConflicts(lists, response.remote_grocery_list_changes)
-        setLists(mergedLists)
+        const finalLists = mergedLists.filter(l => !l.is_deleted).length > 0 ? mergedLists : [
+          { id: '1', name: 'Main Grocery List', sync_state: 'SYNCED' as SyncState, version: 1, is_deleted: false, createdAt: Date.now() }
+        ]
+        setLists(finalLists)
 
         const mergedStores = resolveStoreConflicts(stores, response.remote_store_changes)
-        setStores(mergedStores)
+        setStores(mergedStores.map(store => ({ ...store, listId: store.listId || '1' })))
 
         const mergedCategories = resolveCategoryConflicts(categories, response.remote_category_changes)
-        setCategories(mergedCategories)
+        setCategories(mergedCategories.map(cat => ({ ...cat, listId: cat.listId || '1' })))
 
         setLastSyncedAt(response.server_timestamp)
         storage.setItem(STORAGE_KEYS.LAST_SYNCED, response.server_timestamp)
@@ -165,38 +191,12 @@ export function DashboardLayout() {
         
         {/* Top App Bar */}
         <header className="sticky top-0 z-40 bg-black/80 backdrop-blur-md border-b border-[#1a1a1a] h-14 flex items-center justify-between px-4">
-          {/* List Selector Dropdown */}
-          <div className="relative">
-            <button 
-              onClick={() => setIsListDropdownOpen(!isListDropdownOpen)}
-              className="flex items-center gap-1.5 text-base font-semibold py-1.5 px-2.5 rounded-lg bg-surface-tile border border-neutral-800 active:scale-95 transition-all cursor-pointer"
-            >
-              <span className="truncate max-w-[150px]">{activeList.name}</span>
-              <ChevronDown className="w-4 h-4 text-secondary" />
-            </button>
-
-            {isListDropdownOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setIsListDropdownOpen(false)} />
-                <div className="absolute left-0 mt-2 w-56 bg-surface-tile border border-neutral-800 rounded-lg shadow-xl z-50 py-1.5 animate-in fade-in slide-in-from-top-2 duration-150">
-                  {lists.map((list) => (
-                    <button
-                      key={list.id}
-                      onClick={() => {
-                        setActiveListId(list.id)
-                        setIsListDropdownOpen(false)
-                      }}
-                      className={cn(
-                        "w-full text-left px-4 py-2 text-sm hover:bg-neutral-800 transition-colors",
-                        list.id === activeListId ? "text-primary font-medium" : "text-text-muted"
-                      )}
-                    >
-                      {list.name}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
+          {/* Logo / Branding */}
+          <div className="flex items-center gap-2 select-none">
+            <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-xs">
+              G
+            </div>
+            <span className="text-sm font-bold tracking-wider text-white">grocery.fyi</span>
           </div>
 
           {/* Title & Sync Feedback */}
@@ -254,7 +254,7 @@ export function DashboardLayout() {
 
         {/* Primary Page Outlet */}
         <main className="flex-1 overflow-y-auto px-4 py-4 scroll-smooth">
-          <Outlet context={{ activeListId, handleManualSync, syncStatus, items, setItems, lists, setLists, stores, setStores, categories, setCategories }} />
+          <Outlet context={{ activeListId: activeList.id, setActiveListId, handleManualSync, syncStatus, items, setItems, lists, setLists, stores, setStores, categories, setCategories }} />
         </main>
 
         {/* Bottom Navigation Bar */}

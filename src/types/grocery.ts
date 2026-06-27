@@ -11,7 +11,7 @@ export interface GroceryItem {
   timesBought: number;
   userId?: string;
   isActive: boolean;
-  listId?: string; // Foreign Key to GroceryList (UUID)
+  listId: string; // Foreign Key to GroceryList (UUID)
   unit?: string;
   notes?: string;
   sync_state: SyncState;
@@ -46,6 +46,7 @@ export interface Store {
   position: number;
   isDefaultSupported: boolean;
   userId?: string;
+  listId: string; // Scoped to grocery list
   sync_state: SyncState;
   version: number;
   is_deleted: boolean;
@@ -57,6 +58,7 @@ export interface Category {
   position: number;
   userId?: string;
   icon?: string;
+  listId: string; // Scoped to grocery list
   sync_state: SyncState;
   version: number;
   is_deleted: boolean;
@@ -68,6 +70,7 @@ export interface GroceryItemStoreInfo {
   price?: number;
   isAvailable: boolean;
   userId?: string;
+  listId: string; // Scoped to grocery list
   sync_state: SyncState;
   version: number;
   is_deleted: boolean;

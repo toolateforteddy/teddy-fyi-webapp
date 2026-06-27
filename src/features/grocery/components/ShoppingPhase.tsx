@@ -1,16 +1,19 @@
 import { useState, useEffect } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { CheckSquare, Square, Check, MapPin, ClipboardList } from 'lucide-react'
-import type { GroceryItem, Store, Category } from '@/types/grocery'
+import type { GroceryItem, Store, Category, GroceryList } from '@/types/grocery'
 import { cn } from '@/utils/cn'
 import { DEFAULT_STORES, DEFAULT_CATEGORIES } from '../config/constants'
 import { storage } from '@/utils/storage'
 import { STORAGE_KEYS } from '@/config/storageKeys'
 
 export function ShoppingPhase() {
-  const { items, setItems, stores, categories } = useOutletContext<{
+  const { activeListId, setActiveListId, items, setItems, lists, stores, categories } = useOutletContext<{
+    activeListId: string
+    setActiveListId: React.Dispatch<React.SetStateAction<string>>
     items: GroceryItem[]
     setItems: React.Dispatch<React.SetStateAction<GroceryItem[]>>
+    lists: GroceryList[]
     stores: Store[]
     categories: Category[]
   }>()
@@ -20,7 +23,7 @@ export function ShoppingPhase() {
   const [isConfirmTripOpen, setIsConfirmTripOpen] = useState(false)
 
   const activeStores = [...(stores && stores.length > 0 ? stores : DEFAULT_STORES)]
-    .filter(s => !s.is_deleted)
+    .filter(s => s.listId === activeListId && !s.is_deleted)
     .sort((a, b) => a.position - b.position)
 
   // Sync selectedStoreId with storage
@@ -37,7 +40,7 @@ export function ShoppingPhase() {
     setSelectedStoreId(null)
   }
   const activeCategories = (categories && categories.length > 0 ? categories : DEFAULT_CATEGORIES)
-    .filter(c => !c.is_deleted)
+    .filter(c => c.listId === activeListId && !c.is_deleted)
     .sort((a, b) => a.position - b.position)
 
   // Toggle "Bought" state (Moves items in cart)
@@ -70,7 +73,7 @@ export function ShoppingPhase() {
   }
 
   // Filter items to show: only active items
-  const activeItems = items.filter(item => item.isActive && !item.is_deleted)
+  const activeItems = items.filter(item => item.listId === activeListId && item.isActive && !item.is_deleted)
   
   // Split items into "To Buy" (needed) vs "In Cart" (bought)
   const toBuyItems = activeItems.filter(item => !item.isBought)
@@ -95,6 +98,7 @@ export function ShoppingPhase() {
         id: -1,
         name: 'Uncategorized',
         position: 999,
+        listId: activeListId,
         sync_state: 'SYNCED',
         version: 1,
         is_deleted: false
@@ -106,7 +110,26 @@ export function ShoppingPhase() {
   return (
     <div className="space-y-5 flex-1 flex flex-col min-h-0 animate-in fade-in duration-200">
       
-      {/* Store Isolation Header */}
+      {/* List Selector Header */}
+      <div className="flex items-center justify-between bg-surface-tile border border-neutral-900 rounded-xl p-3.5 gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <CheckSquare className="w-4 h-4 text-primary shrink-0" />
+          <span className="text-xs font-bold text-text-muted uppercase tracking-wider truncate">Active List</span>
+        </div>
+        <div className="relative shrink-0">
+          <select
+            value={activeListId}
+            onChange={(e) => setActiveListId(e.target.value)}
+            className="bg-black border border-neutral-800 rounded-lg px-3 py-1.5 text-xs font-semibold focus:outline-none focus:border-primary text-white cursor-pointer active:scale-95 transition-all max-w-[180px]"
+          >
+            {lists.filter(l => !l.is_deleted).map(list => (
+              <option key={list.id} value={list.id} className="bg-surface-tile text-white">
+                {list.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
       <div className="space-y-2">
         <label className="text-[10px] uppercase tracking-wider font-bold text-text-muted px-1 block mb-1">
           Active Store Isolation

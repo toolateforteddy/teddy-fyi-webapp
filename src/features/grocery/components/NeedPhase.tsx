@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import type { TouchEvent, FormEvent } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { Plus, Minus, Trash2, Check, Sparkles, X, ShoppingBag } from 'lucide-react'
-import type { GroceryItem, Category } from '@/types/grocery'
+import type { GroceryItem, Category, GroceryList } from '@/types/grocery'
 import { cn } from '@/utils/cn'
 
 import { DEFAULT_CATEGORIES, getCategoryColor } from '../config/constants'
@@ -16,14 +16,17 @@ const SUGGESTIONS = [
 ]
 
 export function NeedPhase() {
-  const { items, setItems, categories } = useOutletContext<{
+  const { activeListId, setActiveListId, items, setItems, lists, categories } = useOutletContext<{
+    activeListId: string
+    setActiveListId: React.Dispatch<React.SetStateAction<string>>
     items: GroceryItem[]
     setItems: React.Dispatch<React.SetStateAction<GroceryItem[]>>
+    lists: GroceryList[]
     categories: Category[]
   }>()
 
   const activeCategories = (categories && categories.length > 0 ? categories : DEFAULT_CATEGORIES)
-    .filter(cat => !cat.is_deleted)
+    .filter(cat => cat.listId === activeListId && !cat.is_deleted)
     .sort((a, b) => a.position - b.position)
     .map(cat => ({
       id: cat.id,
@@ -156,7 +159,7 @@ export function NeedPhase() {
       categoryId: newItemCategory,
       timesBought: 0,
       isActive: true,
-      listId: '1',
+      listId: activeListId,
       sync_state: 'PENDING_INSERT',
       version: 1,
       is_deleted: false,
@@ -172,7 +175,7 @@ export function NeedPhase() {
   }
 
   // Active (non-deleted, active) items
-  const activeItems = items.filter(item => item.isActive && !item.is_deleted)
+  const activeItems = items.filter(item => item.listId === activeListId && item.isActive && !item.is_deleted)
 
   // Group active items by category
   const itemsByCategory = activeCategories.reduce((acc, cat) => {
@@ -199,9 +202,29 @@ export function NeedPhase() {
   }
 
   return (
-    <div className="relative flex-1 flex flex-col min-h-0">
+    <div className="relative flex-1 flex flex-col min-h-0 space-y-4">
       
-      {/* Category lists */}
+      {/* List Selector Header */}
+      <div className="flex items-center justify-between bg-surface-tile border border-neutral-900 rounded-xl p-3.5 gap-3 shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <ShoppingBag className="w-4 h-4 text-primary shrink-0" />
+          <span className="text-xs font-bold text-text-muted uppercase tracking-wider truncate">Active List</span>
+        </div>
+        <div className="relative shrink-0">
+          <select
+            value={activeListId}
+            onChange={(e) => setActiveListId(e.target.value)}
+            className="bg-black border border-neutral-800 rounded-lg px-3 py-1.5 text-xs font-semibold focus:outline-none focus:border-primary text-white cursor-pointer active:scale-95 transition-all max-w-[180px]"
+          >
+            {lists.filter(l => !l.is_deleted).map(list => (
+              <option key={list.id} value={list.id} className="bg-surface-tile text-white">
+                {list.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       {activeItems.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center p-8 mt-12 animate-in fade-in duration-300">
           <div className="w-16 h-16 rounded-full bg-surface-tile border border-neutral-800 flex items-center justify-center text-neutral-600 mb-4">
