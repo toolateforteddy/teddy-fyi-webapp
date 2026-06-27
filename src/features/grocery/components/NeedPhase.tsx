@@ -5,7 +5,7 @@ import { Plus, Minus, Trash2, Check, Sparkles, X, ShoppingBag } from 'lucide-rea
 import type { GroceryItem, Category } from '@/types/grocery'
 import { cn } from '@/utils/cn'
 
-import { DEFAULT_CATEGORIES, CATEGORY_COLORS } from '../config/constants'
+import { DEFAULT_CATEGORIES, getCategoryColor } from '../config/constants'
 
 // Common suggestion names for autocomplete
 const SUGGESTIONS = [
@@ -22,11 +22,15 @@ export function NeedPhase() {
     categories: Category[]
   }>()
 
-  const activeCategories = (categories && categories.length > 0 ? categories : DEFAULT_CATEGORIES).map(cat => ({
-    id: cat.id,
-    name: cat.name,
-    color: CATEGORY_COLORS[cat.id] || '#737373'
-  }))
+  const activeCategories = (categories && categories.length > 0 ? categories : DEFAULT_CATEGORIES)
+    .filter(cat => !cat.is_deleted)
+    .sort((a, b) => a.position - b.position)
+    .map(cat => ({
+      id: cat.id,
+      name: cat.name,
+      icon: cat.icon,
+      color: getCategoryColor(cat.id)
+    }))
   const [expandedItemId, setExpandedItemId] = useState<number | null>(null)
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [newItemName, setNewItemName] = useState('')
@@ -177,7 +181,7 @@ export function NeedPhase() {
       acc.push({ category: cat, items: catItems })
     }
     return acc;
-  }, [] as { category: { id: number; name: string; color: string }; items: GroceryItem[] }[])
+  }, [] as { category: { id: number; name: string; color: string; icon?: string }; items: GroceryItem[] }[])
 
   const uncategorizedItems = activeItems.filter(
     item => !item.categoryId || !activeCategories.some(cat => cat.id === item.categoryId)
@@ -216,8 +220,9 @@ export function NeedPhase() {
                   className="w-2 h-2 rounded-full" 
                   style={{ backgroundColor: category.color }} 
                 />
-                <h4 className="text-xs font-bold tracking-widest text-text-muted uppercase">
-                  {category.name}
+                <h4 className="text-xs font-bold tracking-widest text-text-muted uppercase flex items-center gap-1.5">
+                  {category.icon && <span className="text-sm normal-case">{category.icon}</span>}
+                  <span>{category.name}</span>
                 </h4>
                 <span className="text-[10px] text-neutral-600 bg-neutral-900 px-1.5 py-0.5 rounded-full font-medium">
                   {items.length}
@@ -317,7 +322,7 @@ export function NeedPhase() {
                                 <option value="" className="bg-surface-tile text-neutral-400">Uncategorized</option>
                                 {activeCategories.map(cat => (
                                   <option key={cat.id} value={cat.id} className="bg-surface-tile text-white">
-                                    {cat.name}
+                                    {cat.icon ? `${cat.icon} ${cat.name}` : cat.name}
                                   </option>
                                 ))}
                               </select>
@@ -449,7 +454,7 @@ export function NeedPhase() {
                     </option>
                     {activeCategories.map(cat => (
                       <option key={cat.id} value={cat.id} className="bg-surface-tile text-white">
-                        {cat.name}
+                        {cat.icon ? `${cat.icon} ${cat.name}` : cat.name}
                       </option>
                     ))}
                   </select>

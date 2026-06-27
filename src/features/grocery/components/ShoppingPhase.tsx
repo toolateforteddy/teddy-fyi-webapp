@@ -36,7 +36,9 @@ export function ShoppingPhase() {
   if (selectedStoreId !== null && !activeStores.some(s => s.id === selectedStoreId)) {
     setSelectedStoreId(null)
   }
-  const activeCategories = categories && categories.length > 0 ? categories : DEFAULT_CATEGORIES
+  const activeCategories = (categories && categories.length > 0 ? categories : DEFAULT_CATEGORIES)
+    .filter(c => !c.is_deleted)
+    .sort((a, b) => a.position - b.position)
 
   // Toggle "Bought" state (Moves items in cart)
   const toggleBought = (itemId: number) => {
@@ -154,9 +156,9 @@ export function ShoppingPhase() {
             ) : (
               toBuyByCategory.map(({ category, items }) => (
                 <div key={category.id} className="space-y-2">
-                  {/* Category Header */}
-                  <h5 className="text-[10px] font-bold tracking-widest text-text-muted px-1 uppercase">
-                    {category.name}
+                  <h5 className="text-[10px] font-bold tracking-widest text-text-muted px-1 uppercase flex items-center gap-1">
+                    {category.icon && <span className="text-xs normal-case">{category.icon}</span>}
+                    <span>{category.name}</span>
                   </h5>
 
                   {/* 2-Column Grid */}
