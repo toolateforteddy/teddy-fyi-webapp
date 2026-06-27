@@ -106,8 +106,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch (error) {
       console.error('Logout request failed on backend:', error)
     } finally {
-      storage.removeItem(STORAGE_KEYS.REFRESH_TOKEN)
-      storage.removeItem(STORAGE_KEYS.USER_INFO)
+      storage.clear()
       setAuthStateInternal({
         isAuthenticated: false,
         user: null,

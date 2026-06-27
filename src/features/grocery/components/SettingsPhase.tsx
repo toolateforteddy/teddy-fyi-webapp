@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { Database, RefreshCw, Trash2, ShieldAlert, HardDrive, Wifi, CheckCircle2 } from 'lucide-react'
+import { Database, RefreshCw, Trash2, ShieldAlert, HardDrive, Wifi, CheckCircle2, User, LogOut } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import type { GroceryItem, GroceryList, Store, Category } from '@/types/grocery'
 import { storage } from '@/utils/storage'
 import { STORAGE_KEYS } from '@/config/storageKeys'
 import { setApiBaseUrl } from '@/lib/axios'
 import { env } from '@/config/env'
+import { useAuth } from '@/features/auth/hooks/useAuth'
 
 export function SettingsPhase() {
   const { items, lists, stores, categories } = useOutletContext<{
@@ -16,6 +17,8 @@ export function SettingsPhase() {
     categories: Category[]
   }>()
 
+  const { user, logout } = useAuth()
+  const [loggingOut, setLoggingOut] = useState(false)
   const [syncInterval, setSyncInterval] = useState('auto')
   const [apiUrl, setApiUrl] = useState(() => {
     return storage.getItem<string>(STORAGE_KEYS.API_BASE_URL, env.API_BASE_URL)
@@ -81,6 +84,17 @@ export function SettingsPhase() {
     }, 1000) as unknown as number
   }
 
+  const handleLogout = async () => {
+    setLoggingOut(true)
+    try {
+      await logout()
+    } catch (error) {
+      console.error('Logout failed:', error)
+    } finally {
+      setLoggingOut(false)
+    }
+  }
+
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       
@@ -91,6 +105,49 @@ export function SettingsPhase() {
           <span className="font-semibold">{successMessage}</span>
         </div>
       )}
+
+      {/* Account Info Section */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 px-1">
+          <User className="w-4 h-4 text-primary" />
+          <h4 className="text-xs font-bold tracking-widest text-text-muted uppercase">
+            Account Info
+          </h4>
+        </div>
+
+        <div className="bg-surface-tile border border-neutral-900 rounded-xl p-4 space-y-4">
+          <div className="flex items-center gap-3">
+            {user?.picture ? (
+              <img 
+                src={user.picture} 
+                alt={user.name || 'User avatar'} 
+                className="w-10 h-10 rounded-full border border-neutral-800 object-cover" 
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center text-primary font-bold">
+                {user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || '?'}
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <h5 className="font-semibold text-sm text-white truncate">
+                {user?.name || 'Authenticated User'}
+              </h5>
+              <p className="text-xs text-text-muted truncate">
+                {user?.email || 'No email associated'}
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={handleLogout}
+            disabled={loggingOut}
+            className="w-full bg-neutral-900 hover:bg-neutral-850 text-white border border-neutral-800 py-2.5 rounded-lg text-xs font-bold transition-all active:scale-[0.99] flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-55"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            {loggingOut ? 'Signing out...' : 'Sign Out'}
+          </button>
+        </div>
+      </div>
 
       {/* Synchronization Engine Section */}
       <div className="space-y-3">
