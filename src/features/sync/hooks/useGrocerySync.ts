@@ -6,6 +6,7 @@ import { getClientUuid } from '@/utils/uuid'
 import type { 
   GroceryItem, 
   GroceryList,
+  GroceryListMember,
   Store, 
   Category, 
   GroceryItemStoreInfo,
@@ -36,7 +37,8 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
     localLists: GroceryList[] = [],
     localStores: Store[] = [],
     localCategories: Category[] = [],
-    localItemStoreInfos: GroceryItemStoreInfo[] = []
+    localItemStoreInfos: GroceryItemStoreInfo[] = [],
+    localListMembers: GroceryListMember[] = []
   ): Promise<SyncResponse | null> => {
     setIsSyncing(true)
     setError(null)
@@ -123,6 +125,30 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
           }
         })
 
+      const listMemberChanges: ChangeDelta<GroceryListMember>[] = localListMembers
+        .filter(member => member.sync_state !== 'SYNCED')
+        .map(member => {
+          let deltaType: 'INSERT' | 'UPDATE' | 'DELETE' = 'UPDATE'
+          if (member.sync_state === 'PENDING_INSERT') deltaType = 'INSERT'
+          if (member.sync_state === 'PENDING_DELETE' || member.is_deleted) deltaType = 'DELETE'
+
+          return {
+            id: member.id,
+            type: deltaType,
+            version: member.version,
+            data: deltaType === 'DELETE' ? null : {
+              id: member.id,
+              list_id: member.listId,
+              user_id: member.userId,
+              role: member.role,
+              joined_at: member.joinedAt,
+              sync_state: member.sync_state,
+              version: member.version,
+              is_deleted: member.is_deleted
+            } as any
+          }
+        })
+
       const storeChanges: ChangeDelta<Store>[] = localStores
         .filter(store => store.sync_state !== 'SYNCED')
         .map(store => {
@@ -202,6 +228,7 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
       const hasLocalChanges = 
         groceryChanges.length > 0 || 
         listChanges.length > 0 || 
+        listMemberChanges.length > 0 ||
         storeChanges.length > 0 || 
         categoryChanges.length > 0 ||
         groceryItemStoreInfoChanges.length > 0
@@ -219,6 +246,7 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
         scope: 'GROCERY',
         grocery_changes: groceryChanges,
         grocery_list_changes: listChanges,
+        grocery_list_member_changes: listMemberChanges,
         store_changes: storeChanges,
         category_changes: categoryChanges,
         grocery_item_store_info_changes: groceryItemStoreInfoChanges,
@@ -273,7 +301,7 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
 
       const remoteItem: GroceryItem = {
         ...remoteRaw,
-        listId: remoteRaw.listId || remoteRaw.list_id || '1',
+        listId: remoteRaw.listId || remoteRaw.list_id || '',
         categoryId: remoteRaw.categoryId || remoteRaw.category_id,
         createdAt: remoteRaw.createdAt || remoteRaw.created_at,
         isActive: remoteRaw.isActive !== undefined ? remoteRaw.isActive : remoteRaw.is_active,
@@ -391,7 +419,7 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
 
       const remoteStore: Store = {
         ...remoteRaw,
-        listId: remoteRaw.listId || remoteRaw.list_id || '1',
+        listId: remoteRaw.listId || remoteRaw.list_id || '',
         isDefaultSupported: remoteRaw.isDefaultSupported !== undefined ? remoteRaw.isDefaultSupported : remoteRaw.is_default_supported,
         userId: remoteRaw.userId || remoteRaw.user_id,
       }
@@ -447,7 +475,7 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
 
       const remoteCategory: Category = {
         ...remoteRaw,
-        listId: remoteRaw.listId || remoteRaw.list_id || '1',
+        listId: remoteRaw.listId || remoteRaw.list_id || '',
         userId: remoteRaw.userId || remoteRaw.user_id,
       }
 
@@ -508,7 +536,7 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
         ...remoteRaw,
         groceryItemId: itemId,
         storeId: storeId,
-        listId: remoteRaw.listId || remoteRaw.list_id || '1',
+        listId: remoteRaw.listId || remoteRaw.list_id || '',
         isAvailable: remoteRaw.isAvailable !== undefined ? remoteRaw.isAvailable : remoteRaw.is_available,
         userId: remoteRaw.userId || remoteRaw.user_id,
       }
@@ -542,10 +570,67 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
     })
   }, [])
 
+  // Conflict Resolution helper for Grocery List Members
+  const resolveListMemberConflicts = useCallback((
+    localMembers: GroceryListMember[],
+    remoteChanges: ChangeDelta<GroceryListMember>[] = []
+  ): GroceryListMember[] => {
+    let merged = [...localMembers]
+
+    remoteChanges.forEach(change => {
+      const localIndex = merged.findIndex(member => member.id === change.id)
+
+      if (change.type === 'DELETE') {
+        if (localIndex !== -1) {
+          merged.splice(localIndex, 1)
+        }
+        return
+      }
+
+      const remoteRaw = change.data as any
+      if (!remoteRaw) return
+
+      const remoteMember: GroceryListMember = {
+        ...remoteRaw,
+        listId: remoteRaw.listId || remoteRaw.list_id || '',
+        userId: remoteRaw.userId || remoteRaw.user_id || '',
+        joinedAt: remoteRaw.joinedAt || remoteRaw.joined_at,
+      }
+
+      if (localIndex === -1) {
+        merged.push({
+          ...remoteMember,
+          sync_state: 'SYNCED'
+        })
+      } else {
+        const localMember = merged[localIndex]
+        if (change.version >= localMember.version) {
+          merged[localIndex] = {
+            ...remoteMember,
+            sync_state: 'SYNCED'
+          }
+        }
+      }
+    })
+
+    merged = merged.filter(member => !(member.sync_state === 'PENDING_DELETE' && member.is_deleted))
+
+    return merged.map(member => {
+      if (member.sync_state === 'PENDING_INSERT' || member.sync_state === 'PENDING_UPDATE') {
+        return {
+          ...member,
+          sync_state: 'SYNCED'
+        }
+      }
+      return member
+    })
+  }, [])
+
   return {
     syncNow,
     resolveConflicts,
     resolveListConflicts,
+    resolveListMemberConflicts,
     resolveStoreConflicts,
     resolveCategoryConflicts,
     resolveStoreInfoConflicts,

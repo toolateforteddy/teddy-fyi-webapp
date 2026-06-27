@@ -11,14 +11,18 @@ import {
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { useGrocerySync } from '@/features/sync/hooks/useGrocerySync'
-import type { GroceryItem, GroceryList, Store, Category, SyncState, GroceryItemStoreInfo } from '@/types/grocery'
+import type { GroceryItem, GroceryList, GroceryListMember, Store, Category, GroceryItemStoreInfo } from '@/types/grocery'
 import { storage } from '@/utils/storage'
 import { STORAGE_KEYS } from '@/config/storageKeys'
 import { getSyncedTimeString } from '@/utils/date'
+import { useAuth } from '@/features/auth/hooks/useAuth'
+import { generateUuid } from '@/utils/uuid'
 
 export function DashboardLayout() {
   const location = useLocation()
   const currentPath = location.pathname
+
+  const { user } = useAuth()
 
   // Unified items state loaded from storage (defaults to empty)
   const [items, setItems] = useState<GroceryItem[]>(() => {
@@ -27,7 +31,7 @@ export function DashboardLayout() {
       const remoteRaw = item as any
       return {
         ...item,
-        listId: remoteRaw.listId || remoteRaw.list_id || '1',
+        listId: remoteRaw.listId || remoteRaw.list_id || '',
         categoryId: remoteRaw.categoryId || remoteRaw.category_id,
         createdAt: remoteRaw.createdAt || remoteRaw.created_at,
         isActive: remoteRaw.isActive !== undefined ? remoteRaw.isActive : remoteRaw.is_active,
@@ -53,9 +57,50 @@ export function DashboardLayout() {
     if (active.length > 0) {
       return mapped
     }
-    return [
-      { id: '1', name: 'Main Grocery List', sync_state: 'SYNCED' as SyncState, version: 1, is_deleted: false, createdAt: Date.now() }
-    ]
+
+    // Only create default list if we have had at least one successful sync
+    const lastSynced = storage.getItem<string>(STORAGE_KEYS.LAST_SYNCED, '')
+    if (!lastSynced) {
+      return []
+    }
+
+    const defaultListId = generateUuid()
+    const defaultList: GroceryList = {
+      id: defaultListId,
+      name: 'My List',
+      ownerId: user?.id,
+      createdAt: Date.now(),
+      sync_state: 'PENDING_INSERT',
+      version: 1,
+      is_deleted: false,
+    }
+    const defaultMember: GroceryListMember = {
+      id: generateUuid(),
+      listId: defaultListId,
+      userId: user?.id || '',
+      role: 'OWNER',
+      joinedAt: Date.now(),
+      sync_state: 'PENDING_INSERT',
+      version: 1,
+      is_deleted: false,
+    }
+
+    storage.setItem(STORAGE_KEYS.LIST_MEMBERS, [defaultMember])
+    return [defaultList]
+  })
+
+  // Unified list members state loaded from storage (defaults to empty)
+  const [listMembers, setListMembers] = useState<GroceryListMember[]>(() => {
+    const raw = storage.getItem<GroceryListMember[]>(STORAGE_KEYS.LIST_MEMBERS, [])
+    return raw.map(member => {
+      const remoteRaw = member as any
+      return {
+        ...member,
+        listId: remoteRaw.listId || remoteRaw.list_id || '',
+        userId: remoteRaw.userId || remoteRaw.user_id || '',
+        joinedAt: remoteRaw.joinedAt || remoteRaw.joined_at,
+      }
+    })
   })
 
   // Unified stores state loaded from storage (defaults to empty)
@@ -65,7 +110,7 @@ export function DashboardLayout() {
       const remoteRaw = store as any
       return {
         ...store,
-        listId: remoteRaw.listId || remoteRaw.list_id || '1',
+        listId: remoteRaw.listId || remoteRaw.list_id || '',
         isDefaultSupported: remoteRaw.isDefaultSupported !== undefined ? remoteRaw.isDefaultSupported : remoteRaw.is_default_supported,
         userId: remoteRaw.userId || remoteRaw.user_id,
       }
@@ -79,7 +124,7 @@ export function DashboardLayout() {
       const remoteRaw = cat as any
       return {
         ...cat,
-        listId: remoteRaw.listId || remoteRaw.list_id || '1',
+        listId: remoteRaw.listId || remoteRaw.list_id || '',
         userId: remoteRaw.userId || remoteRaw.user_id,
       }
     })
@@ -92,7 +137,7 @@ export function DashboardLayout() {
       const remoteRaw = info as any
       return {
         ...info,
-        listId: remoteRaw.listId || remoteRaw.list_id || '1',
+        listId: remoteRaw.listId || remoteRaw.list_id || '',
         groceryItemId: remoteRaw.groceryItemId || remoteRaw.grocery_item_id,
         storeId: remoteRaw.storeId || remoteRaw.store_id,
         isAvailable: remoteRaw.isAvailable !== undefined ? remoteRaw.isAvailable : remoteRaw.is_available,
@@ -110,6 +155,11 @@ export function DashboardLayout() {
   useEffect(() => {
     storage.setItem(STORAGE_KEYS.LISTS, lists)
   }, [lists])
+
+  // Persist list members locally
+  useEffect(() => {
+    storage.setItem(STORAGE_KEYS.LIST_MEMBERS, listMembers)
+  }, [listMembers])
 
   // Persist stores locally
   useEffect(() => {
@@ -130,6 +180,7 @@ export function DashboardLayout() {
     syncNow, 
     resolveConflicts, 
     resolveListConflicts, 
+    resolveListMemberConflicts,
     resolveStoreConflicts, 
     resolveCategoryConflicts, 
     resolveStoreInfoConflicts,
@@ -137,8 +188,7 @@ export function DashboardLayout() {
   } = useGrocerySync()
 
   const [activeListId, setActiveListId] = useState<string>(() => {
-    const saved = storage.getItem<string>(STORAGE_KEYS.ACTIVE_LIST_ID, '')
-    return saved || '1'
+    return storage.getItem<string>(STORAGE_KEYS.ACTIVE_LIST_ID, '') || ''
   })
 
   // Persist activeListId
@@ -153,7 +203,13 @@ export function DashboardLayout() {
   })
   const [showSyncTooltip, setShowSyncTooltip] = useState(false)
 
-  const activeList = lists.find(l => l.id === activeListId && !l.is_deleted) || lists.find(l => !l.is_deleted) || lists[0] || { id: '1', name: 'Main Grocery List' }
+  const activeList = lists.find(l => l.id === activeListId && !l.is_deleted) || lists.find(l => !l.is_deleted) || lists[0]
+
+  useEffect(() => {
+    if (activeList && activeList.id !== activeListId) {
+      setActiveListId(activeList.id)
+    }
+  }, [activeList, activeListId])
 
   // Derive syncStatus dynamically to avoid state synchronization side effects
   const isStale = (() => {
@@ -175,14 +231,14 @@ export function DashboardLayout() {
     if (isSyncing) return
     
     try {
-      const response = await syncNow(items, lists, stores, categories, itemStoreInfos)
+      const response = await syncNow(items, lists, stores, categories, itemStoreInfos, listMembers)
       if (response) {
         const mergedItems = resolveConflicts(items, response.remote_grocery_changes)
         setItems(mergedItems.map(item => {
           const remoteRaw = item as any
           return {
             ...item,
-            listId: remoteRaw.listId || remoteRaw.list_id || '1',
+            listId: remoteRaw.listId || remoteRaw.list_id || '',
             categoryId: remoteRaw.categoryId || remoteRaw.category_id,
             createdAt: remoteRaw.createdAt || remoteRaw.created_at,
             isActive: remoteRaw.isActive !== undefined ? remoteRaw.isActive : remoteRaw.is_active,
@@ -193,7 +249,7 @@ export function DashboardLayout() {
         }))
 
         const mergedLists = resolveListConflicts(lists, response.remote_grocery_list_changes)
-        const mappedLists = mergedLists.map(list => {
+        const mappedLists: GroceryList[] = mergedLists.map(list => {
           const remoteRaw = list as any
           return {
             ...list,
@@ -201,17 +257,56 @@ export function DashboardLayout() {
             createdAt: remoteRaw.createdAt || remoteRaw.created_at,
           }
         })
-        const finalLists = mappedLists.filter(l => !l.is_deleted).length > 0 ? mappedLists : [
-          { id: '1', name: 'Main Grocery List', sync_state: 'SYNCED' as SyncState, version: 1, is_deleted: false, createdAt: Date.now() }
-        ]
+
+        const mergedMembers = resolveListMemberConflicts(listMembers, response.remote_grocery_list_member_changes)
+        const mappedMembers: GroceryListMember[] = mergedMembers.map(member => {
+          const remoteRaw = member as any
+          return {
+            ...member,
+            listId: remoteRaw.listId || remoteRaw.list_id || '',
+            userId: remoteRaw.userId || remoteRaw.user_id || '',
+            joinedAt: remoteRaw.joinedAt || remoteRaw.joined_at,
+          }
+        })
+
+        const activeLists = mappedLists.filter(l => !l.is_deleted)
+        let finalLists: GroceryList[] = mappedLists
+        let finalMembers: GroceryListMember[] = mappedMembers
+
+        if (activeLists.length === 0) {
+          const defaultListId = generateUuid()
+          const defaultList: GroceryList = {
+            id: defaultListId,
+            name: 'My List',
+            ownerId: user?.id,
+            createdAt: Date.now(),
+            sync_state: 'PENDING_INSERT',
+            version: 1,
+            is_deleted: false,
+          }
+          const defaultMember: GroceryListMember = {
+            id: generateUuid(),
+            listId: defaultListId,
+            userId: user?.id || '',
+            role: 'OWNER',
+            joinedAt: Date.now(),
+            sync_state: 'PENDING_INSERT',
+            version: 1,
+            is_deleted: false,
+          }
+          finalLists = [...mappedLists, defaultList]
+          finalMembers = [...mappedMembers, defaultMember]
+        }
+
         setLists(finalLists)
+        setListMembers(finalMembers)
 
         const mergedStores = resolveStoreConflicts(stores, response.remote_store_changes)
         setStores(mergedStores.map(store => {
           const remoteRaw = store as any
           return {
             ...store,
-            listId: remoteRaw.listId || remoteRaw.list_id || '1',
+            listId: remoteRaw.listId || remoteRaw.list_id || '',
             isDefaultSupported: remoteRaw.isDefaultSupported !== undefined ? remoteRaw.isDefaultSupported : remoteRaw.is_default_supported,
             userId: remoteRaw.userId || remoteRaw.user_id,
           }
@@ -222,7 +317,7 @@ export function DashboardLayout() {
           const remoteRaw = cat as any
           return {
             ...cat,
-            listId: remoteRaw.listId || remoteRaw.list_id || '1',
+            listId: remoteRaw.listId || remoteRaw.list_id || '',
             userId: remoteRaw.userId || remoteRaw.user_id,
           }
         }))
@@ -232,7 +327,7 @@ export function DashboardLayout() {
           const remoteRaw = info as any
           return {
             ...info,
-            listId: remoteRaw.listId || remoteRaw.list_id || '1',
+            listId: remoteRaw.listId || remoteRaw.list_id || '',
             groceryItemId: remoteRaw.groceryItemId || remoteRaw.grocery_item_id,
             storeId: remoteRaw.storeId || remoteRaw.store_id,
             isAvailable: remoteRaw.isAvailable !== undefined ? remoteRaw.isAvailable : remoteRaw.is_available,
