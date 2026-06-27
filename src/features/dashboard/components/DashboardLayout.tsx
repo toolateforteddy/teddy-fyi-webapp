@@ -207,6 +207,7 @@ export function DashboardLayout() {
 
   useEffect(() => {
     if (activeList && activeList.id !== activeListId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveListId(activeList.id)
     }
   }, [activeList, activeListId])
@@ -228,7 +229,7 @@ export function DashboardLayout() {
 
   // Triggers manual sync using the real syncNow hook
   const handleManualSync = async () => {
-    if (isSyncing) return
+    if (isSyncing) return null
     
     try {
       const response = await syncNow(items, lists, stores, categories, itemStoreInfos, listMembers)
@@ -337,10 +338,12 @@ export function DashboardLayout() {
 
         setLastSyncedAt(response.server_timestamp)
         storage.setItem(STORAGE_KEYS.LAST_SYNCED, response.server_timestamp)
+        return response
       }
     } catch (err) {
       console.error('[Sync] Manual sync failed:', err)
     }
+    return null
   }
 
   // Trigger initial sync on mount to pull server data
