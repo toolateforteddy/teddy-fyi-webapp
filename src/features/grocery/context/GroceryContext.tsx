@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react'
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react'
 import { useAuth } from '@/features/auth/hooks/useAuth'
 import { useGrocerySync } from '@/features/sync/hooks/useGrocerySync'
 import { storage } from '@/utils/storage'
@@ -240,57 +240,59 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
     isSyncing 
   } = useGrocerySync()
 
+  const isSyncingRef = useRef(false)
+  const syncNeededRef = useRef(false)
+
   // Triggers manual sync using the real syncNow hook
-  const handleManualSync = async () => {
-    if (isSyncing) return null
+  const handleManualSync = async (): Promise<any> => {
+    if (isSyncingRef.current) {
+      syncNeededRef.current = true
+      return null
+    }
     if (!user) return null
-    
+
+    isSyncingRef.current = true
+
+    // Capture snapshots of the current state at the exact time sync starts
+    const currentItems = items
+    const currentLists = lists
+    const currentStores = stores
+    const currentCategories = categories
+    const currentItemStoreInfos = itemStoreInfos
+    const currentListMembers = listMembers
+
+    const sentItemIds = new Set(currentItems.filter(item => item.sync_state !== 'SYNCED').map(item => item.id))
+    const sentListIds = new Set(currentLists.filter(list => list.sync_state !== 'SYNCED').map(list => list.id))
+    const sentStoreIds = new Set(currentStores.filter(store => store.sync_state !== 'SYNCED').map(store => store.id))
+    const sentCategoryIds = new Set(currentCategories.filter(category => category.sync_state !== 'SYNCED').map(category => category.id))
+    const sentMemberIds = new Set(currentListMembers.filter(member => member.sync_state !== 'SYNCED').map(member => member.id))
+    const sentStoreInfoIds = new Set(
+      currentItemStoreInfos
+        .filter(info => info.sync_state !== 'SYNCED')
+        .map(info => `${info.groceryItemId}-${info.storeId}`)
+    )
+
     try {
-      const response = await syncNow(items, lists, stores, categories, itemStoreInfos, listMembers)
+      const response = await syncNow(
+        currentItems,
+        currentLists,
+        currentStores,
+        currentCategories,
+        currentItemStoreInfos,
+        currentListMembers
+      )
+
       if (response) {
-        const mergedItems = resolveConflicts(items, response.remote_grocery_changes)
-        setItems(sortItems(mergedItems.map(item => {
-          const remoteRaw = item as any
-          return {
-            ...item,
-            listId: remoteRaw.listId || remoteRaw.list_id || '',
-            categoryId: remoteRaw.categoryId || remoteRaw.category_id,
-            createdAt: remoteRaw.createdAt || remoteRaw.created_at,
-            isActive: remoteRaw.isActive !== undefined ? remoteRaw.isActive : remoteRaw.is_active,
-            isBought: remoteRaw.isBought !== undefined ? remoteRaw.isBought : remoteRaw.is_bought,
-            timesBought: remoteRaw.timesBought !== undefined ? remoteRaw.timesBought : remoteRaw.times_bought,
-            userId: remoteRaw.userId || remoteRaw.user_id,
-          }
-        })))
-
-        const mergedLists = resolveListConflicts(lists, response.remote_grocery_list_changes)
-        const mappedLists: GroceryList[] = mergedLists.map(list => {
-          const remoteRaw = list as any
-          return {
-            ...list,
-            ownerId: remoteRaw.ownerId || remoteRaw.owner_id,
-            createdAt: remoteRaw.createdAt || remoteRaw.created_at,
-          }
-        })
-
-        const mergedMembers = resolveListMemberConflicts(listMembers, response.remote_grocery_list_member_changes)
-        const mappedMembers: GroceryListMember[] = mergedMembers.map(member => {
-          const remoteRaw = member as any
-          return {
-            ...member,
-            listId: remoteRaw.listId || remoteRaw.list_id || '',
-            userId: remoteRaw.userId || remoteRaw.user_id || '',
-            joinedAt: remoteRaw.joinedAt || remoteRaw.joined_at,
-          }
-        })
-
-        const activeLists = mappedLists.filter(l => !l.is_deleted)
-        let finalLists: GroceryList[] = mappedLists
-        let finalMembers: GroceryListMember[] = mappedMembers
-
-        if (activeLists.length === 0) {
+        // Resolve default list/member before state updates to keep them aligned
+        const mergedListsForCheck = resolveListConflicts(currentLists, response.remote_grocery_list_changes, sentListIds)
+        const activeListsForCheck = mergedListsForCheck.filter(l => !l.is_deleted)
+        
+        let defaultList: GroceryList | null = null
+        let defaultMember: GroceryListMember | null = null
+        
+        if (activeListsForCheck.length === 0) {
           const defaultListId = generateUuid()
-          const defaultList: GroceryList = {
+          defaultList = {
             id: defaultListId,
             name: 'My List',
             ownerId: user?.id,
@@ -299,7 +301,7 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
             version: 1,
             is_deleted: false,
           }
-          const defaultMember: GroceryListMember = {
+          defaultMember = {
             id: generateUuid(),
             listId: defaultListId,
             userId: user?.id || '',
@@ -309,46 +311,98 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
             version: 1,
             is_deleted: false,
           }
-          finalLists = [...mappedLists, defaultList]
-          finalMembers = [...mappedMembers, defaultMember]
         }
 
-        setLists(sortLists(finalLists))
-        setListMembers(sortMembers(finalMembers))
+        // Apply functional updates to all states using the resolved conflicts and sent IDs
+        setItems(prev => {
+          const merged = resolveConflicts(prev, response.remote_grocery_changes, sentItemIds)
+          return sortItems(merged.map(item => {
+            const remoteRaw = item as any
+            return {
+              ...item,
+              listId: remoteRaw.listId || remoteRaw.list_id || '',
+              categoryId: remoteRaw.categoryId || remoteRaw.category_id,
+              createdAt: remoteRaw.createdAt || remoteRaw.created_at,
+              isActive: remoteRaw.isActive !== undefined ? remoteRaw.isActive : remoteRaw.is_active,
+              isBought: remoteRaw.isBought !== undefined ? remoteRaw.isBought : remoteRaw.is_bought,
+              timesBought: remoteRaw.timesBought !== undefined ? remoteRaw.timesBought : remoteRaw.times_bought,
+              userId: remoteRaw.userId || remoteRaw.user_id,
+            }
+          }))
+        })
 
-        const mergedStores = resolveStoreConflicts(stores, response.remote_store_changes)
-        setStores(sortStores(mergedStores.map(store => {
-          const remoteRaw = store as any
-          return {
-            ...store,
-            listId: remoteRaw.listId || remoteRaw.list_id || '',
-            isDefaultSupported: remoteRaw.isDefaultSupported !== undefined ? remoteRaw.isDefaultSupported : remoteRaw.is_default_supported,
-            userId: remoteRaw.userId || remoteRaw.user_id,
+        setLists(prev => {
+          const merged = resolveListConflicts(prev, response.remote_grocery_list_changes, sentListIds)
+          const mapped = merged.map(list => {
+            const remoteRaw = list as any
+            return {
+              ...list,
+              ownerId: remoteRaw.ownerId || remoteRaw.owner_id,
+              createdAt: remoteRaw.createdAt || remoteRaw.created_at,
+            }
+          })
+          if (defaultList) {
+            return sortLists([...mapped, defaultList])
           }
-        })))
+          return sortLists(mapped)
+        })
 
-        const mergedCategories = resolveCategoryConflicts(categories, response.remote_category_changes)
-        setCategories(sortCategories(mergedCategories.map(cat => {
-          const remoteRaw = cat as any
-          return {
-            ...cat,
-            listId: remoteRaw.listId || remoteRaw.list_id || '',
-            userId: remoteRaw.userId || remoteRaw.user_id,
+        setListMembers(prev => {
+          const merged = resolveListMemberConflicts(prev, response.remote_grocery_list_member_changes, sentMemberIds)
+          const mapped = merged.map(member => {
+            const remoteRaw = member as any
+            return {
+              ...member,
+              listId: remoteRaw.listId || remoteRaw.list_id || '',
+              userId: remoteRaw.userId || remoteRaw.user_id || '',
+              joinedAt: remoteRaw.joinedAt || remoteRaw.joined_at,
+            }
+          })
+          if (defaultMember) {
+            return sortMembers([...mapped, defaultMember])
           }
-        })))
+          return sortMembers(mapped)
+        })
 
-        const mergedStoreInfos = resolveStoreInfoConflicts(itemStoreInfos, response.remote_grocery_item_store_info_changes)
-        setItemStoreInfos(sortStoreInfos(mergedStoreInfos.map(info => {
-          const remoteRaw = info as any
-          return {
-            ...info,
-            listId: remoteRaw.listId || remoteRaw.list_id || '',
-            groceryItemId: remoteRaw.groceryItemId || remoteRaw.grocery_item_id,
-            storeId: remoteRaw.storeId || remoteRaw.store_id,
-            isAvailable: remoteRaw.isAvailable !== undefined ? remoteRaw.isAvailable : remoteRaw.is_available,
-            userId: remoteRaw.userId || remoteRaw.user_id,
-          }
-        })))
+        setStores(prev => {
+          const merged = resolveStoreConflicts(prev, response.remote_store_changes, sentStoreIds)
+          return sortStores(merged.map(store => {
+            const remoteRaw = store as any
+            return {
+              ...store,
+              listId: remoteRaw.listId || remoteRaw.list_id || '',
+              isDefaultSupported: remoteRaw.isDefaultSupported !== undefined ? remoteRaw.isDefaultSupported : remoteRaw.is_default_supported,
+              userId: remoteRaw.userId || remoteRaw.user_id,
+            }
+          }))
+        })
+
+        setCategories(prev => {
+          const merged = resolveCategoryConflicts(prev, response.remote_category_changes, sentCategoryIds)
+          return sortCategories(merged.map(cat => {
+            const remoteRaw = cat as any
+            return {
+              ...cat,
+              listId: remoteRaw.listId || remoteRaw.list_id || '',
+              userId: remoteRaw.userId || remoteRaw.user_id,
+            }
+          }))
+        })
+
+        setItemStoreInfos(prev => {
+          const merged = resolveStoreInfoConflicts(prev, response.remote_grocery_item_store_info_changes, sentStoreInfoIds)
+          return sortStoreInfos(merged.map(info => {
+            const remoteRaw = info as any
+            return {
+              ...info,
+              listId: remoteRaw.listId || remoteRaw.list_id || '',
+              groceryItemId: remoteRaw.groceryItemId || remoteRaw.grocery_item_id,
+              storeId: remoteRaw.storeId || remoteRaw.store_id,
+              isAvailable: remoteRaw.isAvailable !== undefined ? remoteRaw.isAvailable : remoteRaw.is_available,
+              userId: remoteRaw.userId || remoteRaw.user_id,
+            }
+          }))
+        })
 
         setLastSyncedAt(response.server_timestamp)
         storage.setItem(STORAGE_KEYS.LAST_SYNCED, response.server_timestamp)
@@ -356,6 +410,14 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (err) {
       console.error('[Sync] Manual sync failed:', err)
+    } finally {
+      isSyncingRef.current = false
+      if (syncNeededRef.current) {
+        syncNeededRef.current = false
+        setTimeout(() => {
+          handleManualSync().catch(err => console.error('[Sync] Auto-manual sync error:', err))
+        }, 300)
+      }
     }
     return null
   }

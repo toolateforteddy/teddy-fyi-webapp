@@ -5,14 +5,16 @@ import { storage } from '@/utils/storage'
 import { STORAGE_KEYS } from '@/config/storageKeys'
 
 // Mock useAuth
+const mockUser = { id: 'user-123', email: 'test@example.com' }
 vi.mock('@/features/auth/hooks/useAuth', () => ({
   useAuth: () => ({
-    user: { id: 'user-123', email: 'test@example.com' }
+    user: mockUser,
+    isLoading: false
   })
 }))
 
 // Mock useGrocerySync
-const mockSyncNow = vi.fn()
+const mockSyncNow = vi.fn().mockResolvedValue(null)
 const mockResolveConflicts = vi.fn((local) => local)
 const mockResolveListConflicts = vi.fn((local) => local)
 const mockResolveListMemberConflicts = vi.fn((local) => local)
@@ -257,6 +259,79 @@ describe('GroceryContext Provider', () => {
     expect(capturedLists[0].id).toBe('list-1')
     expect(capturedLists[1].id).toBe('list-3')
     expect(capturedLists[2].id).toBe('list-2')
+  })
+
+  it('should queue a subsequent sync if handleManualSync is called while a sync is in progress', async () => {
+    vi.useFakeTimers()
+    
+    // Setup mockSyncNow to return a promise that we can control
+    let resolveFirstSync: any
+    const firstSyncPromise = new Promise(resolve => {
+      resolveFirstSync = resolve
+    })
+    mockSyncNow.mockImplementationOnce(() => firstSyncPromise)
+    mockSyncNow.mockImplementationOnce(() => Promise.resolve({
+      server_timestamp: '2026-06-27T19:00:00Z',
+      remote_grocery_changes: [],
+      remote_grocery_list_changes: [],
+      remote_grocery_list_member_changes: [],
+      remote_store_changes: [],
+      remote_category_changes: [],
+      remote_grocery_item_store_info_changes: [],
+    }))
+    mockSyncNow.mockImplementationOnce(() => Promise.resolve({
+      server_timestamp: '2026-06-27T20:00:00Z',
+      remote_grocery_changes: [],
+      remote_grocery_list_changes: [],
+      remote_grocery_list_member_changes: [],
+      remote_store_changes: [],
+      remote_category_changes: [],
+      remote_grocery_item_store_info_changes: [],
+    }))
+
+    render(
+      <GroceryProvider>
+        <ConsumerComponent />
+      </GroceryProvider>
+    )
+
+    const syncBtn = screen.getByTestId('sync-btn')
+    
+    // Trigger first sync
+    await act(async () => {
+      fireEvent.click(syncBtn)
+    })
+    
+    // Trigger second sync while first is in progress
+    await act(async () => {
+      fireEvent.click(syncBtn)
+    })
+    
+    // Resolve the first sync
+    await act(async () => {
+      resolveFirstSync({
+        server_timestamp: '2026-06-27T18:00:00Z',
+        remote_grocery_changes: [],
+        remote_grocery_list_changes: [],
+        remote_grocery_list_member_changes: [],
+        remote_store_changes: [],
+        remote_category_changes: [],
+        remote_grocery_item_store_info_changes: [],
+      })
+    })
+    
+    // Verify syncNow is still not called yet
+    expect(mockSyncNow).toHaveBeenCalledTimes(1)
+    
+    // Run the setTimeout timer (300ms)
+    await act(async () => {
+      vi.advanceTimersByTime(300)
+    })
+    
+    // Now verify the second sync was triggered!
+    expect(mockSyncNow).toHaveBeenCalledTimes(2)
+    
+    vi.useRealTimers()
   })
 })
 

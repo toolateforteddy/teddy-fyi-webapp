@@ -283,7 +283,8 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
   // Conflict Resolution helper to merge server changes into local state
   const resolveConflicts = useCallback((
     localItems: GroceryItem[],
-    remoteChanges: ChangeDelta<GroceryItem>[] = []
+    remoteChanges: ChangeDelta<GroceryItem>[] = [],
+    sentIds?: Set<string>
   ): GroceryItem[] => {
     let merged = [...localItems]
 
@@ -334,9 +335,11 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
 
     return merged.map(item => {
       if (item.sync_state === 'PENDING_INSERT' || item.sync_state === 'PENDING_UPDATE') {
-        return {
-          ...item,
-          sync_state: 'SYNCED'
+        if (!sentIds || sentIds.has(item.id)) {
+          return {
+            ...item,
+            sync_state: 'SYNCED'
+          }
         }
       }
       return item
@@ -346,7 +349,8 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
   // Conflict Resolution helper for Lists
   const resolveListConflicts = useCallback((
     localLists: GroceryList[],
-    remoteChanges: ChangeDelta<GroceryList>[] = []
+    remoteChanges: ChangeDelta<GroceryList>[] = [],
+    sentIds?: Set<string>
   ): GroceryList[] => {
     let merged = [...localLists]
 
@@ -389,9 +393,11 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
 
     return merged.map(list => {
       if (list.sync_state === 'PENDING_INSERT' || list.sync_state === 'PENDING_UPDATE') {
-        return {
-          ...list,
-          sync_state: 'SYNCED'
+        if (!sentIds || sentIds.has(list.id)) {
+          return {
+            ...list,
+            sync_state: 'SYNCED'
+          }
         }
       }
       return list
@@ -401,7 +407,8 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
   // Conflict Resolution helper for Stores
   const resolveStoreConflicts = useCallback((
     localStores: Store[],
-    remoteChanges: ChangeDelta<Store>[] = []
+    remoteChanges: ChangeDelta<Store>[] = [],
+    sentIds?: Set<string>
   ): Store[] => {
     let merged = [...localStores]
 
@@ -445,9 +452,11 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
 
     return merged.map(store => {
       if (store.sync_state === 'PENDING_INSERT' || store.sync_state === 'PENDING_UPDATE') {
-        return {
-          ...store,
-          sync_state: 'SYNCED'
+        if (!sentIds || sentIds.has(store.id)) {
+          return {
+            ...store,
+            sync_state: 'SYNCED'
+          }
         }
       }
       return store
@@ -457,7 +466,8 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
   // Conflict Resolution helper for Categories
   const resolveCategoryConflicts = useCallback((
     localCategories: Category[],
-    remoteChanges: ChangeDelta<Category>[] = []
+    remoteChanges: ChangeDelta<Category>[] = [],
+    sentIds?: Set<string>
   ): Category[] => {
     let merged = [...localCategories]
 
@@ -500,9 +510,11 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
 
     return merged.map(category => {
       if (category.sync_state === 'PENDING_INSERT' || category.sync_state === 'PENDING_UPDATE') {
-        return {
-          ...category,
-          sync_state: 'SYNCED'
+        if (!sentIds || sentIds.has(category.id)) {
+          return {
+            ...category,
+            sync_state: 'SYNCED'
+          }
         }
       }
       return category
@@ -512,7 +524,8 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
   // Conflict Resolution helper for Store Info mapping
   const resolveStoreInfoConflicts = useCallback((
     localInfos: GroceryItemStoreInfo[],
-    remoteChanges: ChangeDelta<GroceryItemStoreInfo>[] = []
+    remoteChanges: ChangeDelta<GroceryItemStoreInfo>[] = [],
+    sentIds?: Set<string>
   ): GroceryItemStoreInfo[] => {
     let merged = [...localInfos]
 
@@ -588,9 +601,11 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
 
     return merged.map(info => {
       if (info.sync_state === 'PENDING_INSERT' || info.sync_state === 'PENDING_UPDATE') {
-        return {
-          ...info,
-          sync_state: 'SYNCED'
+        if (!sentIds || sentIds.has(`${info.groceryItemId}-${info.storeId}`)) {
+          return {
+            ...info,
+            sync_state: 'SYNCED'
+          }
         }
       }
       return info
@@ -600,7 +615,8 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
   // Conflict Resolution helper for Grocery List Members
   const resolveListMemberConflicts = useCallback((
     localMembers: GroceryListMember[],
-    remoteChanges: ChangeDelta<GroceryListMember>[] = []
+    remoteChanges: ChangeDelta<GroceryListMember>[] = [],
+    sentIds?: Set<string>
   ): GroceryListMember[] => {
     let merged = [...localMembers]
 
@@ -644,9 +660,11 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
 
     return merged.map(member => {
       if (member.sync_state === 'PENDING_INSERT' || member.sync_state === 'PENDING_UPDATE') {
-        return {
-          ...member,
-          sync_state: 'SYNCED'
+        if (!sentIds || sentIds.has(member.id)) {
+          return {
+            ...member,
+            sync_state: 'SYNCED'
+          }
         }
       }
       return member
