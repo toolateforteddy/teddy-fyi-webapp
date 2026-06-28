@@ -184,6 +184,14 @@ export function StoreConfigPanel({ onBack, showToast }: StoreConfigPanelProps) {
                         type="text"
                         value={editingStoreName}
                         onChange={(e) => setEditingStoreName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleUpdateStoreName(store.id)
+                          } else if (e.key === 'Escape') {
+                            setEditingStoreId(null)
+                            setEditingStoreName('')
+                          }
+                        }}
                         className="flex-1 bg-black border border-neutral-800 rounded-lg px-2.5 py-1 text-xs focus:outline-none focus:border-primary text-white"
                         autoFocus
                       />
