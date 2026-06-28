@@ -283,6 +283,28 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading, user])
 
+  // Debounced auto-sync trigger whenever any collections have unsynced (dirty) changes
+  useEffect(() => {
+    if (isLoading || !user) return
+
+    const hasUnsynced =
+      (items || []).some(i => i.sync_state !== 'SYNCED') ||
+      (lists || []).some(l => l.sync_state !== 'SYNCED') ||
+      (listMembers || []).some(m => m.sync_state !== 'SYNCED') ||
+      (stores || []).some(s => s.sync_state !== 'SYNCED') ||
+      (categories || []).some(c => c.sync_state !== 'SYNCED') ||
+      (itemStoreInfos || []).some(info => info.sync_state !== 'SYNCED')
+
+    if (hasUnsynced) {
+      const timer = setTimeout(() => {
+        if (handleManualSyncRef.current) {
+          handleManualSyncRef.current().catch(err => console.error('[Sync] Auto-sync error:', err))
+        }
+      }, 1000)
+      return () => clearTimeout(timer)
+    }
+  }, [items, lists, listMembers, stores, categories, itemStoreInfos, isLoading, user])
+
   // Update local list owner and member user IDs once auth boots/changes
   useEffect(() => {
     if (user?.id) {
