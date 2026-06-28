@@ -82,7 +82,14 @@ function resolveModelConflictsGeneric<T extends HasSyncAndVersion>(
     }
   })
 
-  merged = merged.filter(item => !(item.sync_state === 'PENDING_DELETE' && item.is_deleted))
+  merged = merged.filter(item => {
+    if (item.sync_state === 'PENDING_DELETE' && item.is_deleted) {
+      if (!sentIds || sentIds.has(getId(item))) {
+        return false // Synced successfully; remove from local state
+      }
+    }
+    return true // Keep in local state to be synced in the next batch
+  })
 
   return merged.map(item => {
     if (item.sync_state === 'PENDING_INSERT' || item.sync_state === 'PENDING_UPDATE') {
