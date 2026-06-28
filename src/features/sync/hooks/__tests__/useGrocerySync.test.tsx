@@ -26,7 +26,7 @@ describe('useGrocerySync Hook', () => {
 
   it('should skip sync if check-status returns false and there are no local changes', async () => {
     // Mock /api/sync/check-status response
-    vi.mocked(api.get).mockResolvedValueOnce({ data: { hasChanges: false } })
+    vi.mocked(api.get).mockResolvedValueOnce({ data: { needs_sync: false } })
 
     const { result } = renderHook(() => useGrocerySync())
 
@@ -52,7 +52,7 @@ describe('useGrocerySync Hook', () => {
       remote_grocery_item_store_info_changes: [],
     }
 
-    vi.mocked(api.get).mockResolvedValueOnce({ data: { hasChanges: true } })
+    vi.mocked(api.get).mockResolvedValueOnce({ data: { needs_sync: true } })
     vi.mocked(api.post).mockResolvedValueOnce({ data: mockSyncResponse })
 
     const { result } = renderHook(() => useGrocerySync())
@@ -111,7 +111,7 @@ describe('useGrocerySync Hook', () => {
       remote_grocery_item_store_info_changes: [],
     }
 
-    vi.mocked(api.get).mockResolvedValueOnce({ data: { hasChanges: false } })
+    vi.mocked(api.get).mockResolvedValueOnce({ data: { needs_sync: false } })
     vi.mocked(api.post).mockResolvedValueOnce({ data: mockSyncResponse })
 
     const { result } = renderHook(() => useGrocerySync())
@@ -165,7 +165,7 @@ describe('useGrocerySync Hook', () => {
 
   it('should invoke onSyncError if sync request completely fails', async () => {
     const onSyncErrorSpy = vi.fn()
-    vi.mocked(api.get).mockResolvedValueOnce({ data: { hasChanges: true } })
+    vi.mocked(api.get).mockResolvedValueOnce({ data: { needs_sync: true } })
     vi.mocked(api.post).mockRejectedValueOnce(new Error('Sync failed'))
 
     const { result } = renderHook(() => useGrocerySync({ onSyncError: onSyncErrorSpy }))

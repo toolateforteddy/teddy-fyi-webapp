@@ -185,11 +185,14 @@ function DashboardContent() {
                   onChange={(e) => setActiveListId(e.target.value)}
                   className="bg-black border border-neutral-800 rounded-lg px-3 py-1.5 text-xs font-semibold focus:outline-none focus:border-primary text-white cursor-pointer active:scale-95 transition-all w-[180px]"
                 >
-                  {lists.filter(l => !l.is_deleted).map(list => (
-                    <option key={list.id} value={list.id} className="bg-surface-tile text-white">
-                      {list.name}
-                    </option>
-                  ))}
+                  {lists
+                    .filter(l => !l.is_deleted)
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .map(list => (
+                      <option key={list.id} value={list.id} className="bg-surface-tile text-white">
+                        {list.name}
+                      </option>
+                    ))}
                 </select>
               </div>
             </div>
