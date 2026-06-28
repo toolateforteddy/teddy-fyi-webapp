@@ -59,9 +59,37 @@ function usePersistentState<T>(
     return sorter(mapped)
   })
 
+  const isExternalUpdateRef = useRef(false)
+
   useEffect(() => {
+    if (isExternalUpdateRef.current) {
+      isExternalUpdateRef.current = false
+      return
+    }
     storage.setItem(key, sorter(state))
   }, [key, state, sorter])
+
+  useEffect(() => {
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === key && event.newValue !== null) {
+        try {
+          const parsed = JSON.parse(event.newValue)
+          if (Array.isArray(parsed)) {
+            const mapped = parsed.map(normalizer)
+            isExternalUpdateRef.current = true
+            setState(sorter(mapped))
+          }
+        } catch (e) {
+          console.error('[Storage] Failed to parse cross-tab storage update:', e)
+        }
+      }
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+    }
+  }, [key, normalizer, sorter])
 
   return [state, setState]
 }
@@ -98,15 +126,46 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
     return storage.getItem<string>(STORAGE_KEYS.ACTIVE_LIST_ID, '') || ''
   })
 
+  const isExternalActiveListRef = useRef(false)
+
   useEffect(() => {
+    if (isExternalActiveListRef.current) {
+      isExternalActiveListRef.current = false
+      return
+    }
     storage.setItem(STORAGE_KEYS.ACTIVE_LIST_ID, activeListId)
   }, [activeListId])
+
+  useEffect(() => {
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === STORAGE_KEYS.ACTIVE_LIST_ID && event.newValue !== null) {
+        isExternalActiveListRef.current = true
+        setActiveListId(event.newValue)
+      }
+    }
+    window.addEventListener('storage', handleStorageChange)
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+    }
+  }, [])
 
   // Sync state tracking
   const [lastSyncedAt, setLastSyncedAt] = useState<string>(() => {
     const saved = storage.getItem<string>(STORAGE_KEYS.LAST_SYNCED, '')
     return saved || new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString()
   })
+
+  useEffect(() => {
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === STORAGE_KEYS.LAST_SYNCED && event.newValue !== null) {
+        setLastSyncedAt(event.newValue)
+      }
+    }
+    window.addEventListener('storage', handleStorageChange)
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+    }
+  }, [])
 
   // Derive sync status
   const isStale = (() => {
