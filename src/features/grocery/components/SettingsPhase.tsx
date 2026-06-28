@@ -27,8 +27,22 @@ export function SettingsPhase() {
     items, 
     lists, 
     stores, 
-    categories 
+    categories,
+    handleManualSync
   } = useGrocery()
+
+  const checkAndSync = (key: string) => {
+    try {
+      const raw = storage.getItem<any[]>(key, [])
+      const hasUnsynced = raw.some(item => item && item.sync_state !== 'SYNCED')
+      if (hasUnsynced) {
+        console.log(`[Sync] Safety net: Unsynced items found in local storage for key ${key}. Triggering manual sync...`)
+        handleManualSync().catch(err => console.error('[Sync] Safety net sync failed:', err))
+      }
+    } catch (e) {
+      console.error('[Sync] Error in safety net check:', e)
+    }
+  }
 
   const { user, logout } = useAuth()
   const [loggingOut, setLoggingOut] = useState(false)
@@ -127,7 +141,10 @@ export function SettingsPhase() {
           </div>
         )}
         <StoreConfigPanel
-          onBack={() => setActiveSubView('main')}
+          onBack={() => {
+            setActiveSubView('main')
+            checkAndSync(STORAGE_KEYS.STORES)
+          }}
           showToast={showToast}
         />
       </>
@@ -144,7 +161,10 @@ export function SettingsPhase() {
           </div>
         )}
         <CategoryConfigPanel
-          onBack={() => setActiveSubView('main')}
+          onBack={() => {
+            setActiveSubView('main')
+            checkAndSync(STORAGE_KEYS.CATEGORIES)
+          }}
           showToast={showToast}
         />
       </>

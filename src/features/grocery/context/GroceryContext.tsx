@@ -77,6 +77,22 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
   const [categories, setCategories] = usePersistentState(STORAGE_KEYS.CATEGORIES, normalizeCategory, sortCategories)
   const [itemStoreInfos, setItemStoreInfos] = usePersistentState(STORAGE_KEYS.ITEM_STORE_INFOS, normalizeStoreInfo, sortStoreInfos)
 
+  // Declare refs to keep track of the latest states without closing over stale render values
+  const itemsRef = useRef(items)
+  const listsRef = useRef(lists)
+  const listMembersRef = useRef(listMembers)
+  const storesRef = useRef(stores)
+  const categoriesRef = useRef(categories)
+  const itemStoreInfosRef = useRef(itemStoreInfos)
+
+  // Keep refs up-to-date in the render body
+  itemsRef.current = items
+  listsRef.current = lists
+  listMembersRef.current = listMembers
+  storesRef.current = stores
+  categoriesRef.current = categories
+  itemStoreInfosRef.current = itemStoreInfos
+
   // Active list ID management
   const [activeListId, setActiveListId] = useState<string>(() => {
     return storage.getItem<string>(STORAGE_KEYS.ACTIVE_LIST_ID, '') || ''
@@ -114,6 +130,7 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
 
   const isSyncingRef = useRef(false)
   const syncNeededRef = useRef(false)
+  const handleManualSyncRef = useRef<() => Promise<any>>(null as any)
 
   // Triggers manual sync using the real syncNow hook
   const handleManualSync = async (): Promise<any> => {
@@ -125,13 +142,13 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
 
     isSyncingRef.current = true
 
-    // Capture snapshots of the current state at the exact time sync starts
-    const currentItems = items
-    const currentLists = lists
-    const currentStores = stores
-    const currentCategories = categories
-    const currentItemStoreInfos = itemStoreInfos
-    const currentListMembers = listMembers
+    // Capture snapshots of the current state at the exact time sync starts using the latest refs
+    const currentItems = itemsRef.current
+    const currentLists = listsRef.current
+    const currentStores = storesRef.current
+    const currentCategories = categoriesRef.current
+    const currentItemStoreInfos = itemStoreInfosRef.current
+    const currentListMembers = listMembersRef.current
 
     const sentItemIds = new Set(currentItems.filter(item => item.sync_state !== 'SYNCED').map(item => item.id))
     const sentListIds = new Set(currentLists.filter(list => list.sync_state !== 'SYNCED').map(list => list.id))
@@ -235,12 +252,17 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
       if (syncNeededRef.current) {
         syncNeededRef.current = false
         setTimeout(() => {
-          handleManualSync().catch(err => console.error('[Sync] Auto-manual sync error:', err))
+          if (handleManualSyncRef.current) {
+            handleManualSyncRef.current().catch(err => console.error('[Sync] Auto-manual sync error:', err))
+          }
         }, 300)
       }
     }
     return null
   }
+
+  // Update handleManualSyncRef
+  handleManualSyncRef.current = handleManualSync
 
   // Auto-sync on mount and on online reconnect
   useEffect(() => {
