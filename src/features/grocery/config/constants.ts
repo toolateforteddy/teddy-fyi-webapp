@@ -38,5 +38,5 @@ export function getCategoryColor(categoryId: string | number | undefined): strin
   return colors[Math.abs(hash) % colors.length]
 }
 
-export const DEFAULT_RECOMMENDATIONS: { name: string; categoryId: string; storeId: number; timesBought: number }[] = []
+export const DEFAULT_RECOMMENDATIONS: { name: string; categoryId: string; storeId: string; timesBought: number }[] = []
 

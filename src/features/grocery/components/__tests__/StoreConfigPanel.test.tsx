@@ -16,8 +16,8 @@ describe('StoreConfigPanel Component', () => {
   const mockOnBack = vi.fn()
 
   const mockStores: Store[] = [
-    { id: 1, name: 'Trader Joes', position: 1, isDefaultSupported: true, listId: 'list-1', sync_state: 'SYNCED', version: 1, is_deleted: false },
-    { id: 2, name: 'Costco', position: 2, isDefaultSupported: false, listId: 'list-1', sync_state: 'SYNCED', version: 1, is_deleted: false },
+    { id: 'store-1', name: 'Trader Joes', position: 1, isDefaultSupported: true, listId: 'list-1', sync_state: 'SYNCED', version: 1, is_deleted: false },
+    { id: 'store-2', name: 'Costco', position: 2, isDefaultSupported: false, listId: 'list-1', sync_state: 'SYNCED', version: 1, is_deleted: false },
   ]
 
   beforeEach(() => {

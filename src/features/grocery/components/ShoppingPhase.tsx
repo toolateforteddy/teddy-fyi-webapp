@@ -10,8 +10,8 @@ import { STORAGE_KEYS } from '@/config/storageKeys'
 export function ShoppingPhase() {
   const { activeListId, items, setItems, stores, categories, itemStoreInfos } = useGrocery()
 
-  const [selectedStoreId, setSelectedStoreId] = useState<number | null>(() => {
-    return storage.getItem<number | null>(STORAGE_KEYS.SELECTED_STORE_ID, null)
+  const [selectedStoreId, setSelectedStoreId] = useState<string | null>(() => {
+    return storage.getItem<string | null>(STORAGE_KEYS.SELECTED_STORE_ID, null)
   })
 
   const [isConfirmTripOpen, setIsConfirmTripOpen] = useState(false)

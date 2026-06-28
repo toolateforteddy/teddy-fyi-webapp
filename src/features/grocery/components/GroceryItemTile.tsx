@@ -12,7 +12,7 @@ interface GroceryItemTileProps {
   onToggleExpand: () => void
   onUpdateQuantity: (itemId: string, increment: boolean) => void
   onUpdateCategory: (itemId: string, categoryId: string | undefined) => void
-  onToggleStore: (itemId: string, storeId: number) => void
+  onToggleStore: (itemId: string, storeId: string) => void
   onDeleteItem: (itemId: string) => void
 }
 

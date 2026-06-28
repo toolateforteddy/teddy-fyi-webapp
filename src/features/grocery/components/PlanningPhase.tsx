@@ -35,7 +35,7 @@ function useTimeoutState<T extends string | number>(delay = 2000): [Record<T, bo
 export function PlanningPhase() {
   const { activeListId, items, setItems, stores, setItemStoreInfos } = useGrocery()
 
-  const [selectedStoreId, setSelectedStoreId] = useState<number | null>(null)
+  const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null)
   const [addedItems, triggerAdded] = useTimeoutState<string>(2000)
 
   // Memoize active stores list
@@ -60,7 +60,7 @@ export function PlanningPhase() {
       .map(item => ({
         name: item.name,
         categoryId: item.categoryId || '1',
-        storeId: selectedStoreId || 1,
+        storeId: selectedStoreId || '',
         timesBought: item.timesBought
       }))
   }, [items, activeListId, selectedStoreId])

@@ -13,8 +13,8 @@ describe('ShoppingPhase Component', () => {
   const mockSetItems = vi.fn()
   
   const mockStores: Store[] = [
-    { id: 1, name: 'Trader Joes', position: 1, isDefaultSupported: true, listId: 'list-1', sync_state: 'SYNCED', version: 1, is_deleted: false },
-    { id: 2, name: 'Costco', position: 2, isDefaultSupported: false, listId: 'list-1', sync_state: 'SYNCED', version: 1, is_deleted: false },
+    { id: 'store-1', name: 'Trader Joes', position: 1, isDefaultSupported: true, listId: 'list-1', sync_state: 'SYNCED', version: 1, is_deleted: false },
+    { id: 'store-2', name: 'Costco', position: 2, isDefaultSupported: false, listId: 'list-1', sync_state: 'SYNCED', version: 1, is_deleted: false },
   ]
 
   const mockCategories: Category[] = [
@@ -29,10 +29,10 @@ describe('ShoppingPhase Component', () => {
   ]
 
   const mockItemStoreInfos: GroceryItemStoreInfo[] = [
-    // Apples (item-1) available at Trader Joes (1)
-    { groceryItemId: 'item-1', storeId: 1, isAvailable: true, listId: 'list-1', sync_state: 'SYNCED', version: 1, is_deleted: false },
-    // Milk (item-2) available at Costco (2)
-    { groceryItemId: 'item-2', storeId: 2, isAvailable: true, listId: 'list-1', sync_state: 'SYNCED', version: 1, is_deleted: false },
+    // Apples (item-1) available at Trader Joes (store-1)
+    { groceryItemId: 'item-1', storeId: 'store-1', isAvailable: true, listId: 'list-1', sync_state: 'SYNCED', version: 1, is_deleted: false },
+    // Milk (item-2) available at Costco (store-2)
+    { groceryItemId: 'item-2', storeId: 'store-2', isAvailable: true, listId: 'list-1', sync_state: 'SYNCED', version: 1, is_deleted: false },
   ]
 
   beforeEach(() => {

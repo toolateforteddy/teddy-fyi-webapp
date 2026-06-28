@@ -14,8 +14,8 @@ describe('NeedPhase Component', () => {
   const mockSetItemStoreInfos = vi.fn()
 
   const mockStores: Store[] = [
-    { id: 1, name: 'Trader Joes', position: 1, isDefaultSupported: true, listId: 'list-1', sync_state: 'SYNCED', version: 1, is_deleted: false },
-    { id: 2, name: 'Costco', position: 2, isDefaultSupported: false, listId: 'list-1', sync_state: 'SYNCED', version: 1, is_deleted: false },
+    { id: 'store-1', name: 'Trader Joes', position: 1, isDefaultSupported: true, listId: 'list-1', sync_state: 'SYNCED', version: 1, is_deleted: false },
+    { id: 'store-2', name: 'Costco', position: 2, isDefaultSupported: false, listId: 'list-1', sync_state: 'SYNCED', version: 1, is_deleted: false },
   ]
 
   const mockCategories: Category[] = [
@@ -138,7 +138,7 @@ describe('NeedPhase Component', () => {
     const updated = updateFn([])
     expect(updated[0]).toEqual(expect.objectContaining({
       groceryItemId: 'item-1',
-      storeId: 1,
+      storeId: 'store-1',
       isAvailable: true,
       listId: 'list-1',
       sync_state: 'PENDING_INSERT',

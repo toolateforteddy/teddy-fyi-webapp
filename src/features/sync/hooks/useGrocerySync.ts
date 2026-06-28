@@ -518,9 +518,35 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
 
     remoteChanges.forEach(change => {
       const remoteRaw = change.data as any
-      const lastHyphenIndex = String(change.id).lastIndexOf('-')
-      const itemId = remoteRaw ? String(remoteRaw.groceryItemId || remoteRaw.grocery_item_id) : String(change.id).substring(0, lastHyphenIndex)
-      const storeId = remoteRaw ? (remoteRaw.storeId || remoteRaw.store_id) : parseInt(String(change.id).substring(lastHyphenIndex + 1), 10)
+      const changeIdStr = String(change.id)
+      let itemId = ''
+      let storeId = ''
+      
+      if (remoteRaw) {
+        itemId = String(remoteRaw.groceryItemId || remoteRaw.grocery_item_id)
+        storeId = String(remoteRaw.storeId || remoteRaw.store_id)
+      } else {
+        const parts = changeIdStr.split('-')
+        if (parts.length >= 6) {
+          const potentialStoreId = parts.slice(-5).join('-')
+          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+          if (uuidRegex.test(potentialStoreId)) {
+            itemId = parts.slice(0, -5).join('-')
+            storeId = potentialStoreId
+          }
+        }
+        
+        if (!itemId || !storeId) {
+          const lastHyphenIndex = changeIdStr.lastIndexOf('-')
+          if (lastHyphenIndex !== -1) {
+            itemId = changeIdStr.substring(0, lastHyphenIndex)
+            storeId = changeIdStr.substring(lastHyphenIndex + 1)
+          } else {
+            itemId = changeIdStr
+            storeId = ''
+          }
+        }
+      }
 
       const localIndex = merged.findIndex(info => info.groceryItemId === itemId && info.storeId === storeId)
 

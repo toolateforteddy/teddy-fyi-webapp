@@ -41,7 +41,7 @@ export interface GroceryListMember {
 }
 
 export interface Store {
-  id: number;
+  id: string;
   name: string;
   position: number;
   isDefaultSupported: boolean;
@@ -66,7 +66,7 @@ export interface Category {
 
 export interface GroceryItemStoreInfo {
   groceryItemId: string;
-  storeId: number;
+  storeId: string;
   price?: number;
   isAvailable: boolean;
   userId?: string;

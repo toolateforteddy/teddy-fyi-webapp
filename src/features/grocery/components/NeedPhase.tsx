@@ -88,7 +88,7 @@ export function NeedPhase() {
   }, [activeCategories, activeItems])
 
   // Handlers for item modifications
-  const toggleStoreForItem = (itemId: string, storeId: number) => {
+  const toggleStoreForItem = (itemId: string, storeId: string) => {
     setItemStoreInfos(prev => {
       const existingIndex = prev.findIndex(info => info.groceryItemId === itemId && info.storeId === storeId)
       if (existingIndex !== -1) {

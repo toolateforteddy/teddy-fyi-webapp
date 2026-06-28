@@ -1,14 +1,13 @@
 import { useState } from 'react'
 import { ChevronLeft, Plus, MapPin, ChevronUp, ChevronDown, Edit2, Trash2 } from 'lucide-react'
 import { useGrocery } from '@/features/grocery/context/GroceryContext'
+import { generateUuid } from '@/utils/uuid'
 import type { Store } from '@/types/grocery'
 
 interface StoreConfigPanelProps {
   onBack: () => void
   showToast: (msg: string) => void
 }
-
-const generateUniqueId = (): number => Date.now()
 
 export function StoreConfigPanel({ onBack, showToast }: StoreConfigPanelProps) {
   const {
@@ -19,7 +18,7 @@ export function StoreConfigPanel({ onBack, showToast }: StoreConfigPanelProps) {
   } = useGrocery()
 
   const [newStoreName, setNewStoreName] = useState('')
-  const [editingStoreId, setEditingStoreId] = useState<number | null>(null)
+  const [editingStoreId, setEditingStoreId] = useState<string | null>(null)
   const [editingStoreName, setEditingStoreName] = useState('')
 
   const triggerSync = () => {
@@ -35,7 +34,7 @@ export function StoreConfigPanel({ onBack, showToast }: StoreConfigPanelProps) {
     const activeStoresList = (stores || []).filter(s => s.listId === activeListId && !s.is_deleted)
 
     const newStore: Store = {
-      id: generateUniqueId(),
+      id: generateUuid(),
       name: newStoreName.trim(),
       position: activeStoresList.length + 1,
       isDefaultSupported: false,
@@ -51,7 +50,7 @@ export function StoreConfigPanel({ onBack, showToast }: StoreConfigPanelProps) {
     triggerSync()
   }
 
-  const handleUpdateStoreName = (storeId: number) => {
+  const handleUpdateStoreName = (storeId: string) => {
     if (!editingStoreName.trim()) return
     setStores(prev => prev.map(s => {
       if (s.id !== storeId) return s
@@ -68,7 +67,7 @@ export function StoreConfigPanel({ onBack, showToast }: StoreConfigPanelProps) {
     triggerSync()
   }
 
-  const handleDeleteStore = (storeId: number) => {
+  const handleDeleteStore = (storeId: string) => {
     const store = stores.find(s => s.id === storeId)
     if (!store) return
 
@@ -85,7 +84,7 @@ export function StoreConfigPanel({ onBack, showToast }: StoreConfigPanelProps) {
     triggerSync()
   }
 
-  const handleMoveStore = (storeId: number, direction: 'up' | 'down') => {
+  const handleMoveStore = (storeId: string, direction: 'up' | 'down') => {
     const active = (stores || []).filter(s => s.listId === activeListId && !s.is_deleted).sort((a, b) => a.position - b.position)
     const index = active.findIndex(s => s.id === storeId)
     if (index === -1) return
