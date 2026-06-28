@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { useEffect } from 'react'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { GroceryProvider, useGrocery } from '../GroceryContext'
 import { storage } from '@/utils/storage'
@@ -224,8 +225,10 @@ describe('GroceryContext Provider', () => {
     
     function TestConsumer() {
       const { items, lists } = useGrocery()
-      capturedItems = items
-      capturedLists = lists
+      useEffect(() => {
+        capturedItems = items
+        capturedLists = lists
+      }, [items, lists])
       return null
     }
 
