@@ -200,4 +200,63 @@ describe('GroceryContext Provider', () => {
     expect(screen.getByTestId('items-count').textContent).toBe('1')
     expect(storage.getItem(STORAGE_KEYS.LAST_SYNCED, '')).toBe('2026-06-27T18:00:00Z')
   })
+
+  it('should sort items and lists correctly (is_deleted at back, isActive = false at back, then createdAt ascending)', () => {
+    const itemsData = [
+      { id: 'item-1', name: 'Item 1', isActive: false, createdAt: 1000, is_deleted: false, sync_state: 'SYNCED', version: 1 },
+      { id: 'item-2', name: 'Item 2', isActive: true, createdAt: 3000, is_deleted: false, sync_state: 'SYNCED', version: 1 },
+      { id: 'item-3', name: 'Item 3', isActive: true, createdAt: 2000, is_deleted: false, sync_state: 'SYNCED', version: 1 },
+      { id: 'item-4', name: 'Item 4', isActive: true, createdAt: 500, is_deleted: true, sync_state: 'SYNCED', version: 1 },
+      { id: 'item-5', name: 'Item 5', isActive: false, createdAt: 4000, is_deleted: true, sync_state: 'SYNCED', version: 1 }
+    ] as any[]
+
+    storage.setItem(STORAGE_KEYS.ITEMS, itemsData)
+    storage.setItem(STORAGE_KEYS.LISTS, [
+      { id: 'list-2', name: 'List 2', createdAt: 5000, is_deleted: true },
+      { id: 'list-1', name: 'List 1', createdAt: 1000, is_deleted: false },
+      { id: 'list-3', name: 'List 3', createdAt: 3000, is_deleted: false }
+    ])
+
+    let capturedItems: any[] = []
+    let capturedLists: any[] = []
+    
+    function TestConsumer() {
+      const { items, lists } = useGrocery()
+      capturedItems = items
+      capturedLists = lists
+      return null
+    }
+
+    render(
+      <GroceryProvider>
+        <TestConsumer />
+      </GroceryProvider>
+    )
+
+    // Expected items ordering:
+    // 1. Not deleted, Active: sorted by createdAt ascending
+    //    - 'item-3' (createdAt: 2000)
+    //    - 'item-2' (createdAt: 3000)
+    // 2. Not deleted, Inactive:
+    //    - 'item-1' (createdAt: 1000)
+    // 3. Deleted:
+    //    - 'item-4' (is_deleted: true, isActive: true, createdAt: 500)
+    //    - 'item-5' (is_deleted: true, isActive: false, createdAt: 4000)
+    expect(capturedItems[0].id).toBe('item-3')
+    expect(capturedItems[1].id).toBe('item-2')
+    expect(capturedItems[2].id).toBe('item-1')
+    expect(capturedItems[3].id).toBe('item-4')
+    expect(capturedItems[4].id).toBe('item-5')
+
+    // Expected lists ordering:
+    // 1. Not deleted: sorted by createdAt ascending
+    //    - 'list-1' (createdAt: 1000)
+    //    - 'list-3' (createdAt: 3000)
+    // 2. Deleted:
+    //    - 'list-2' (createdAt: 5000)
+    expect(capturedLists[0].id).toBe('list-1')
+    expect(capturedLists[1].id).toBe('list-3')
+    expect(capturedLists[2].id).toBe('list-2')
+  })
 })
+

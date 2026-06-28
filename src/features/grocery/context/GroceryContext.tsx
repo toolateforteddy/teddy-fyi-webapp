@@ -6,6 +6,69 @@ import { STORAGE_KEYS } from '@/config/storageKeys'
 import { generateUuid } from '@/utils/uuid'
 import type { GroceryItem, GroceryList, GroceryListMember, Store, Category, GroceryItemStoreInfo } from '@/types/grocery'
 
+// Helper functions for sane sorting in local storage and memory
+export function sortItems(arr: GroceryItem[]): GroceryItem[] {
+  return [...arr].sort((a, b) => {
+    const aDel = a.is_deleted ? 1 : 0
+    const bDel = b.is_deleted ? 1 : 0
+    if (aDel !== bDel) return aDel - bDel
+
+    const aActive = a.isActive ? 1 : 0
+    const bActive = b.isActive ? 1 : 0
+    if (aActive !== bActive) return bActive - aActive // Active (true / 1) comes before Inactive (false / 0)
+
+    return (a.createdAt || 0) - (b.createdAt || 0)
+  })
+}
+
+export function sortLists(arr: GroceryList[]): GroceryList[] {
+  return [...arr].sort((a, b) => {
+    const aDel = a.is_deleted ? 1 : 0
+    const bDel = b.is_deleted ? 1 : 0
+    if (aDel !== bDel) return aDel - bDel
+
+    return (a.createdAt || 0) - (b.createdAt || 0)
+  })
+}
+
+export function sortMembers(arr: GroceryListMember[]): GroceryListMember[] {
+  return [...arr].sort((a, b) => {
+    const aDel = a.is_deleted ? 1 : 0
+    const bDel = b.is_deleted ? 1 : 0
+    if (aDel !== bDel) return aDel - bDel
+
+    return (a.joinedAt || 0) - (b.joinedAt || 0)
+  })
+}
+
+export function sortStores(arr: Store[]): Store[] {
+  return [...arr].sort((a, b) => {
+    const aDel = a.is_deleted ? 1 : 0
+    const bDel = b.is_deleted ? 1 : 0
+    if (aDel !== bDel) return aDel - bDel
+
+    return (a.position || 0) - (b.position || 0)
+  })
+}
+
+export function sortCategories(arr: Category[]): Category[] {
+  return [...arr].sort((a, b) => {
+    const aDel = a.is_deleted ? 1 : 0
+    const bDel = b.is_deleted ? 1 : 0
+    if (aDel !== bDel) return aDel - bDel
+
+    return (a.position || 0) - (b.position || 0)
+  })
+}
+
+export function sortStoreInfos(arr: GroceryItemStoreInfo[]): GroceryItemStoreInfo[] {
+  return [...arr].sort((a, b) => {
+    const aDel = a.is_deleted ? 1 : 0
+    const bDel = b.is_deleted ? 1 : 0
+    return aDel - bDel
+  })
+}
+
 interface GroceryContextType {
   activeListId: string
   setActiveListId: (id: string) => void
@@ -35,7 +98,7 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
   // Hydrate items state
   const [items, setItems] = useState<GroceryItem[]>(() => {
     const raw = storage.getItem<GroceryItem[]>(STORAGE_KEYS.ITEMS, [])
-    return raw.map(item => {
+    const mapped = raw.map(item => {
       const remoteRaw = item as any
       return {
         ...item,
@@ -48,12 +111,13 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
         userId: remoteRaw.userId || remoteRaw.user_id,
       }
     })
+    return sortItems(mapped)
   })
 
   // Hydrate lists state
   const [lists, setLists] = useState<GroceryList[]>(() => {
     const raw = storage.getItem<GroceryList[]>(STORAGE_KEYS.LISTS, [])
-    return raw.map(list => {
+    const mapped = raw.map(list => {
       const remoteRaw = list as any
       return {
         ...list,
@@ -61,12 +125,13 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
         createdAt: remoteRaw.createdAt || remoteRaw.created_at,
       }
     })
+    return sortLists(mapped)
   })
 
   // Hydrate members state
   const [listMembers, setListMembers] = useState<GroceryListMember[]>(() => {
     const raw = storage.getItem<GroceryListMember[]>(STORAGE_KEYS.LIST_MEMBERS, [])
-    return raw.map(member => {
+    const mapped = raw.map(member => {
       const remoteRaw = member as any
       return {
         ...member,
@@ -75,12 +140,13 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
         joinedAt: remoteRaw.joinedAt || remoteRaw.joined_at,
       }
     })
+    return sortMembers(mapped)
   })
 
   // Hydrate stores state
   const [stores, setStores] = useState<Store[]>(() => {
     const raw = storage.getItem<Store[]>(STORAGE_KEYS.STORES, [])
-    return raw.map(store => {
+    const mapped = raw.map(store => {
       const remoteRaw = store as any
       return {
         ...store,
@@ -89,12 +155,13 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
         userId: remoteRaw.userId || remoteRaw.user_id,
       }
     })
+    return sortStores(mapped)
   })
 
   // Hydrate categories state
   const [categories, setCategories] = useState<Category[]>(() => {
     const raw = storage.getItem<Category[]>(STORAGE_KEYS.CATEGORIES, [])
-    return raw.map(cat => {
+    const mapped = raw.map(cat => {
       const remoteRaw = cat as any
       return {
         ...cat,
@@ -102,12 +169,13 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
         userId: remoteRaw.userId || remoteRaw.user_id,
       }
     })
+    return sortCategories(mapped)
   })
 
   // Hydrate item store mappings state
   const [itemStoreInfos, setItemStoreInfos] = useState<GroceryItemStoreInfo[]>(() => {
     const raw = storage.getItem<GroceryItemStoreInfo[]>(STORAGE_KEYS.ITEM_STORE_INFOS, [])
-    return raw.map(info => {
+    const mapped = raw.map(info => {
       const remoteRaw = info as any
       return {
         ...info,
@@ -118,31 +186,32 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
         userId: remoteRaw.userId || remoteRaw.user_id,
       }
     })
+    return sortStoreInfos(mapped)
   })
 
   // Sync state variables to storage on change
   useEffect(() => {
-    storage.setItem(STORAGE_KEYS.ITEMS, items)
+    storage.setItem(STORAGE_KEYS.ITEMS, sortItems(items))
   }, [items])
 
   useEffect(() => {
-    storage.setItem(STORAGE_KEYS.LISTS, lists)
+    storage.setItem(STORAGE_KEYS.LISTS, sortLists(lists))
   }, [lists])
 
   useEffect(() => {
-    storage.setItem(STORAGE_KEYS.LIST_MEMBERS, listMembers)
+    storage.setItem(STORAGE_KEYS.LIST_MEMBERS, sortMembers(listMembers))
   }, [listMembers])
 
   useEffect(() => {
-    storage.setItem(STORAGE_KEYS.STORES, stores)
+    storage.setItem(STORAGE_KEYS.STORES, sortStores(stores))
   }, [stores])
 
   useEffect(() => {
-    storage.setItem(STORAGE_KEYS.CATEGORIES, categories)
+    storage.setItem(STORAGE_KEYS.CATEGORIES, sortCategories(categories))
   }, [categories])
 
   useEffect(() => {
-    storage.setItem(STORAGE_KEYS.ITEM_STORE_INFOS, itemStoreInfos)
+    storage.setItem(STORAGE_KEYS.ITEM_STORE_INFOS, sortStoreInfos(itemStoreInfos))
   }, [itemStoreInfos])
 
   // Active list ID management
@@ -180,7 +249,7 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
       const response = await syncNow(items, lists, stores, categories, itemStoreInfos, listMembers)
       if (response) {
         const mergedItems = resolveConflicts(items, response.remote_grocery_changes)
-        setItems(mergedItems.map(item => {
+        setItems(sortItems(mergedItems.map(item => {
           const remoteRaw = item as any
           return {
             ...item,
@@ -192,7 +261,7 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
             timesBought: remoteRaw.timesBought !== undefined ? remoteRaw.timesBought : remoteRaw.times_bought,
             userId: remoteRaw.userId || remoteRaw.user_id,
           }
-        }))
+        })))
 
         const mergedLists = resolveListConflicts(lists, response.remote_grocery_list_changes)
         const mappedLists: GroceryList[] = mergedLists.map(list => {
@@ -244,11 +313,11 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
           finalMembers = [...mappedMembers, defaultMember]
         }
 
-        setLists(finalLists)
-        setListMembers(finalMembers)
+        setLists(sortLists(finalLists))
+        setListMembers(sortMembers(finalMembers))
 
         const mergedStores = resolveStoreConflicts(stores, response.remote_store_changes)
-        setStores(mergedStores.map(store => {
+        setStores(sortStores(mergedStores.map(store => {
           const remoteRaw = store as any
           return {
             ...store,
@@ -256,20 +325,20 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
             isDefaultSupported: remoteRaw.isDefaultSupported !== undefined ? remoteRaw.isDefaultSupported : remoteRaw.is_default_supported,
             userId: remoteRaw.userId || remoteRaw.user_id,
           }
-        }))
+        })))
 
         const mergedCategories = resolveCategoryConflicts(categories, response.remote_category_changes)
-        setCategories(mergedCategories.map(cat => {
+        setCategories(sortCategories(mergedCategories.map(cat => {
           const remoteRaw = cat as any
           return {
             ...cat,
             listId: remoteRaw.listId || remoteRaw.list_id || '',
             userId: remoteRaw.userId || remoteRaw.user_id,
           }
-        }))
+        })))
 
         const mergedStoreInfos = resolveStoreInfoConflicts(itemStoreInfos, response.remote_grocery_item_store_info_changes)
-        setItemStoreInfos(mergedStoreInfos.map(info => {
+        setItemStoreInfos(sortStoreInfos(mergedStoreInfos.map(info => {
           const remoteRaw = info as any
           return {
             ...info,
@@ -279,7 +348,7 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
             isAvailable: remoteRaw.isAvailable !== undefined ? remoteRaw.isAvailable : remoteRaw.is_available,
             userId: remoteRaw.userId || remoteRaw.user_id,
           }
-        }))
+        })))
 
         setLastSyncedAt(response.server_timestamp)
         storage.setItem(STORAGE_KEYS.LAST_SYNCED, response.server_timestamp)
