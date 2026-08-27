@@ -52,8 +52,8 @@ function DashboardContent() {
 
   if (!activeList) {
     return (
-      <div className="min-h-screen bg-black text-white flex flex-col justify-center items-center font-sans antialiased">
-        <div className="w-full max-w-md min-h-screen bg-black flex flex-col items-center justify-center border-x border-[#1a1a1a] shadow-[0_0_50px_0_rgba(208,188,255,0.05)] space-y-4">
+      <div className="min-h-dvh bg-black text-white flex flex-col justify-center items-center font-sans antialiased">
+        <div className="w-full max-w-md min-h-dvh bg-black flex flex-col items-center justify-center border-x border-[#1a1a1a] shadow-[0_0_50px_0_rgba(208,188,255,0.05)] space-y-4">
           <Loader2 className="w-8 h-8 text-primary animate-spin" />
           <span className="text-xs text-text-muted font-medium tracking-wide animate-pulse">
             Initializing your lists...
@@ -87,9 +87,9 @@ function DashboardContent() {
   ]
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col justify-between items-center font-sans antialiased selection:bg-primary selection:text-black">
+    <div className="min-h-dvh bg-black text-white flex flex-col justify-between items-center font-sans antialiased selection:bg-primary selection:text-black">
       {/* Mobile container wrapper (App Frame) */}
-      <div className="w-full max-w-md min-h-screen bg-black flex flex-col relative border-x border-[#1a1a1a] shadow-[0_0_50px_0_rgba(208,188,255,0.05)] pb-[72px]">
+      <div className="w-full max-w-md min-h-dvh bg-black flex flex-col relative border-x border-[#1a1a1a] shadow-[0_0_50px_0_rgba(208,188,255,0.05)] pb-[calc(72px+env(safe-area-inset-bottom))]">
         
         {/* Top App Bar */}
         <header className="sticky top-0 z-40 bg-black/80 backdrop-blur-md border-b border-[#1a1a1a] h-14 flex items-center justify-between px-4">
@@ -239,7 +239,7 @@ function DashboardContent() {
         </main>
 
         {/* Bottom Navigation Bar */}
-        <nav className="fixed bottom-0 w-full max-w-md bg-black/90 backdrop-blur-lg border-t border-[#1a1a1a] h-[68px] flex items-center justify-around px-2 z-40 shadow-[0_-10px_20px_rgba(0,0,0,0.5)]">
+        <nav className="fixed bottom-0 w-full max-w-md bg-black/90 backdrop-blur-lg border-t border-[#1a1a1a] min-h-[68px] pb-[env(safe-area-inset-bottom)] flex items-center justify-around px-2 z-40 shadow-[0_-10px_20px_rgba(0,0,0,0.5)]">
           {navItems.map((item) => {
             const Icon = item.icon
             const isActive = currentPath === item.path

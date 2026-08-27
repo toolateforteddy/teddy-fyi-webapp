@@ -11,6 +11,13 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    // Pinned rather than left on Vite's rolling "baseline-widely-available"
+    // default, which moves forward on every Vite major. 16.4 is the real floor:
+    // Tailwind v4's oklch()/color-mix()/@property output needs it. Older
+    // browsers get the notice in index.html instead of a broken page.
+    target: ['safari16.4', 'ios16.4', 'chrome111', 'edge111', 'firefox114'],
+  },
   test: {
     globals: true,
     environment: 'jsdom',

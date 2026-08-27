@@ -31,7 +31,10 @@ body {
   margin: 0;
   padding: 0;
   min-width: 320px;
+  /* dvh tracks the *visible* viewport, so the layout doesn't run under Safari's
+     collapsing bottom toolbar on iPhone. 100vh stays as the fallback. */
   min-height: 100vh;
+  min-height: 100dvh;
   background-color: var(--color-bg-black);
   color: var(--color-text-primary);
 }
@@ -39,6 +42,19 @@ body {
 #root {
   width: 100%;
   min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* iOS Safari zooms the whole page whenever a focused form control renders below
+   16px, and with no maximum-scale in the viewport meta it never zooms back out.
+   Force 16px on phone-sized viewports; larger screens keep the designed sizes.
+   These rules are unlayered, so they win over Tailwind's layered utilities. */
+@media (max-width: 767px) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  select,
+  textarea {
+    font-size: 16px;
+  }
 }
 
 /* Custom scrollbar matching dark theme */
