@@ -5,9 +5,12 @@ import App from './App.tsx'
 import { storage } from './utils/storage'
 import { STORAGE_KEYS } from './config/storageKeys'
 
-// One-time automatic purge of local storage fake data
-const cleared = storage.getItem<string>('fake_data_cleared_v1', 'false')
-if (cleared !== 'true') {
+// One-time automatic purge of local storage fake data.
+// NOTE: storage.setItem writes plain strings raw, but storage.getItem runs them
+// back through JSON.parse - so the string 'true' round-trips as the boolean true.
+// Accept both, or this "one-time" purge wipes the user's local data on every load.
+const cleared = storage.getItem<boolean | string>('fake_data_cleared_v1', false)
+if (cleared !== true && cleared !== 'true') {
   storage.removeItem(STORAGE_KEYS.ITEMS)
   storage.removeItem(STORAGE_KEYS.LISTS)
   storage.removeItem(STORAGE_KEYS.STORES)

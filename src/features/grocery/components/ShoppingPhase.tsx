@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { flushSync } from 'react-dom'
 import { useGrocery } from '@/features/grocery/context/GroceryContext'
 import { CheckSquare, Square, Check, MapPin, ClipboardList } from 'lucide-react'
 import type { GroceryItem } from '@/types/grocery'
@@ -6,6 +7,31 @@ import { cn } from '@/utils/cn'
 import { DEFAULT_STORES, DEFAULT_CATEGORIES } from '../config/constants'
 import { storage } from '@/utils/storage'
 import { STORAGE_KEYS } from '@/config/storageKeys'
+
+/**
+ * Runs a state update inside a View Transition when the browser supports one.
+ *
+ * React flushes state updates asynchronously, so passing a plain setState
+ * callback to startViewTransition lets the DOM change *after* the browser has
+ * taken its snapshot. Chrome tolerates this (you just lose the animation);
+ * WebKit can leave the page visually stuck mid-transition. flushSync forces the
+ * DOM to update inside the callback, which is what the API expects.
+ */
+function startTransitionSafely(update: () => void) {
+  if (typeof document.startViewTransition !== 'function') {
+    update()
+    return
+  }
+
+  try {
+    document.startViewTransition(() => {
+      flushSync(update)
+    })
+  } catch (err) {
+    console.error('[ViewTransition] Falling back to a plain update:', err)
+    update()
+  }
+}
 
 export function ShoppingPhase() {
   const { activeListId, items, setItems, stores, categories, itemStoreInfos } = useGrocery()
@@ -79,11 +105,7 @@ export function ShoppingPhase() {
       }))
     }
 
-    if (document.startViewTransition) {
-      document.startViewTransition(performUpdate)
-    } else {
-      performUpdate()
-    }
+    startTransitionSafely(performUpdate)
   }
 
   // Clear in-cart items (Complete trip workflow)
@@ -104,11 +126,7 @@ export function ShoppingPhase() {
       setIsConfirmTripOpen(false)
     }
 
-    if (document.startViewTransition) {
-      document.startViewTransition(performArchive)
-    } else {
-      performArchive()
-    }
+    startTransitionSafely(performArchive)
   }
 
   // Filter items dynamically based on selected list & isolated store

@@ -5,7 +5,7 @@ import { useAuth } from '@/features/auth/hooks/useAuth'
 export function LandingPage() {
   const { isAuthenticated } = useAuth()
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col justify-between items-center px-4 py-12 font-sans antialiased selection:bg-[#c0a9f5]/30">
+    <div className="min-h-dvh bg-black text-white flex flex-col justify-between items-center px-4 py-12 font-sans antialiased selection:bg-[#c0a9f5]/30">
 
       {/* Hidden Home Link matching class="home" display="none" */}
       <Link to="/" className="sr-only" aria-hidden="true">Home</Link>

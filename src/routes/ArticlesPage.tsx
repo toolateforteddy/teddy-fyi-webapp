@@ -45,7 +45,7 @@ export function ArticlesPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-black text-white py-12 px-4 sm:px-6 lg:px-8 font-sans selection:bg-[#c0a9f5]/30">
+    <div className="min-h-dvh bg-black text-white py-12 px-4 sm:px-6 lg:px-8 font-sans selection:bg-[#c0a9f5]/30">
       {/* Container */}
       <div className="max-w-3xl mx-auto space-y-10">
         
