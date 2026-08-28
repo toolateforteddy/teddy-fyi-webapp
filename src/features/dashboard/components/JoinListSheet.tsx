@@ -72,11 +72,14 @@ export function JoinListSheet({ isOpen, onClose }: JoinListSheetProps) {
     }
   }
 
+  // top-auto and max-w-none override the <dialog> UA styles (inset: 0 and
+  // max-width: calc(100% - padding)), which otherwise pin this sheet to the top
+  // edge at less than full width. Tailwind's preflight resets the UA margin: auto.
   return (
     <dialog
       ref={dialogRef}
       onClose={onClose}
-      className="fixed bottom-0 left-0 right-0 md:left-auto md:right-auto md:w-full md:max-w-md bg-surface-tile border-t border-neutral-800 rounded-t-2xl z-50 px-4 pt-4 pb-[calc(2rem+env(safe-area-inset-bottom))] shadow-2xl backdrop:bg-black/60 backdrop:backdrop-blur-sm animate-in slide-in-from-bottom duration-250 ease-out focus:outline-none"
+      className="fixed top-auto bottom-0 left-0 right-0 w-full max-w-none md:max-w-md md:mx-auto bg-surface-tile border-t border-neutral-800 rounded-t-2xl z-50 px-4 pt-4 pb-[calc(2rem+env(safe-area-inset-bottom))] shadow-2xl backdrop:bg-black/60 backdrop:backdrop-blur-sm animate-in slide-in-from-bottom duration-250 ease-out focus:outline-none"
     >
       <div className="flex items-center justify-between mb-4 border-b border-neutral-800 pb-3">
         <div className="flex items-center gap-1.5">
