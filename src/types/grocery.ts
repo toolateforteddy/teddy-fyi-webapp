@@ -11,7 +11,8 @@ export interface GroceryItem {
   timesBought: number;
   userId?: string;
   isActive: boolean;
-  listId: string; // Foreign Key to GroceryList (UUID)
+  /** Nullable on the wire (`Option<String>` server-side); absent for an unfiled item. */
+  listId?: string;
   unit?: string;
   notes?: string;
   sync_state: SyncState;
@@ -31,8 +32,8 @@ export interface GroceryList {
 
 export interface GroceryListMember {
   id: string; // Primary Key (UUID)
-  listId: string;
-  userId: string;
+  listId?: string;
+  userId?: string;
   role: string; // e.g., 'OWNER', 'MEMBER'
   joinedAt: number;
   sync_state: SyncState;
@@ -46,7 +47,8 @@ export interface Store {
   position: number;
   isDefaultSupported: boolean;
   userId?: string;
-  listId: string; // Scoped to grocery list
+  /** Nullable on the wire (`Option<String>` server-side). */
+  listId?: string;
   sync_state: SyncState;
   version: number;
   is_deleted: boolean;
@@ -58,7 +60,8 @@ export interface Category {
   position: number;
   userId?: string;
   icon?: string;
-  listId: string; // Scoped to grocery list
+  /** Nullable on the wire (`Option<String>` server-side). */
+  listId?: string;
   sync_state: SyncState;
   version: number;
   is_deleted: boolean;
@@ -70,7 +73,16 @@ export interface GroceryItemStoreInfo {
   price?: number;
   isAvailable: boolean;
   userId?: string;
-  listId: string; // Scoped to grocery list
+  /**
+   * Server-computed, read-only. There is no `listId` column on `grocery_item_store_info` —
+   * the server resolves it from this row's store and ignores it on upload. Optional because
+   * the server genuinely omits it for a store that belongs to no list, and because this
+   * client can never make it authoritative.
+   *
+   * Unlike the `listId` on GroceryItem / Store / Category, which this client sets itself at
+   * creation and `normalize` guarantees is a string, nothing here guarantees a value.
+   */
+  listId?: string;
   sync_state: SyncState;
   version: number;
   is_deleted: boolean;
