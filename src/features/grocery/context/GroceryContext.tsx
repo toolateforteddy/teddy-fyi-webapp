@@ -383,7 +383,7 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
         let changed = false
         const listIds = new Set(lists.map(l => l.id))
         const updated = curr.filter(member => {
-          if (!listIds.has(member.listId)) {
+          if (!member.listId || !listIds.has(member.listId)) {
             changed = true
             return false
           }

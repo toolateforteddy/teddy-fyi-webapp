@@ -174,7 +174,7 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
               times_bought: item.timesBought,
               user_id: item.userId || null,
               is_active: item.isActive,
-              list_id: item.listId,
+              list_id: item.listId ?? null,
               unit: item.unit || null,
               notes: item.notes || null,
               sync_state: item.sync_state,
@@ -220,8 +220,8 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
             version: member.version,
             data: deltaType === 'DELETE' ? null : {
               id: member.id,
-              list_id: member.listId,
-              user_id: member.userId,
+              list_id: member.listId ?? null,
+              user_id: member.userId ?? null,
               role: member.role,
               joined_at: member.joinedAt,
               sync_state: member.sync_state,
@@ -248,7 +248,7 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
               position: store.position,
               is_default_supported: store.isDefaultSupported,
               user_id: store.userId || null,
-              list_id: store.listId,
+              list_id: store.listId ?? null,
               sync_state: store.sync_state,
               version: store.version,
               is_deleted: store.is_deleted
@@ -273,7 +273,7 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
               position: category.position,
               user_id: category.userId || null,
               icon: category.icon || null,
-              list_id: category.listId,
+              list_id: category.listId ?? null,
               sync_state: category.sync_state,
               version: category.version,
               is_deleted: category.is_deleted
@@ -298,7 +298,6 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
               price: info.price || null,
               is_available: info.isAvailable,
               user_id: info.userId || null,
-              list_id: info.listId,
               sync_state: info.sync_state,
               version: info.version,
               is_deleted: info.is_deleted
