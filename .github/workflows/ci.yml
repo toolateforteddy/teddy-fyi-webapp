@@ -26,11 +26,8 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # Non-blocking for now: `pnpm lint` reports 10 pre-existing errors in
-      # app code (react-hooks rules). Drop this line once those are fixed.
       - name: Lint
         run: pnpm lint
-        continue-on-error: true
 
       - name: Test
         run: pnpm test:run
