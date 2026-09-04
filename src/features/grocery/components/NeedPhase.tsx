@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { useGrocery } from '@/features/grocery/context/GroceryContext'
 import { Plus, ShoppingBag } from 'lucide-react'
 import type { GroceryItem, GroceryItemStoreInfo } from '@/types/grocery'
@@ -19,15 +19,15 @@ export function NeedPhase() {
     setItemStoreInfos
   } = useGrocery()
 
-  const [expandedItemId, setExpandedItemId] = useState<string | null>(null)
+  const [rawExpandedItemId, setExpandedItemId] = useState<string | null>(null)
   const [isAddOpen, setIsAddOpen] = useState(false)
 
-  // Reset expanded item if it's deleted remotely
-  useEffect(() => {
-    if (expandedItemId && !items.some(item => item.id === expandedItemId && !item.is_deleted)) {
-      setExpandedItemId(null)
-    }
-  }, [expandedItemId, items])
+  // An expanded item can be deleted remotely mid-sync, so treat a stale id as
+  // collapsed rather than resetting it from an effect.
+  const expandedItemId =
+    rawExpandedItemId && items.some(item => item.id === rawExpandedItemId && !item.is_deleted)
+      ? rawExpandedItemId
+      : null
 
   // Memoize active stores
   const activeStores = useMemo(() => {

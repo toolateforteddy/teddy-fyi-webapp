@@ -113,13 +113,17 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
   const categoriesRef = useRef(categories)
   const itemStoreInfosRef = useRef(itemStoreInfos)
 
-  // Keep refs up-to-date in the render body
-  itemsRef.current = items
-  listsRef.current = lists
-  listMembersRef.current = listMembers
-  storesRef.current = stores
-  categoriesRef.current = categories
-  itemStoreInfosRef.current = itemStoreInfos
+  // Keep refs up-to-date after each commit. Nothing reads them during render --
+  // they exist so the async sync path can see the latest state without closing
+  // over stale render values -- so an effect is the safe place to write them.
+  useEffect(() => {
+    itemsRef.current = items
+    listsRef.current = lists
+    listMembersRef.current = listMembers
+    storesRef.current = stores
+    categoriesRef.current = categories
+    itemStoreInfosRef.current = itemStoreInfos
+  }, [items, lists, listMembers, stores, categories, itemStoreInfos])
 
   // Active list ID management
   const [activeListId, setActiveListId] = useState<string>(() => {
@@ -320,8 +324,11 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
     return null
   }
 
-  // Update handleManualSyncRef
-  handleManualSyncRef.current = handleManualSync
+  // Update handleManualSyncRef. Only ever read from timers and event handlers,
+  // so writing it after commit is enough.
+  useEffect(() => {
+    handleManualSyncRef.current = handleManualSync
+  })
 
   // Auto-sync on mount and on online reconnect
   useEffect(() => {

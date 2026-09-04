@@ -36,21 +36,12 @@ function startTransitionSafely(update: () => void) {
 export function ShoppingPhase() {
   const { activeListId, items, setItems, stores, categories, itemStoreInfos } = useGrocery()
 
-  const [selectedStoreId, setSelectedStoreId] = useState<string | null>(() => {
+  const [rawSelectedStoreId, setSelectedStoreId] = useState<string | null>(() => {
     return storage.getItem<string | null>(STORAGE_KEYS.SELECTED_STORE_ID, null)
   })
 
   const [isConfirmTripOpen, setIsConfirmTripOpen] = useState(false)
   const confirmDialogRef = useRef<HTMLDialogElement>(null)
-
-  // Sync selectedStoreId with storage
-  useEffect(() => {
-    if (selectedStoreId === null) {
-      storage.removeItem(STORAGE_KEYS.SELECTED_STORE_ID)
-    } else {
-      storage.setItem(STORAGE_KEYS.SELECTED_STORE_ID, selectedStoreId)
-    }
-  }, [selectedStoreId])
 
   // Handle native confirmation dialog visibility
   useEffect(() => {
@@ -76,12 +67,22 @@ export function ShoppingPhase() {
       .sort((a, b) => a.position - b.position)
   }, [stores, activeListId])
 
-  // Clear selection if the store is deleted/missing
+  // A selected store can be deleted remotely, so treat a stale id as "no store
+  // selected" during render rather than clearing it from an effect.
+  const selectedStoreId =
+    rawSelectedStoreId !== null && activeStores.some(s => s.id === rawSelectedStoreId)
+      ? rawSelectedStoreId
+      : null
+
+  // Sync selectedStoreId with storage
   useEffect(() => {
-    if (selectedStoreId !== null && !activeStores.some(s => s.id === selectedStoreId)) {
-      setSelectedStoreId(null)
+    if (selectedStoreId === null) {
+      storage.removeItem(STORAGE_KEYS.SELECTED_STORE_ID)
+    } else {
+      storage.setItem(STORAGE_KEYS.SELECTED_STORE_ID, selectedStoreId)
     }
-  }, [selectedStoreId, activeStores])
+  }, [selectedStoreId])
+
 
   // Memoize active categories
   const activeCategories = useMemo(() => {

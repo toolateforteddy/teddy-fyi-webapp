@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Share2, X, Loader2, Copy, Check } from 'lucide-react'
 import api from '@/lib/axios'
 
@@ -15,23 +15,7 @@ export function ShareListSheet({ isOpen, onClose, activeListId }: ShareListSheet
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
-  useEffect(() => {
-    const dialog = dialogRef.current
-    if (!dialog) return
-
-    if (isOpen) {
-      if (!dialog.open) {
-        dialog.showModal()
-        generateCode()
-      }
-    } else {
-      if (dialog.open) {
-        dialog.close()
-      }
-    }
-  }, [isOpen])
-
-  const generateCode = async () => {
+  const generateCode = useCallback(async () => {
     setIsGenerating(true)
     setError(null)
     setInviteCode(null)
@@ -46,7 +30,23 @@ export function ShareListSheet({ isOpen, onClose, activeListId }: ShareListSheet
     } finally {
       setIsGenerating(false)
     }
-  }
+  }, [activeListId])
+
+  useEffect(() => {
+    const dialog = dialogRef.current
+    if (!dialog) return
+
+    if (isOpen) {
+      if (!dialog.open) {
+        dialog.showModal()
+        generateCode()
+      }
+    } else {
+      if (dialog.open) {
+        dialog.close()
+      }
+    }
+  }, [isOpen, generateCode])
 
   const handleCopyCode = () => {
     if (!inviteCode) return
