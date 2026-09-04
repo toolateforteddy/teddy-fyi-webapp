@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { LandingPage } from './LandingPage'
 import { LoginPage } from './LoginPage'
 import { ArticlesPage } from './ArticlesPage'
+import { DeviceLinkPage } from './DeviceLinkPage'
 import { AuthenticatedRoute } from './AuthenticatedRoute'
 import { DashboardLayout } from '@/features/dashboard/components/DashboardLayout'
 import { NeedPhase } from '@/features/grocery/components/NeedPhase'
@@ -20,6 +21,10 @@ export function AppRoutes() {
 
       {/* Public Login Page */}
       <Route path="/login" element={<LoginPage />} />
+
+      {/* Tablet pairing. Public on purpose: the page signs itself in with
+          Google, and the parent reaching it is not signed in on this browser. */}
+      <Route path="/link" element={<DeviceLinkPage />} />
 
       {/* Authenticated /Grocery System Shell */}
       <Route 
