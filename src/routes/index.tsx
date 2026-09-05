@@ -1,8 +1,9 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route } from 'react-router-dom'
 import { LandingPage } from './LandingPage'
 import { LoginPage } from './LoginPage'
 import { ArticlesPage } from './ArticlesPage'
 import { DeviceLinkPage } from './DeviceLinkPage'
+import { NotFoundPage } from './NotFoundPage'
 import { AuthenticatedRoute } from './AuthenticatedRoute'
 import { DashboardLayout } from '@/features/dashboard/components/DashboardLayout'
 import { NeedPhase } from '@/features/grocery/components/NeedPhase'
@@ -48,8 +49,10 @@ export function AppRoutes() {
         <Route path="settings" element={<SettingsPhase />} />
       </Route>
 
-      {/* Redirect wildcards back to home */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      {/* Anything unmatched says so and stays put. Redirecting here to "/"
+          instead made a stale bundle -- one that predates a route -- look
+          exactly like a broken server rule. */}
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   )
 }
