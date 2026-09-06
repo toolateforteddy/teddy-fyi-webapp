@@ -33,6 +33,14 @@ export function LandingPage() {
             <p className="text-sm font-semibold tracking-widest font-mono text-primary uppercase">
               Staff Systems Engineer
             </p>
+            {/* Deliberately understated: the joke only works if you have to go look. */}
+            <Link
+              to="/cracked"
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-neutral-900 border border-neutral-800 text-[10px] font-mono text-neutral-500 hover:text-primary hover:border-neutral-700 transition-colors"
+            >
+              <span>cracked: true</span>
+              <span className="text-neutral-700">*</span>
+            </Link>
             <div className="space-y-4 text-sm text-text-muted max-w-md mx-auto leading-relaxed">
               <p>
                 I am a Staff Systems Engineer with 15 years of experience architecting distributed systems, optimizing high-throughput data paths, and building infrastructure that scales predictably.

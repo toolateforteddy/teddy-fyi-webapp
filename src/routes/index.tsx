@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom'
 import { LandingPage } from './LandingPage'
 import { LoginPage } from './LoginPage'
 import { ArticlesPage } from './ArticlesPage'
+import { CrackedPage } from './CrackedPage'
 import { DeviceLinkPage } from './DeviceLinkPage'
 import { NotFoundPage } from './NotFoundPage'
 import { AuthenticatedRoute } from './AuthenticatedRoute'
@@ -19,6 +20,9 @@ export function AppRoutes() {
 
       {/* Public Articles Page */}
       <Route path="/articles" element={<ArticlesPage />} />
+
+      {/* A recruiter asked; a chatbot answered. Public, with its methodology attached. */}
+      <Route path="/cracked" element={<CrackedPage />} />
 
       {/* Public Login Page */}
       <Route path="/login" element={<LoginPage />} />
