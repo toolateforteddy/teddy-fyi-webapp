@@ -127,11 +127,18 @@ api.interceptors.response.use(
       isRefreshing = true
 
       try {
-        const user = storage.getItem<{ id: string } | null>(STORAGE_KEYS.USER_INFO, null)
+        const user = storage.getItem<{ id: string; surrogateId?: string } | null>(
+          STORAGE_KEYS.USER_INFO,
+          null
+        )
+        // The subject: sessions are keyed by it, not by the surrogate.
         const userId = user?.id || ''
         const clientUuid = getClientUuid()
 
-        const response = await refreshApi.post<{ refresh_token: string }>('/auth/refresh', {
+        const response = await refreshApi.post<{
+          refresh_token: string
+          user_uuid?: string | null
+        }>('/auth/refresh', {
           user_id: userId,
           client_uuid: clientUuid,
           refresh_token: refreshToken,
@@ -140,6 +147,13 @@ api.interceptors.response.use(
         
         const newRefreshToken = response.data.refresh_token
         storage.setItem(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken)
+
+        // Keep the stored surrogate current on this path too. AuthContext learns it on
+        // mount; this is the mid-session rotation, and storage is what it can reach.
+        const surrogateId = response.data.user_uuid || undefined
+        if (user && surrogateId && user.surrogateId !== surrogateId) {
+          storage.setItem(STORAGE_KEYS.USER_INFO, { ...user, surrogateId })
+        }
 
         processQueue(null)
         isRefreshing = false

@@ -24,10 +24,13 @@ export function useLogin() {
         google_auth_token: credential,
         use_cookie: true,
       })
-      const { user_id, email, refresh_token } = response.data
+      const { user_id, email, refresh_token, user_uuid } = response.data
 
       const user: User = {
         id: user_id,
+        // The id every synced row is keyed by. Kept beside the subject rather than
+        // replacing it: `/auth/refresh` looks a session up by the subject.
+        surrogateId: user_uuid || undefined,
         email: email || '',
       }
 
