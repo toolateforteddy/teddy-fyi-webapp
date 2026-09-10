@@ -72,21 +72,42 @@ The service account needs:
 - **`roles/container.developer`** — for `get-gke-credentials`, `kubectl apply`
   and `rollout status` against the `prod` cluster in `us-central1-a`.
 
-One-time setup, if the pool does not exist yet:
+One-time setup. **The steps are ordered and the order matters** — a provider is
+created *inside* a pool, and running step 2 first fails with a bare
+`NOT_FOUND: Requested entity was not found`, which names neither the pool nor
+what is missing:
 
 ```bash
-gcloud iam workload-identity-pools create github --location=global
+# 0. The provider path needs the project NUMBER, not melodic-sunbeam-164916.
+PROJECT_NUMBER=$(gcloud projects describe melodic-sunbeam-164916 \
+  --format='value(projectNumber)')
 
+# 1. The pool. Check first -- it may already exist for another repo.
+gcloud iam workload-identity-pools list --location=global
+gcloud iam workload-identity-pools create github \
+  --location=global --display-name="GitHub Actions"
+
+# 2. The provider, inside that pool.
 gcloud iam workload-identity-pools providers create-oidc github \
   --location=global --workload-identity-pool=github \
   --issuer-uri=https://token.actions.githubusercontent.com \
   --attribute-mapping=google.subject=assertion.sub,attribute.repository=assertion.repository \
   --attribute-condition="assertion.repository_owner=='toolateforteddy'"
 
+# 3. Let this repository -- and only this repository -- impersonate the SA.
 gcloud iam service-accounts add-iam-policy-binding "$DEPLOY_SA" \
   --role=roles/iam.workloadIdentityUser \
-  --member="principalSet://iam.googleapis.com/projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github/attribute.repository/toolateforteddy/teddy-fyi-webapp"
+  --member="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github/attribute.repository/toolateforteddy/teddy-fyi-webapp"
 ```
+
+If step 1 reports the pool already exists but step 2 still says `NOT_FOUND`, the
+pool is probably soft-deleted — they linger for 30 days and keep the name
+reserved. `gcloud iam workload-identity-pools list --location=global
+--show-deleted` shows it, and `undelete github --location=global` brings it back.
+
+If step 1 itself fails with `SERVICE_DISABLED` or a permission error, the project
+is missing `gcloud services enable iamcredentials.googleapis.com
+sts.googleapis.com`.
 
 **The `--attribute-condition` is not optional.** Google refuses to create a
 provider without one, and the reason is the failure it prevents: an
