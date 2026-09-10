@@ -55,7 +55,7 @@ repository.
 
 | Repository variable | Value |
 |---|---|
-| `GCP_WIF_PROVIDER` | `projects/34718544535/locations/global/workloadIdentityPools/github/providers/github` — 34718544535 is the project **number**; the path will not take the project ID (`melodic-sunbeam-164916`) |
+| `GCP_WIF_PROVIDER` | `projects/34718544535/locations/global/workloadIdentityPools/github-pool/providers/github` — 34718544535 is the project **number**; the path will not take the project ID (`melodic-sunbeam-164916`) |
 | `GCP_DEPLOY_SA` | the deployer service account email, e.g. `grocery-deployer@melodic-sunbeam-164916.iam.gserviceaccount.com` |
 
 The `preflight` job checks both are set and fails with a message naming the
@@ -83,14 +83,23 @@ what is missing:
 PROJECT_NUMBER=$(gcloud projects describe melodic-sunbeam-164916 \
   --format='value(projectNumber)')
 
-# 1. The pool. Check first -- it may already exist for another repo.
+# 1. The pool. It already exists and is called `github-pool` -- NOT `github`.
+#    Check rather than assume; the name is what the provider command below hangs
+#    off, and getting it wrong is the NOT_FOUND described under the block.
+#    (The other pool this lists, melodic-sunbeam-164916.svc.id.goog, is GKE's own
+#    workload identity pool -- what api-rust-gsa and friends use for pods. Not
+#    this. Leave it alone.)
 gcloud iam workload-identity-pools list --location=global
-gcloud iam workload-identity-pools create github \
-  --location=global --display-name="GitHub Actions"
 
-# 2. The provider, inside that pool.
+# 2. The provider, inside that pool. Check for one first: if a provider already
+#    exists, reuse it rather than adding a second -- but confirm its
+#    attributeMapping includes attribute.repository, because step 3 keys on that
+#    attribute. A provider mapping only google.subject authenticates fine and
+#    then fails impersonation with a much less obvious permission error.
+gcloud iam workload-identity-pools providers list \
+  --location=global --workload-identity-pool=github-pool
 gcloud iam workload-identity-pools providers create-oidc github \
-  --location=global --workload-identity-pool=github \
+  --location=global --workload-identity-pool=github-pool \
   --issuer-uri=https://token.actions.githubusercontent.com \
   --attribute-mapping=google.subject=assertion.sub,attribute.repository=assertion.repository \
   --attribute-condition="assertion.repository_owner=='toolateforteddy'"
@@ -98,13 +107,16 @@ gcloud iam workload-identity-pools providers create-oidc github \
 # 3. Let this repository -- and only this repository -- impersonate the SA.
 gcloud iam service-accounts add-iam-policy-binding "$DEPLOY_SA" \
   --role=roles/iam.workloadIdentityUser \
-  --member="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github/attribute.repository/toolateforteddy/teddy-fyi-webapp"
+  --member="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github-pool/attribute.repository/toolateforteddy/teddy-fyi-webapp"
 ```
 
-If step 1 reports the pool already exists but step 2 still says `NOT_FOUND`, the
-pool is probably soft-deleted — they linger for 30 days and keep the name
-reserved. `gcloud iam workload-identity-pools list --location=global
---show-deleted` shows it, and `undelete github --location=global` brings it back.
+`NOT_FOUND` from step 2 means the **pool** could not be found, not the provider —
+it names the parent it was looking for, which reads like it is describing the
+thing you are creating. In practice that is a wrong pool name (`github` rather
+than `github-pool` is the one that has actually happened here), or a soft-deleted
+pool: they linger 30 days and keep the name reserved. `gcloud iam
+workload-identity-pools list --location=global --show-deleted` distinguishes the
+two, and `undelete github-pool --location=global` recovers the second.
 
 If step 1 itself fails with `SERVICE_DISABLED` or a permission error, the project
 is missing `gcloud services enable iamcredentials.googleapis.com
