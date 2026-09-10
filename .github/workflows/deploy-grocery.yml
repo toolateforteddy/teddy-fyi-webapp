@@ -72,7 +72,7 @@ jobs:
             missing=1
           fi
           if [ -z "$DEPLOY_SA" ]; then
-            echo "::error::Repository variable GCP_DEPLOY_SA is not set. Expected the deployer service account email, e.g. grocery-deployer@melodic-sunbeam-164916.iam.gserviceaccount.com"
+            echo "::error::Repository variable GCP_DEPLOY_SA is not set. Expected grocery-deployer@melodic-sunbeam-164916.iam.gserviceaccount.com"
             missing=1
           fi
           if [ "$missing" -eq 0 ]; then

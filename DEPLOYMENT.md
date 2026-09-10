@@ -56,7 +56,7 @@ repository.
 | Repository variable | Value |
 |---|---|
 | `GCP_WIF_PROVIDER` | `projects/34718544535/locations/global/workloadIdentityPools/github-pool/providers/github-provider` — 34718544535 is the project **number**; the path will not take the project ID (`melodic-sunbeam-164916`) |
-| `GCP_DEPLOY_SA` | the deployer service account email, e.g. `grocery-deployer@melodic-sunbeam-164916.iam.gserviceaccount.com` |
+| `GCP_DEPLOY_SA` | `grocery-deployer@melodic-sunbeam-164916.iam.gserviceaccount.com` |
 
 The `preflight` job checks both are set and fails with a message naming the
 missing one. That job exists because `google-github-actions/auth` reports an
@@ -65,14 +65,64 @@ empty value as *"the workflow must specify exactly one of
 workflow is malformed when it is fine and the interpolated value was blank. This
 workflow's first run lost a debugging round to exactly that.
 
-The service account needs:
+### The service account
 
-- **`roles/artifactregistry.writer`** — or `roles/storage.admin` on the legacy
-  GCS-backed `gcr.io` bucket, for `docker push`.
-- **`roles/container.developer`** — for `get-gke-credentials`, `kubectl apply`
-  and `rollout status` against the `prod` cluster in `us-central1-a`.
+`grocery-deployer` is its own identity rather than a share of the API's deployer.
+Under WIF a service account costs nothing to own — there is no key to store or
+rotate — so the reason to share one is gone, while the reasons not to remain: the
+API's deployer carries roles the grocery app has no business with, and a separate
+identity means the audit log says which pipeline did what.
 
-The pool and provider **already exist** and are shared with
+Not to be confused with `api-rust-gsa` / `scribbleroute-api-gsa`, which are the
+GSAs *pods* impersonate to read Secret Manager (see `teddyfyi/AGENTS.md`). Those
+have no deploy rights and are not for this.
+
+```bash
+gcloud iam service-accounts create grocery-deployer \
+  --project=melodic-sunbeam-164916 \
+  --display-name="Grocery app deployer (GitHub Actions)"
+
+DEPLOY_SA=grocery-deployer@melodic-sunbeam-164916.iam.gserviceaccount.com
+
+# `kubectl apply` and `rollout status` against the prod cluster.
+gcloud projects add-iam-policy-binding melodic-sunbeam-164916 \
+  --member="serviceAccount:${DEPLOY_SA}" \
+  --role=roles/container.developer
+```
+
+Then the registry role, which depends on how `gcr.io` is backed in this project —
+that changed when GCR was folded into Artifact Registry, so check rather than
+assume:
+
+```bash
+gcloud artifacts repositories list --project=melodic-sunbeam-164916 \
+  --format="table(name,format,location)"
+```
+
+If that lists a repository named `gcr.io`, it is Artifact Registry-backed:
+
+```bash
+gcloud projects add-iam-policy-binding melodic-sunbeam-164916 \
+  --member="serviceAccount:${DEPLOY_SA}" --role=roles/artifactregistry.writer
+```
+
+If it does not, `gcr.io` is still GCS-backed. Scope it to that one bucket rather
+than granting project-wide `storage.admin`, which would hand a deploy pipeline
+every bucket in the project:
+
+```bash
+gcloud storage buckets add-iam-policy-binding \
+  gs://artifacts.melodic-sunbeam-164916.appspot.com \
+  --member="serviceAccount:${DEPLOY_SA}" --role=roles/storage.objectAdmin
+```
+
+**No key, ever.** `gcloud iam service-accounts keys create` is not part of this
+and never should be: a key file is the long-lived credential WIF exists to avoid,
+and creating one re-introduces exactly what this repo moved away from.
+
+### The pool and provider
+
+They **already exist** and are shared with
 `teddy-fyi-api-rust`, so setup here is not creation but two edits. Their real
 names are not the obvious ones: the pool is `github-pool` and the provider is
 `github-provider`.
