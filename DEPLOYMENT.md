@@ -44,6 +44,144 @@ so a config changed outside git needs a deliberate
 immediate, or revert the commit and let the workflow deploy — both work, because
 every image is addressable by the commit that produced it.
 
+### What the workflow needs configured
+
+Authentication is **Workload Identity Federation** — GitHub mints a short-lived
+OIDC token, Google trades it for a service account token, and no credential is
+stored here at all. That is why the two values below are repository
+**variables** rather than secrets: a provider resource name and a service account
+email are not credentials. The trust lives in an IAM binding that names this
+repository.
+
+| Repository variable | Value |
+|---|---|
+| `GCP_WIF_PROVIDER` | `projects/34718544535/locations/global/workloadIdentityPools/github-pool/providers/github-provider` — 34718544535 is the project **number**; the path will not take the project ID (`melodic-sunbeam-164916`) |
+| `GCP_DEPLOY_SA` | `grocery-deployer@melodic-sunbeam-164916.iam.gserviceaccount.com` |
+
+The `preflight` job checks both are set and fails with a message naming the
+missing one. That job exists because `google-github-actions/auth` reports an
+empty value as *"the workflow must specify exactly one of
+`workload_identity_provider` or `credentials_json`"* — which reads like the
+workflow is malformed when it is fine and the interpolated value was blank. This
+workflow's first run lost a debugging round to exactly that.
+
+### The service account
+
+`grocery-deployer` is its own identity rather than a share of the API's deployer.
+Under WIF a service account costs nothing to own — there is no key to store or
+rotate — so the reason to share one is gone, while the reasons not to remain: the
+API's deployer carries roles the grocery app has no business with, and a separate
+identity means the audit log says which pipeline did what.
+
+Not to be confused with `api-rust-gsa` / `scribbleroute-api-gsa`, which are the
+GSAs *pods* impersonate to read Secret Manager (see `teddyfyi/AGENTS.md`). Those
+have no deploy rights and are not for this.
+
+```bash
+gcloud iam service-accounts create grocery-deployer \
+  --project=melodic-sunbeam-164916 \
+  --display-name="Grocery app deployer (GitHub Actions)"
+
+DEPLOY_SA=grocery-deployer@melodic-sunbeam-164916.iam.gserviceaccount.com
+
+# `kubectl apply` and `rollout status` against the prod cluster.
+gcloud projects add-iam-policy-binding melodic-sunbeam-164916 \
+  --member="serviceAccount:${DEPLOY_SA}" \
+  --role=roles/container.developer
+```
+
+Then the registry role, which depends on how `gcr.io` is backed in this project —
+that changed when GCR was folded into Artifact Registry, so check rather than
+assume:
+
+```bash
+gcloud artifacts repositories list --project=melodic-sunbeam-164916 \
+  --format="table(name,format,location)"
+```
+
+If that lists a repository named `gcr.io`, it is Artifact Registry-backed:
+
+```bash
+gcloud projects add-iam-policy-binding melodic-sunbeam-164916 \
+  --member="serviceAccount:${DEPLOY_SA}" --role=roles/artifactregistry.writer
+```
+
+If it does not, `gcr.io` is still GCS-backed. Scope it to that one bucket rather
+than granting project-wide `storage.admin`, which would hand a deploy pipeline
+every bucket in the project:
+
+```bash
+gcloud storage buckets add-iam-policy-binding \
+  gs://artifacts.melodic-sunbeam-164916.appspot.com \
+  --member="serviceAccount:${DEPLOY_SA}" --role=roles/storage.objectAdmin
+```
+
+**No key, ever.** `gcloud iam service-accounts keys create` is not part of this
+and never should be: a key file is the long-lived credential WIF exists to avoid,
+and creating one re-introduces exactly what this repo moved away from.
+
+### The pool and provider
+
+They **already exist** and are shared with
+`teddy-fyi-api-rust`, so setup here is not creation but two edits. Their real
+names are not the obvious ones: the pool is `github-pool` and the provider is
+`github-provider`.
+
+```bash
+# What is actually there. Do this before assuming any name -- `github`/`github`
+# is wrong for both, and `providers create-oidc` against a pool name that does
+# not exist fails with a bare NOT_FOUND naming neither.
+gcloud iam workload-identity-pools list --location=global
+gcloud iam workload-identity-pools providers list \
+  --location=global --workload-identity-pool=github-pool
+
+# 1. Admit this repository at the provider. Its condition was
+#    `assertion.repository == 'toolateforteddy/teddy-fyi-api-rust'`, which
+#    rejects tokens from here before any IAM binding is consulted. Both repos
+#    listed explicitly rather than `repository_owner == 'toolateforteddy'`:
+#    tighter, and it leaves the API's own WIF migration already admitted.
+gcloud iam workload-identity-pools providers update-oidc github-provider \
+  --location=global --workload-identity-pool=github-pool \
+  --attribute-condition="assertion.repository in ['toolateforteddy/teddy-fyi-api-rust','toolateforteddy/teddy-fyi-webapp']"
+
+# 2. Let this repository -- and only this repository -- impersonate the SA.
+#    Note the principalSet path keys on the POOL, not the provider: this binding
+#    is the authorization, and the provider condition above is the outer
+#    admission filter. Both matter.
+DEPLOY_SA=grocery-deployer@melodic-sunbeam-164916.iam.gserviceaccount.com
+gcloud iam service-accounts add-iam-policy-binding "$DEPLOY_SA" \
+  --role=roles/iam.workloadIdentityUser \
+  --member="principalSet://iam.googleapis.com/projects/34718544535/locations/global/workloadIdentityPools/github-pool/attribute.repository/toolateforteddy/teddy-fyi-webapp"
+```
+
+The provider's `attributeMapping` must carry `attribute.repository` for step 2 to
+work — it does. A provider mapping only `google.subject` would authenticate fine
+and then fail impersonation with a much less legible permission error.
+
+`NOT_FOUND` from a provider command means the **pool** could not be found, not
+the provider — it names the parent it was looking for, which reads like it is
+describing the thing you are creating. In practice that is a wrong pool name, or
+a soft-deleted pool: those linger 30 days and keep the name reserved.
+`gcloud iam workload-identity-pools list --location=global --show-deleted`
+distinguishes them.
+
+The other pool in that listing, `melodic-sunbeam-164916.svc.id.goog`, is GKE's
+own workload identity pool — what `api-rust-gsa` and `scribbleroute-api-gsa` use
+for pods. Unrelated to this; leave it alone.
+
+**Never widen that condition to nothing.** Google refuses to create a provider
+without one, and the reason is the failure it prevents: an unconditioned provider
+trusts tokens from *any* repository on GitHub, so anyone could mint one and reach
+this pool. The IAM binding is still the thing that authorizes, but the condition
+is what keeps unknown repositories from ever presenting a token here at all.
+
+`teddy-fyi-api-rust` still uses a long-lived `GCP_SA_KEY`. Its own
+`context/2026-09-05_pre_split_changes.md` item 5 rates that a 9 and says to move
+to WIF **before** a second repository needs the same access. This repository is
+that second one, and it is federated; migrating the API is the remaining half of
+that item, and the pool and provider above are already shared infrastructure it
+can use.
+
 ### What this repo owns, and what it doesn't
 
 `apps/grocery/k8s/grocery.yaml` holds `grocery-svc`, `grocery-dep`, its
