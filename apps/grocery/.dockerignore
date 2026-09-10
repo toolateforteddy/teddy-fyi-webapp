@@ -1,0 +1,10 @@
+# The image is nginx plus the built bundle. Everything used to *produce* that
+# bundle is context the build does not need and should not have to upload.
+node_modules
+src
+public
+k8s
+*.json
+*.ts
+*.html
+.dockerignore

@@ -1,0 +1,131 @@
+# grocery.teddy.fyi -- the grocery app's own front end.
+#
+# This repo owns the Service, the Deployment and the certificate, the same way
+# teddy-fyi-api-rust and the ScribbleRoute website own theirs. What it does NOT
+# own is the Ingress: `k8s/ingress.yaml` in the teddyfyi repo is the shared front
+# door for every hostname on this load balancer, and it routes grocery.teddy.fyi
+# here. Renaming grocery-svc is therefore a change in two repos, and the
+# certificate below has to be named in that Ingress's
+# `networking.gke.io/managed-certificates` annotation or it is never issued.
+#
+# The image tag is written by .github/workflows/deploy.yml, which substitutes the
+# commit SHA for IMAGE_TAG_PLACEHOLDER before applying. Do not put a moving tag
+# here: `:latest` is what cost teddy.fyi its rollback story and any record of
+# which commit is live.
+apiVersion: v1
+kind: Service
+metadata:
+  name: grocery-svc
+  annotations:
+    cloud.google.com/backend-config: '{"default": "grocery-be-config"}'
+spec:
+  selector:
+    app: grocery
+  ports:
+    - name: http
+      protocol: TCP
+      # port stays 80: the ingress in teddyfyi routes to grocery-svc on 80 and
+      # must not move. Only targetPort follows the container to its unprivileged
+      # port. The BackendConfig below pins no health-check port, so the GCLB
+      # health check follows targetPort too -- do not add one.
+      port: 80
+      targetPort: 8080
+  type: NodePort
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grocery-dep
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grocery
+  template:
+    metadata:
+      labels:
+        app: grocery
+    spec:
+      # The image is nginxinc/nginx-unprivileged, which runs as uid/gid 101.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        # An emptyDir is created world-writable by the kubelet, so uid 101 should
+        # be able to write /tmp/nginx.pid without this. But the site Deployment in
+        # teddyfyi carries it for a reason: if the volume ever arrives root-owned
+        # instead, nginx cannot write its pid file and the pod crash-loops on an
+        # app that is otherwise fine. It costs a chown of one near-empty directory.
+        fsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+      # nginx's pid file and every *_temp_path are pointed at /tmp in nginx.conf;
+      # this is the only writable path in the container.
+      - name: tmp
+        emptyDir: {}
+      containers:
+      - name: grocery
+        image: gcr.io/melodic-sunbeam-164916/teddy-fyi-grocery:IMAGE_TAG_PLACEHOLDER
+        ports:
+        - containerPort: 8080
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+        readinessProbe:
+          httpGet:
+            path: /index.html
+            port: 8080
+          timeoutSeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /index.html
+            port: 8080
+          initialDelaySeconds: 15
+          timeoutSeconds: 5
+          periodSeconds: 15
+---
+# Named in teddyfyi's ingress.yaml annotation. A name listed there with no
+# matching resource in the cluster silently costs a certificate, and a resource
+# here that is not listed there is never issued -- so the two must land together.
+#
+# Provisioning order, once: the DNS record for grocery.teddy.fyi must point at the
+# teddy-fyi-ip load balancer *before* the annotation naming this merges, because
+# Google issues a managed certificate only after the name resolves there. Merge
+# first and it sits in Provisioning. It fails alone: TLS breaks for this hostname
+# and no other.
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: grocery-teddy-fyi-cert
+spec:
+  domains:
+    - grocery.teddy.fyi
+---
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: grocery-be-config
+spec:
+  healthCheck:
+    checkIntervalSec: 30
+    timeoutSec: 25
+    type: HTTP
+    # "/" is an SPA route that try_files answers with index.html, so it would work
+    # -- but /index.html is the literal file and cannot become a redirect if the
+    # routing ever changes.
+    requestPath: /index.html
