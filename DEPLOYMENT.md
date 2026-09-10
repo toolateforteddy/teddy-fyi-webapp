@@ -55,7 +55,7 @@ repository.
 
 | Repository variable | Value |
 |---|---|
-| `GCP_WIF_PROVIDER` | `projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github/providers/github` (the **project number**, not the project ID) |
+| `GCP_WIF_PROVIDER` | `projects/34718544535/locations/global/workloadIdentityPools/github/providers/github` — 34718544535 is the project **number**; the path will not take the project ID (`melodic-sunbeam-164916`) |
 | `GCP_DEPLOY_SA` | the deployer service account email, e.g. `grocery-deployer@melodic-sunbeam-164916.iam.gserviceaccount.com` |
 
 The `preflight` job checks both are set and fails with a message naming the
@@ -78,7 +78,8 @@ created *inside* a pool, and running step 2 first fails with a bare
 what is missing:
 
 ```bash
-# 0. The provider path needs the project NUMBER, not melodic-sunbeam-164916.
+# 0. The provider path needs the project NUMBER (34718544535), not the project
+#    ID (melodic-sunbeam-164916). Re-derive it rather than trusting this comment:
 PROJECT_NUMBER=$(gcloud projects describe melodic-sunbeam-164916 \
   --format='value(projectNumber)')
 
