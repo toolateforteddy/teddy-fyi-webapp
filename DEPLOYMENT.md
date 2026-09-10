@@ -57,6 +57,7 @@ repository.
 |---|---|
 | `GCP_WIF_PROVIDER` | `projects/34718544535/locations/global/workloadIdentityPools/github-pool/providers/github-provider` — 34718544535 is the project **number**; the path will not take the project ID (`melodic-sunbeam-164916`) |
 | `GCP_DEPLOY_SA` | `grocery-deployer@melodic-sunbeam-164916.iam.gserviceaccount.com` |
+| `VITE_GOOGLE_CLIENT_ID` | the Google OAuth client id, `34718544535-….apps.googleusercontent.com`. Not a deploy credential — a **build input**, and public by design (it is served in the page to every visitor) |
 
 The `preflight` job checks both are set and fails with a message naming the
 missing one. That job exists because `google-github-actions/auth` reports an
@@ -286,9 +287,25 @@ paper over:
 - **Links between the apps must be `<a href>`, not `<Link>`.** react-router
   cannot route across origins. The landing page's CTA and the grocery app's two
   "Back" links are anchors for this reason.
-- **`VITE_API_BASE_URL`** defaults to `https://api-rust.teddy.fyi`
-  (`apps/grocery/src/config/env.ts`) and is baked in at build time. Neither deploy
-  passes env, so production always gets that default.
+- **`VITE_*` are baked in at build time**, by whichever job runs `vite build` —
+  not by the cluster, and not at deploy. `apps/grocery/src/config/env.ts` reads
+  them through `getEnvVar(key, fallback)`, and the two fallbacks are not
+  equivalent:
+  - `VITE_API_BASE_URL` falls back to `https://api-rust.teddy.fyi`, which *is*
+    the production value, so not passing it is harmless.
+  - `VITE_GOOGLE_CLIENT_ID` falls back to `dummy-client-id.apps.googleusercontent.com`,
+    which cannot work. A build without it produces an app that looks entirely
+    normal and can sign nobody in. **This actually shipped**: the first images
+    from the Actions pipeline carried the dummy, because `dn` had been getting
+    the real value from a `.env.local` on the laptop — gitignored by `*.local`,
+    and therefore invisible to CI. The workflow now passes it and then asserts
+    it is present in the built bundle.
+
+  That assertion checks the value is **present**, not that the dummy is absent:
+  `getEnvVar` keeps its fallback as a plain argument, so `dummy-client-id` is
+  compiled into the bundle either way. Grepping for the dummy is a false
+  positive. Vite serialises `import.meta.env` with the `VITE_*` vars that existed
+  at build time and omits the rest, so the real value's presence is the signal.
 
 ## Things that still belong to teddy.fyi
 

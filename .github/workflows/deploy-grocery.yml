@@ -65,6 +65,7 @@ jobs:
         env:
           WIF_PROVIDER: ${{ vars.GCP_WIF_PROVIDER }}
           DEPLOY_SA: ${{ vars.GCP_DEPLOY_SA }}
+          GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
         run: |
           missing=0
           if [ -z "$WIF_PROVIDER" ]; then
@@ -75,8 +76,16 @@ jobs:
             echo "::error::Repository variable GCP_DEPLOY_SA is not set. Expected grocery-deployer@melodic-sunbeam-164916.iam.gserviceaccount.com"
             missing=1
           fi
+          # Not a deploy credential -- a build input, and the one whose absence is
+          # silent. src/config/env.ts falls back to a dummy client id, so a build
+          # without this produces an app that looks completely fine and cannot sign
+          # anybody in. See the assertion after the build step.
+          if [ -z "$GOOGLE_CLIENT_ID" ]; then
+            echo "::error::Repository variable VITE_GOOGLE_CLIENT_ID is not set. Google sign-in is baked in at build time; without it the bundle ships env.ts's dummy-client-id fallback and no one can log in."
+            missing=1
+          fi
           if [ "$missing" -eq 0 ]; then
-            echo "Workload Identity configuration present."
+            echo "Deploy configuration present."
           fi
           exit $missing
 
@@ -113,8 +122,43 @@ jobs:
       # and a Docker context that wide would ship the whole monorepo into the
       # build. Building here and copying the output keeps the image context to
       # one directory.
+      #
+      # Vite inlines VITE_* at build time, so this has to be present HERE, in the
+      # job that builds -- not at deploy, and not in the cluster. A public OAuth
+      # client id is not a secret (it is served in the page to every visitor), so
+      # it is a repository variable like the others.
+      #
+      # VITE_API_BASE_URL is deliberately not passed: its default in
+      # src/config/env.ts is already the production value. The client id's default
+      # is a placeholder that cannot work, which is the whole reason for this.
       - name: Build the grocery app
+        env:
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
         run: pnpm --filter grocery build
+
+      # Preflight can only see that the variable is set; this sees what actually
+      # got compiled in, which is what matters and what was wrong -- the first
+      # images this workflow pushed used env.ts's dummy fallback and would have
+      # shipped an app nobody could sign in to.
+      #
+      # The check asserts the value is PRESENT rather than that the dummy is
+      # absent. `getEnvVar(key, fallback)` keeps its fallback as a plain argument,
+      # so `dummy-client-id` is in the bundle either way and looking for it is a
+      # false positive -- which it was, on the first attempt at this guard.
+      # Vite serialises `import.meta.env` with the VITE_* vars that existed at
+      # build time and simply omits the ones that did not, so the value's presence
+      # is the real signal. Comparing against the variable rather than a
+      # hardcoded id keeps this honest if the client id ever changes.
+      - name: Verify the client id was compiled in
+        env:
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+        run: |
+          if ! grep -rqF "$VITE_GOOGLE_CLIENT_ID" apps/grocery/dist/assets/; then
+            echo "::error::VITE_GOOGLE_CLIENT_ID is not present in the built bundle, so the app fell back to env.ts's dummy client id and Google sign-in would be broken. Refusing to push this image."
+            exit 1
+          fi
+          echo "Google client id compiled into the bundle."
+
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
