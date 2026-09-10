@@ -55,7 +55,7 @@ repository.
 
 | Repository variable | Value |
 |---|---|
-| `GCP_WIF_PROVIDER` | `projects/34718544535/locations/global/workloadIdentityPools/github-pool/providers/github` — 34718544535 is the project **number**; the path will not take the project ID (`melodic-sunbeam-164916`) |
+| `GCP_WIF_PROVIDER` | `projects/34718544535/locations/global/workloadIdentityPools/github-pool/providers/github-provider` — 34718544535 is the project **number**; the path will not take the project ID (`melodic-sunbeam-164916`) |
 | `GCP_DEPLOY_SA` | the deployer service account email, e.g. `grocery-deployer@melodic-sunbeam-164916.iam.gserviceaccount.com` |
 
 The `preflight` job checks both are set and fails with a message naming the
@@ -72,61 +72,58 @@ The service account needs:
 - **`roles/container.developer`** — for `get-gke-credentials`, `kubectl apply`
   and `rollout status` against the `prod` cluster in `us-central1-a`.
 
-One-time setup. **The steps are ordered and the order matters** — a provider is
-created *inside* a pool, and running step 2 first fails with a bare
-`NOT_FOUND: Requested entity was not found`, which names neither the pool nor
-what is missing:
+The pool and provider **already exist** and are shared with
+`teddy-fyi-api-rust`, so setup here is not creation but two edits. Their real
+names are not the obvious ones: the pool is `github-pool` and the provider is
+`github-provider`.
 
 ```bash
-# 0. The provider path needs the project NUMBER (34718544535), not the project
-#    ID (melodic-sunbeam-164916). Re-derive it rather than trusting this comment:
-PROJECT_NUMBER=$(gcloud projects describe melodic-sunbeam-164916 \
-  --format='value(projectNumber)')
-
-# 1. The pool. It already exists and is called `github-pool` -- NOT `github`.
-#    Check rather than assume; the name is what the provider command below hangs
-#    off, and getting it wrong is the NOT_FOUND described under the block.
-#    (The other pool this lists, melodic-sunbeam-164916.svc.id.goog, is GKE's own
-#    workload identity pool -- what api-rust-gsa and friends use for pods. Not
-#    this. Leave it alone.)
+# What is actually there. Do this before assuming any name -- `github`/`github`
+# is wrong for both, and `providers create-oidc` against a pool name that does
+# not exist fails with a bare NOT_FOUND naming neither.
 gcloud iam workload-identity-pools list --location=global
-
-# 2. The provider, inside that pool. Check for one first: if a provider already
-#    exists, reuse it rather than adding a second -- but confirm its
-#    attributeMapping includes attribute.repository, because step 3 keys on that
-#    attribute. A provider mapping only google.subject authenticates fine and
-#    then fails impersonation with a much less obvious permission error.
 gcloud iam workload-identity-pools providers list \
   --location=global --workload-identity-pool=github-pool
-gcloud iam workload-identity-pools providers create-oidc github \
-  --location=global --workload-identity-pool=github-pool \
-  --issuer-uri=https://token.actions.githubusercontent.com \
-  --attribute-mapping=google.subject=assertion.sub,attribute.repository=assertion.repository \
-  --attribute-condition="assertion.repository_owner=='toolateforteddy'"
 
-# 3. Let this repository -- and only this repository -- impersonate the SA.
+# 1. Admit this repository at the provider. Its condition was
+#    `assertion.repository == 'toolateforteddy/teddy-fyi-api-rust'`, which
+#    rejects tokens from here before any IAM binding is consulted. Both repos
+#    listed explicitly rather than `repository_owner == 'toolateforteddy'`:
+#    tighter, and it leaves the API's own WIF migration already admitted.
+gcloud iam workload-identity-pools providers update-oidc github-provider \
+  --location=global --workload-identity-pool=github-pool \
+  --attribute-condition="assertion.repository in ['toolateforteddy/teddy-fyi-api-rust','toolateforteddy/teddy-fyi-webapp']"
+
+# 2. Let this repository -- and only this repository -- impersonate the SA.
+#    Note the principalSet path keys on the POOL, not the provider: this binding
+#    is the authorization, and the provider condition above is the outer
+#    admission filter. Both matter.
+DEPLOY_SA=grocery-deployer@melodic-sunbeam-164916.iam.gserviceaccount.com
 gcloud iam service-accounts add-iam-policy-binding "$DEPLOY_SA" \
   --role=roles/iam.workloadIdentityUser \
-  --member="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github-pool/attribute.repository/toolateforteddy/teddy-fyi-webapp"
+  --member="principalSet://iam.googleapis.com/projects/34718544535/locations/global/workloadIdentityPools/github-pool/attribute.repository/toolateforteddy/teddy-fyi-webapp"
 ```
 
-`NOT_FOUND` from step 2 means the **pool** could not be found, not the provider —
-it names the parent it was looking for, which reads like it is describing the
-thing you are creating. In practice that is a wrong pool name (`github` rather
-than `github-pool` is the one that has actually happened here), or a soft-deleted
-pool: they linger 30 days and keep the name reserved. `gcloud iam
-workload-identity-pools list --location=global --show-deleted` distinguishes the
-two, and `undelete github-pool --location=global` recovers the second.
+The provider's `attributeMapping` must carry `attribute.repository` for step 2 to
+work — it does. A provider mapping only `google.subject` would authenticate fine
+and then fail impersonation with a much less legible permission error.
 
-If step 1 itself fails with `SERVICE_DISABLED` or a permission error, the project
-is missing `gcloud services enable iamcredentials.googleapis.com
-sts.googleapis.com`.
+`NOT_FOUND` from a provider command means the **pool** could not be found, not
+the provider — it names the parent it was looking for, which reads like it is
+describing the thing you are creating. In practice that is a wrong pool name, or
+a soft-deleted pool: those linger 30 days and keep the name reserved.
+`gcloud iam workload-identity-pools list --location=global --show-deleted`
+distinguishes them.
 
-**The `--attribute-condition` is not optional.** Google refuses to create a
-provider without one, and the reason is the failure it prevents: an
-unconditioned pool trusts tokens from *any* repository on GitHub, so anyone could
-mint one and impersonate this service account. The binding then narrows further
-to this single repository via `attribute.repository`.
+The other pool in that listing, `melodic-sunbeam-164916.svc.id.goog`, is GKE's
+own workload identity pool — what `api-rust-gsa` and `scribbleroute-api-gsa` use
+for pods. Unrelated to this; leave it alone.
+
+**Never widen that condition to nothing.** Google refuses to create a provider
+without one, and the reason is the failure it prevents: an unconditioned provider
+trusts tokens from *any* repository on GitHub, so anyone could mint one and reach
+this pool. The IAM binding is still the thing that authorizes, but the condition
+is what keeps unknown repositories from ever presenting a token here at all.
 
 `teddy-fyi-api-rust` still uses a long-lived `GCP_SA_KEY`. Its own
 `context/2026-09-05_pre_split_changes.md` item 5 rates that a 9 and says to move
