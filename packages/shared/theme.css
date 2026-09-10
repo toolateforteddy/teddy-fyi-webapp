@@ -1,0 +1,88 @@
+/* Shared branding for both apps on teddy.fyi. Imported first by each app's own
+   stylesheet, which then adds whatever is only true of that app.
+
+   What belongs here: the palette, the typeface, base document typography, and
+   the chrome that should look the same on both (scrollbars, reduced motion).
+   What does not: the grocery app's frame/nav layout, which the personal site
+   has no use for. */
+
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #D0BCFF;
+  --color-secondary: #CCC2DC;
+  --color-tertiary: #EFB8C8;
+  --color-surface-tile: #1A1A1A;
+  --color-bg-black: #000000;
+  --color-text-primary: #FFFFFF;
+  --color-text-muted: #888888;
+
+  --font-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+:root {
+  font-family: var(--font-sans);
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: dark;
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-black);
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-width: 320px;
+  /* dvh tracks the *visible* viewport, so the layout doesn't run under Safari's
+     collapsing bottom toolbar on iPhone. 100vh stays as the fallback. */
+  min-height: 100vh;
+  min-height: 100dvh;
+  background-color: var(--color-bg-black);
+  color: var(--color-text-primary);
+  /* Grey flash on every tap is the single clearest "this is a web page" tell. */
+  -webkit-tap-highlight-color: transparent;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* Respect the OS setting rather than animating regardless. */
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Custom scrollbar matching dark theme */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg-black);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-surface-tile);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #2a2a2a;
+}
