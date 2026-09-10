@@ -8,8 +8,23 @@ on:
   # tests and build a pull request does rather than a weaker copy of them.
   workflow_call:
 
+# `github.workflow` is in the group on purpose. When deploy-grocery.yml calls this
+# workflow, `github.ref` is the same `refs/heads/main` as the push that triggered
+# both -- so with the ref alone, the called run and the push-triggered run share a
+# group, and `cancel-in-progress` makes them cancel each other. That is exactly what
+# happened on the first deploy: the push's CI run was cancelled by the deploy's.
+# It can also go the other way and cancel the deploy's own gate.
+#
+# In a called workflow `github.workflow` resolves to the CALLER's name, so the two
+# get distinct groups ("CI" and "Deploy Grocery") and stop fighting. Runs within
+# each still supersede their own older runs, which is the point of the setting.
+#
+# teddy-fyi-api-rust solves this by dropping CI's `push:` trigger entirely and
+# letting the deploy be the only thing that runs it on main. That does not work
+# here: deploy-grocery.yml is path-filtered to apps/grocery, so a push touching
+# only apps/personal would get no CI at all.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

@@ -44,6 +44,21 @@ so a config changed outside git needs a deliberate
 immediate, or revert the commit and let the workflow deploy — both work, because
 every image is addressable by the commit that produced it.
 
+### What the workflow needs configured
+
+**`GCP_SA_KEY`** — a repository secret on `teddy-fyi-webapp` holding a Google
+Cloud service account key JSON, with permission to push to
+`gcr.io/melodic-sunbeam-164916` and to reach the `prod` GKE cluster in
+`us-central1-a`. The same service account `teddy-fyi-api-rust` uses is the right
+one; **GitHub secrets are per-repository, so having it there does not give it to
+this repo.**
+
+Its absence is not a subtle failure but it is an unhelpful one — the first
+deploy died with `google-github-actions/auth failed with: the GitHub Action
+workflow must specify exactly one of "workload_identity_provider" or
+"credentials_json"`, which is what that action says when the secret it was handed
+is empty, not when the workflow is malformed.
+
 ### What this repo owns, and what it doesn't
 
 `apps/grocery/k8s/grocery.yaml` holds `grocery-svc`, `grocery-dep`, its
