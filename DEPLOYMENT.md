@@ -46,18 +46,60 @@ every image is addressable by the commit that produced it.
 
 ### What the workflow needs configured
 
-**`GCP_SA_KEY`** — a repository secret on `teddy-fyi-webapp` holding a Google
-Cloud service account key JSON, with permission to push to
-`gcr.io/melodic-sunbeam-164916` and to reach the `prod` GKE cluster in
-`us-central1-a`. The same service account `teddy-fyi-api-rust` uses is the right
-one; **GitHub secrets are per-repository, so having it there does not give it to
-this repo.**
+Authentication is **Workload Identity Federation** — GitHub mints a short-lived
+OIDC token, Google trades it for a service account token, and no credential is
+stored here at all. That is why the two values below are repository
+**variables** rather than secrets: a provider resource name and a service account
+email are not credentials. The trust lives in an IAM binding that names this
+repository.
 
-Its absence is not a subtle failure but it is an unhelpful one — the first
-deploy died with `google-github-actions/auth failed with: the GitHub Action
-workflow must specify exactly one of "workload_identity_provider" or
-"credentials_json"`, which is what that action says when the secret it was handed
-is empty, not when the workflow is malformed.
+| Repository variable | Value |
+|---|---|
+| `GCP_WIF_PROVIDER` | `projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github/providers/github` (the **project number**, not the project ID) |
+| `GCP_DEPLOY_SA` | the deployer service account email, e.g. `grocery-deployer@melodic-sunbeam-164916.iam.gserviceaccount.com` |
+
+The `preflight` job checks both are set and fails with a message naming the
+missing one. That job exists because `google-github-actions/auth` reports an
+empty value as *"the workflow must specify exactly one of
+`workload_identity_provider` or `credentials_json`"* — which reads like the
+workflow is malformed when it is fine and the interpolated value was blank. This
+workflow's first run lost a debugging round to exactly that.
+
+The service account needs:
+
+- **`roles/artifactregistry.writer`** — or `roles/storage.admin` on the legacy
+  GCS-backed `gcr.io` bucket, for `docker push`.
+- **`roles/container.developer`** — for `get-gke-credentials`, `kubectl apply`
+  and `rollout status` against the `prod` cluster in `us-central1-a`.
+
+One-time setup, if the pool does not exist yet:
+
+```bash
+gcloud iam workload-identity-pools create github --location=global
+
+gcloud iam workload-identity-pools providers create-oidc github \
+  --location=global --workload-identity-pool=github \
+  --issuer-uri=https://token.actions.githubusercontent.com \
+  --attribute-mapping=google.subject=assertion.sub,attribute.repository=assertion.repository \
+  --attribute-condition="assertion.repository_owner=='toolateforteddy'"
+
+gcloud iam service-accounts add-iam-policy-binding "$DEPLOY_SA" \
+  --role=roles/iam.workloadIdentityUser \
+  --member="principalSet://iam.googleapis.com/projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github/attribute.repository/toolateforteddy/teddy-fyi-webapp"
+```
+
+**The `--attribute-condition` is not optional.** Google refuses to create a
+provider without one, and the reason is the failure it prevents: an
+unconditioned pool trusts tokens from *any* repository on GitHub, so anyone could
+mint one and impersonate this service account. The binding then narrows further
+to this single repository via `attribute.repository`.
+
+`teddy-fyi-api-rust` still uses a long-lived `GCP_SA_KEY`. Its own
+`context/2026-09-05_pre_split_changes.md` item 5 rates that a 9 and says to move
+to WIF **before** a second repository needs the same access. This repository is
+that second one, and it is federated; migrating the API is the remaining half of
+that item, and the pool and provider above are already shared infrastructure it
+can use.
 
 ### What this repo owns, and what it doesn't
 

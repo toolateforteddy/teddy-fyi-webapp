@@ -42,6 +42,44 @@ jobs:
     name: CI
     uses: ./.github/workflows/ci.yml
 
+  # Fails fast and legibly when the Workload Identity configuration is missing.
+  # Without it, the first thing that goes wrong is google-github-actions/auth
+  # saying "the GitHub Action workflow must specify exactly one of
+  # workload_identity_provider or credentials_json" -- which reads like the
+  # workflow is malformed, when the workflow is fine and the value it
+  # interpolated was simply empty. That exact error cost a debugging round on
+  # this workflow's first run, when the credential it wanted did not exist.
+  #
+  # These are repository *variables*, not secrets, and deliberately so: under
+  # Workload Identity Federation there is no secret material to hold. A provider
+  # resource name and a service account email are not credentials -- the trust is
+  # in the IAM binding, which names this repository.
+  preflight:
+    name: Check deploy configuration
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require the Workload Identity variables
+        # Passed through env rather than interpolated into the script, so the
+        # values are shell data and not shell source.
+        env:
+          WIF_PROVIDER: ${{ vars.GCP_WIF_PROVIDER }}
+          DEPLOY_SA: ${{ vars.GCP_DEPLOY_SA }}
+        run: |
+          missing=0
+          if [ -z "$WIF_PROVIDER" ]; then
+            echo "::error::Repository variable GCP_WIF_PROVIDER is not set. Expected the full provider resource name, e.g. projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github/providers/github"
+            missing=1
+          fi
+          if [ -z "$DEPLOY_SA" ]; then
+            echo "::error::Repository variable GCP_DEPLOY_SA is not set. Expected the deployer service account email, e.g. grocery-deployer@melodic-sunbeam-164916.iam.gserviceaccount.com"
+            missing=1
+          fi
+          if [ "$missing" -eq 0 ]; then
+            echo "Workload Identity configuration present."
+          fi
+          exit $missing
+
   # Built in parallel with the gate, because the image is tagged with the commit
   # SHA only. An image built for a revision whose tests then fail is an
   # unreferenced blob in the registry that the deploy job below never reaches,
@@ -49,6 +87,8 @@ jobs:
   # pushed a moving tag like :latest, which someone could still pull.
   image:
     name: Build and Push Image
+    # Nothing expensive should run before we know the deploy can authenticate.
+    needs: [preflight]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -79,7 +119,8 @@ jobs:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
 
       - uses: docker/setup-buildx-action@v3
 
@@ -112,7 +153,8 @@ jobs:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
 
       - name: Get GKE Credentials
         uses: google-github-actions/get-gke-credentials@v2
