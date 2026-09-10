@@ -1,0 +1,30 @@
+/* The personal site's stylesheet: shared branding, and almost nothing else.
+   The site is three static pages; it has no forms, no nav bar and no installed
+   -app chrome, so none of the grocery app's frame/rail machinery comes with it. */
+
+@import "../../../packages/shared/theme.css";
+
+:root {
+  /* Only the width survives from the grocery app's frame variables, because
+     NotFoundPage still renders inside a centred column. The gutter and nav-height
+     properties existed for the bottom sheets and the nav bar, neither of which
+     exists here. */
+  --app-frame-width: 28rem;
+}
+
+@media (min-width: 640px) {
+  :root {
+    --app-frame-width: 36rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --app-frame-width: 44rem;
+  }
+}
+
+.app-frame {
+  width: 100%;
+  max-width: var(--app-frame-width);
+}

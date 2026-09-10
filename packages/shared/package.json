@@ -1,0 +1,14 @@
+{
+  "name": "@teddy/shared",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "//": "Consumed through each app's `@shared` path alias rather than by package name, so Vite transforms the TSX as ordinary source instead of treating it as a pre-built dependency. Declaring it as a workspace package is what gives packages/shared its own node_modules, so the react import below resolves from here rather than from a repo root that has no react.",
+  "peerDependencies": {
+    "react": "^19.2.6"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "react": "^19.2.6"
+  }
+}

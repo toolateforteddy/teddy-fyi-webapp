@@ -1,0 +1,9 @@
+# packages/shared is a workspace package so that it gets its own node_modules and
+# its `react` import resolves. It is still *consumed* through the `@shared` path
+# alias in each app's vite.config.ts and tsconfig rather than by package name:
+# that way Vite transforms its .tsx as ordinary source, via the same machinery
+# that already serves each app's own `@` alias, instead of having to coax an
+# untranspiled linked dependency through the pre-bundling pipeline.
+packages:
+  - 'apps/*'
+  - 'packages/*'

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Teddy Martin</title>
+
+  <!-- No manifest and no apple-mobile-web-app-* here, unlike the grocery app.
+       This is a website you read, not an app you install to a home screen; a
+       standalone display mode would only strip the browser chrome off three
+       pages of links. The install metadata lives at grocery.teddy.fyi. -->
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Source+Code+Pro:ital,wght@0,200..900;1,200..900&display=swap" rel="stylesheet">
+  <style>
+    /* Tailwind v4 emits oklch(), color-mix() and @property with no fallbacks, so
+       it requires Safari / iOS 16.4+ (March 2023). Below that nearly every color
+       declaration is dropped and the page renders as an unreadable black page.
+       Detect that directly and say so instead of shipping a broken UI. */
+    #legacy-browser-notice {
+      display: none;
+    }
+
+    @supports not (color: oklch(0% 0 0)) {
+      #root {
+        display: none;
+      }
+
+      #legacy-browser-notice {
+        display: block;
+        box-sizing: border-box;
+        max-width: 32rem;
+        margin: 0 auto;
+        padding: 3rem 1.5rem;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: #ffffff;
+        text-align: center;
+        line-height: 1.6;
+      }
+
+      #legacy-browser-notice h1 {
+        font-size: 1.25rem;
+        margin: 0 0 0.75rem 0;
+      }
+
+      #legacy-browser-notice p {
+        font-size: 0.95rem;
+        color: #a3a3a3;
+        margin: 0 0 0.75rem 0;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="root"></div>
+  <div id="legacy-browser-notice">
+    <h1>This browser is out of date</h1>
+    <p>This site needs iOS 16.4 or newer (or a current version of Chrome, Edge or Firefox) to display correctly.</p>
+    <p>On iPhone or iPad, open Settings &rsaquo; General &rsaquo; Software Update to update iOS.</p>
+  </div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
+</html>
