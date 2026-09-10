@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react'
 import { useAuth } from '@/features/auth/hooks/useAuth'
+import { rowUserId, legacyRowUserId } from '@/features/auth/utils/identity'
 import { useGrocerySync } from '@/features/sync/hooks/useGrocerySync'
 import { storage } from '@/utils/storage'
 import { STORAGE_KEYS } from '@/config/storageKeys'
@@ -247,7 +248,7 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
           defaultList = {
             id: defaultListId,
             name: 'My List',
-            ownerId: user?.id,
+            ownerId: rowUserId(user),
             createdAt: Date.now(),
             sync_state: 'PENDING_INSERT',
             version: 1,
@@ -256,7 +257,7 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
           defaultMember = {
             id: generateUuid(),
             listId: defaultListId,
-            userId: user?.id || '',
+            userId: rowUserId(user) || '',
             role: 'OWNER',
             joinedAt: Date.now(),
             sync_state: 'PENDING_INSERT',
@@ -371,40 +372,60 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
     }
   }, [items, lists, listMembers, stores, categories, itemStoreInfos, isLoading, user])
 
-  // Update local list owner and member user IDs once auth boots/changes
+  // Stamp the account's row identity onto local list and membership rows: onto the ones
+  // that have none yet, and onto the ones still carrying the pre-re-key Google subject.
+  //
+  // The subject is no longer what these rows are keyed by -- the server keys them by the
+  // surrogate -- and it does not translate one into the other, on purpose. A membership
+  // insert whose `user_id` is the subject is answered 403, and that refusal fails the
+  // whole sync batch, not just the one row; a list update carrying `owner_id` as the
+  // subject is worse, because the server takes that field verbatim and the account then
+  // owns none of its own lists. So a local row still on the subject is a row to rewrite,
+  // and the surrogate arriving from the server is the signal to do it.
+  //
+  // Rewriting in place deliberately leaves `sync_state` alone: the server re-keyed its
+  // own rows in the migration, so this is correcting a stale mirror, not making a change
+  // to push. A row that was already dirty stays dirty and now carries the right id.
   useEffect(() => {
-    if (user?.id) {
-      setLists(curr => {
-        let changed = false
-        const updated = curr.map(list => {
-          if (!list.ownerId && !list.is_deleted) {
-            changed = true
-            return { ...list, ownerId: user.id }
-          }
-          return list
-        })
-        return changed ? updated : curr
-      })
+    const rowId = rowUserId(user)
+    if (!rowId) return
+    const legacyId = legacyRowUserId(user)
 
-      setListMembers(curr => {
-        let changed = false
-        const listIds = new Set(lists.map(l => l.id))
-        const updated = curr.filter(member => {
-          if (!member.listId || !listIds.has(member.listId)) {
-            changed = true
-            return false
-          }
-          return true
-        }).map(member => {
-          if ((!member.userId || member.userId === '') && !member.is_deleted) {
-            changed = true
-            return { ...member, userId: user.id }
-          }
-          return member
-        })
-        return changed ? updated : curr
+    const needsRestamp = (id: string | undefined) =>
+      !id || id === '' || (legacyId !== undefined && id === legacyId)
+
+    setLists(curr => {
+      let changed = false
+      const updated = curr.map(list => {
+        if (needsRestamp(list.ownerId) && !list.is_deleted) {
+          changed = true
+          return { ...list, ownerId: rowId }
+        }
+        return list
       })
-    }
+      return changed ? updated : curr
+    })
+
+    setListMembers(curr => {
+      let changed = false
+      const listIds = new Set(lists.map(l => l.id))
+      const updated = curr.filter(member => {
+        if (!member.listId || !listIds.has(member.listId)) {
+          changed = true
+          return false
+        }
+        return true
+      }).map(member => {
+        // Only this account's own rows: a co-member's `userId` is their surrogate and
+        // never matches either of ours.
+        if (needsRestamp(member.userId) && !member.is_deleted) {
+          changed = true
+          return { ...member, userId: rowId }
+        }
+        return member
+      })
+      return changed ? updated : curr
+    })
   }, [user, lists, setLists, setListMembers])
 
   // Derive sync status

@@ -1,7 +1,7 @@
 import { createContext, useState, useEffect } from 'react'
 import type { ReactNode } from 'react'
 import api, { registerUnauthorizedListener } from '@/lib/axios'
-import type { User, AuthState } from '../types'
+import type { User, AuthState, RefreshResponse } from '../types'
 import { storage } from '@/utils/storage'
 import { STORAGE_KEYS } from '@/config/storageKeys'
 import { getClientUuid } from '@/utils/uuid'
@@ -50,11 +50,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       try {
         const user = storage.getItem<User | null>(STORAGE_KEYS.USER_INFO, null)
+        // The subject, deliberately: sessions are keyed by it, not by the surrogate.
         const userId = user?.id || ''
         const clientUuid = getClientUuid()
 
         // Exchange refresh token for a fresh session cookie
-        const response = await api.post<{ refresh_token: string }>('/auth/refresh', {
+        const response = await api.post<RefreshResponse>('/auth/refresh', {
           user_id: userId,
           client_uuid: clientUuid,
           refresh_token: refreshToken,
@@ -64,9 +65,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // Store new refresh token
         storage.setItem(STORAGE_KEYS.REFRESH_TOKEN, response.data.refresh_token)
 
+        // The surrogate rides along on every rotation, so a session that was already
+        // signed in when it shipped learns it here rather than only on a fresh login.
+        const surrogateId = response.data.user_uuid || undefined
+        const refreshedUser =
+          user && surrogateId && user.surrogateId !== surrogateId
+            ? { ...user, surrogateId }
+            : user
+        if (refreshedUser !== user) {
+          storage.setItem(STORAGE_KEYS.USER_INFO, refreshedUser)
+        }
+
         setAuthStateInternal({
           isAuthenticated: true,
-          user,
+          user: refreshedUser,
           isLoading: false,
         })
       } catch (error) {
