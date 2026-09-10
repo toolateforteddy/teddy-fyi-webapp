@@ -3,13 +3,33 @@
 
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/png" href="/favicon.png" />
   <!-- viewport-fit=cover is what makes env(safe-area-inset-*) resolve to real
        values on iPhone. No maximum-scale / user-scalable=no here on purpose:
        pinch-zoom stays available, and the input auto-zoom is fixed by giving
        form controls a 16px font size (see index.css). -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Teddy</title>
+
+  <!-- Installed-app metadata. `display: standalone` in the manifest is what
+       drops the browser chrome on Android; iOS reads apple-mobile-web-app-capable
+       for the same thing, and still needs it even though it now also honours the
+       manifest for some properties. -->
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Grocery" />
+  <!-- black-translucent puts the page *under* the status bar, which is why every
+       top-level surface pads itself with env(safe-area-inset-top). -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <!-- iOS does not generate a launch image from the manifest icons; without an
+       apple-touch-icon it falls back to a screenshot of the page and flashes
+       white on launch. The 180px PNG is the one iOS actually wants. -->
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Source+Code+Pro:ital,wght@0,200..900;1,200..900&display=swap" rel="stylesheet">

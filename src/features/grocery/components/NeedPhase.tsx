@@ -202,7 +202,7 @@ export function NeedPhase() {
   }
 
   return (
-    <div className="relative flex-1 flex flex-col min-h-0 space-y-4">
+    <div className="relative flex-1 flex flex-col min-h-0 space-y-4 pb-20">
       {activeItems.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center p-8 mt-12 animate-in fade-in duration-300">
           <div className="w-16 h-16 rounded-full bg-surface-tile border border-neutral-800 flex items-center justify-center text-neutral-600 mb-4">
@@ -263,7 +263,12 @@ export function NeedPhase() {
       <button
         onClick={() => setIsAddOpen(true)}
         className={cn(
-          "fixed bottom-[84px] right-4 md:right-[calc(50vw-210px)] w-14 h-14 rounded-full bg-primary text-black flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-all z-35 cursor-pointer duration-200",
+          // Anchored to the app frame rather than the viewport: --app-frame-gutter
+          // is the distance from the viewport edge to the frame edge, and
+          // --app-nav-height is 0 when the nav has moved to a side rail. Both are
+          // inherited from .app-frame, which works even though this is fixed.
+          "fixed z-30 right-[calc(var(--app-frame-gutter)+1rem)] bottom-[calc(var(--app-nav-height)+env(safe-area-inset-bottom)+1rem)]",
+          "w-14 h-14 rounded-full bg-primary text-black flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-all cursor-pointer duration-200",
           expandedItemId !== null ? "opacity-0 scale-75 pointer-events-none" : "opacity-100 scale-100"
         )}
         aria-label="Add grocery item"

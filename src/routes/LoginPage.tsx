@@ -6,7 +6,7 @@ export function LoginPage() {
   return (
     <div className="min-h-dvh bg-black text-white flex flex-col justify-between items-center font-sans antialiased selection:bg-primary selection:text-black">
       {/* App Frame container */}
-      <div className="w-full max-w-md min-h-dvh bg-black flex flex-col relative border-x border-[#1a1a1a] shadow-[0_0_50px_0_rgba(208,188,255,0.05)] px-6 py-8 justify-between">
+      <div className="app-frame min-h-dvh bg-black flex flex-col relative border-x border-[#1a1a1a] shadow-[0_0_50px_0_rgba(208,188,255,0.05)] px-6 py-[max(2rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] justify-between">
         
         {/* Top Header */}
         <header className="flex items-center justify-between">

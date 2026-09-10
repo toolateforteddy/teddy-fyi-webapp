@@ -145,7 +145,7 @@ export function DeviceLinkPage() {
 
   return (
     <div className="min-h-dvh bg-black text-white flex flex-col items-center font-sans antialiased selection:bg-primary selection:text-black">
-      <div className="w-full max-w-md min-h-dvh bg-black flex flex-col border-x border-[#1a1a1a] shadow-[0_0_50px_0_rgba(208,188,255,0.05)] px-6 py-8 gap-8">
+      <div className="app-frame min-h-dvh bg-black flex flex-col border-x border-[#1a1a1a] shadow-[0_0_50px_0_rgba(208,188,255,0.05)] px-6 py-[max(2rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] gap-8">
 
         <header className="flex items-center justify-between">
           <Link

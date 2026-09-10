@@ -250,7 +250,7 @@ export function ShoppingPhase() {
           </div>
 
           {/* Active Needed Items */}
-          <div className="space-y-4 flex-1 overflow-y-auto">
+          <div className="space-y-4 flex-1 overflow-y-auto overscroll-contain">
             {toBuyItems.length === 0 ? (
               <div className="text-center py-8">
                 <Check className="w-10 h-10 text-emerald-500 mx-auto mb-2" />

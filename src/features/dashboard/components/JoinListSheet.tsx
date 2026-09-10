@@ -79,7 +79,7 @@ export function JoinListSheet({ isOpen, onClose }: JoinListSheetProps) {
     <dialog
       ref={dialogRef}
       onClose={onClose}
-      className="fixed top-auto bottom-0 left-0 right-0 w-full max-w-none md:max-w-md md:mx-auto bg-surface-tile border-t border-neutral-800 rounded-t-2xl z-50 px-4 pt-4 pb-[calc(2rem+env(safe-area-inset-bottom))] shadow-2xl backdrop:bg-black/60 backdrop:backdrop-blur-sm animate-in slide-in-from-bottom duration-250 ease-out focus:outline-none"
+      className="app-frame fixed top-auto bottom-0 left-1/2 -translate-x-1/2 max-h-[85dvh] overflow-y-auto overscroll-contain bg-surface-tile border-t border-neutral-800 rounded-t-2xl z-50 px-4 pt-4 pb-[calc(2rem+env(safe-area-inset-bottom))] shadow-2xl backdrop:bg-black/60 backdrop:backdrop-blur-sm animate-in slide-in-from-bottom duration-250 ease-out focus:outline-none"
     >
       <div className="flex items-center justify-between mb-4 border-b border-neutral-800 pb-3">
         <div className="flex items-center gap-1.5">
