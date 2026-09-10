@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Outlet, Link, useLocation } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import { 
   ShoppingBag, 
   Calendar, 
@@ -15,13 +15,16 @@ import {
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { getSyncedTimeString } from '@/utils/date'
+import { useAppLayout } from '@/hooks/useAppLayout'
 import { GroceryProvider, useGrocery } from '@/features/grocery/context/GroceryContext'
+import { AppNav, type NavItem } from './AppNav'
 import { ShareListSheet } from './ShareListSheet'
 import { JoinListSheet } from './JoinListSheet'
 
 function DashboardContent() {
   const location = useLocation()
   const currentPath = location.pathname
+  const { nav: navPlacement, compact } = useAppLayout()
 
   const {
     activeListId,
@@ -52,8 +55,8 @@ function DashboardContent() {
 
   if (!activeList) {
     return (
-      <div className="min-h-dvh bg-black text-white flex flex-col justify-center items-center font-sans antialiased">
-        <div className="w-full max-w-md min-h-dvh bg-black flex flex-col items-center justify-center border-x border-[#1a1a1a] shadow-[0_0_50px_0_rgba(208,188,255,0.05)] space-y-4">
+      <div className="h-dvh bg-black text-white flex justify-center items-center font-sans antialiased">
+        <div className="app-frame h-dvh bg-black flex flex-col items-center justify-center border-x border-[#1a1a1a] shadow-[0_0_50px_0_rgba(208,188,255,0.05)] space-y-4">
           <Loader2 className="w-8 h-8 text-primary animate-spin" />
           <span className="text-xs text-text-muted font-medium tracking-wide animate-pulse">
             Initializing your lists...
@@ -63,7 +66,7 @@ function DashboardContent() {
     )
   }
 
-  const navItems = [
+  const navItems: NavItem[] = [
     {
       path: '/grocery',
       label: 'Need',
@@ -87,24 +90,46 @@ function DashboardContent() {
   ]
 
   return (
-    <div className="min-h-dvh bg-black text-white flex flex-col justify-between items-center font-sans antialiased selection:bg-primary selection:text-black">
-      {/* Mobile container wrapper (App Frame) */}
-      <div className="w-full max-w-md min-h-dvh bg-black flex flex-col relative border-x border-[#1a1a1a] shadow-[0_0_50px_0_rgba(208,188,255,0.05)] pb-[calc(72px+env(safe-area-inset-bottom))]">
-        
-        {/* Top App Bar */}
-        <header className="sticky top-0 z-40 bg-black/80 backdrop-blur-md border-b border-[#1a1a1a] h-14 flex items-center justify-between px-4">
+    <div className="h-dvh overflow-hidden bg-black text-white flex justify-center font-sans antialiased selection:bg-primary selection:text-black">
+      {/* App frame. Fixed to the viewport height with its own internal scroller,
+          so overscroll stays inside the list instead of dragging the shell. */}
+      <div
+        data-nav={navPlacement}
+        className={cn(
+          "app-frame h-dvh bg-black flex relative overflow-hidden border-x border-[#1a1a1a] shadow-[0_0_50px_0_rgba(208,188,255,0.05)]",
+          "pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]",
+          navPlacement === 'rail' ? "flex-row" : "flex-col"
+        )}
+      >
+
+        {/* Navigation rail (short/landscape viewports) */}
+        {navPlacement === 'rail' && (
+          <AppNav items={navItems} currentPath={currentPath} placement="rail" />
+        )}
+
+        {/* Header + content column */}
+        <div className="flex flex-col flex-1 min-w-0 min-h-0">
+
+        {/* Top App Bar. Padded for the status bar, which the page sits under in
+            standalone mode (apple-mobile-web-app-status-bar-style). */}
+        <header
+          className={cn(
+            "app-chrome shrink-0 z-40 bg-black/80 backdrop-blur-md border-b border-[#1a1a1a] flex items-center justify-between px-4 pt-[env(safe-area-inset-top)]",
+            compact ? "h-11" : "h-14"
+          )}
+        >
           {/* Logo / Branding */}
-          <div className="flex items-center gap-2 select-none">
-            <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-xs">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-7 h-7 shrink-0 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-xs">
               G
             </div>
-            <span className="text-sm font-bold tracking-wider text-white">
+            <span className="text-sm font-bold tracking-wider text-white truncate">
               Grocery: {activeList.name}
             </span>
           </div>
 
           {/* Actions & Sync Feedback */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             {/* Edit List Selector Button */}
             <button
               onClick={() => setIsEditMode(!isEditMode)}
@@ -216,8 +241,8 @@ function DashboardContent() {
           </div>
         )}
 
-        {/* Primary Page Outlet */}
-        <main className="flex-1 overflow-y-auto px-4 py-4 scroll-smooth">
+        {/* Primary Page Outlet -- the one scroll container in the shell. */}
+        <main className="app-scroll flex flex-col flex-1 min-h-0 px-4 py-4 scroll-smooth">
           <Outlet context={{ 
             activeListId: activeList.id, 
             setActiveListId, 
@@ -238,34 +263,12 @@ function DashboardContent() {
           }} />
         </main>
 
-        {/* Bottom Navigation Bar */}
-        <nav className="fixed bottom-0 w-full max-w-md bg-black/90 backdrop-blur-lg border-t border-[#1a1a1a] min-h-[68px] pb-[env(safe-area-inset-bottom)] flex items-center justify-around px-2 z-40 shadow-[0_-10px_20px_rgba(0,0,0,0.5)]">
-          {navItems.map((item) => {
-            const Icon = item.icon
-            const isActive = currentPath === item.path
+        </div>{/* /header + content column */}
 
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className="flex flex-col items-center justify-center w-16 h-12 rounded-xl transition-all cursor-pointer group active:scale-95"
-              >
-                <div className={cn(
-                  "p-1.5 rounded-full transition-all group-hover:bg-neutral-900",
-                  isActive ? "bg-primary/10 text-primary scale-110" : "text-text-muted"
-                )}>
-                  <Icon className="w-5 h-5 transition-transform" />
-                </div>
-                <span className={cn(
-                  "text-[10px] font-medium tracking-wide mt-1 transition-colors",
-                  isActive ? "text-primary font-semibold" : "text-text-muted group-hover:text-neutral-300"
-                )}>
-                  {item.label}
-                </span>
-              </Link>
-            )
-          })}
-        </nav>
+        {/* Bottom Navigation Bar (portrait / tall viewports) */}
+        {navPlacement === 'bottom' && (
+          <AppNav items={navItems} currentPath={currentPath} placement="bottom" />
+        )}
 
       </div>
 

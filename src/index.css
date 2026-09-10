@@ -13,6 +13,22 @@
 }
 
 :root {
+  /* One source of truth for the width of the centred "app frame". Everything
+     that has to line up with it -- the bottom sheets, the floating action
+     button -- reads these instead of carrying its own copy of the number.
+     Custom properties inherit through the DOM regardless of positioning, so
+     even `position: fixed` descendants of the frame resolve them correctly. */
+  --app-frame-width: 28rem;
+  /* Distance from the viewport edge to the frame edge, once the viewport is
+     wider than the frame. Resolved lazily, so the media queries below that
+     change --app-frame-width change this too. */
+  --app-frame-gutter: max(0px, calc((100vw - var(--app-frame-width)) / 2));
+
+  /* Height reserved for the bottom navigation bar. The nav rail variant sets
+     this to 0 (see .app-frame[data-nav="rail"]) so overlays stop leaving a gap
+     where the bar no longer is. */
+  --app-nav-height: 68px;
+
   font-family: var(--font-sans);
   line-height: 1.5;
   font-weight: 400;
@@ -27,6 +43,21 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Roomier frame once there's screen to spend on it. The item grids inside are
+   auto-fill, so a wider frame simply means more tiles per row rather than
+   stretched ones. */
+@media (min-width: 640px) {
+  :root {
+    --app-frame-width: 36rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --app-frame-width: 44rem;
+  }
+}
+
 body {
   margin: 0;
   padding: 0;
@@ -37,12 +68,61 @@ body {
   min-height: 100dvh;
   background-color: var(--color-bg-black);
   color: var(--color-text-primary);
+  /* Installed apps don't rubber-band the whole page when you drag past the end
+     of a list. Contain the bounce to whichever scroller the gesture started in.
+     `none` rather than `contain` also disables pull-to-refresh, which in a
+     standalone PWA only ever throws away in-memory state. */
+  overscroll-behavior-y: none;
+  /* Grey flash on every tap is the single clearest "this is a web page" tell. */
+  -webkit-tap-highlight-color: transparent;
 }
 
 #root {
   width: 100%;
   min-height: 100vh;
   min-height: 100dvh;
+}
+
+/* The centred app frame. Width lives in a custom property so overlays that sit
+   outside the frame in the DOM can still line up with it. */
+.app-frame {
+  width: 100%;
+  max-width: var(--app-frame-width);
+}
+
+/* A phone held sideways has ~330px of usable height. The bottom bar moves to a
+   side rail in that case (see useAppLayout), so nothing is reserved for it. */
+.app-frame[data-nav='rail'] {
+  --app-nav-height: 0px;
+}
+
+/* Chrome -- bars, tabs, buttons -- should not be text you can accidentally
+   select and drag. Content stays selectable. */
+.app-chrome {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Momentum scrolling that stops at its own edges instead of handing the
+   overscroll up to the page. */
+.app-scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Respect the OS setting rather than animating regardless. */
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* iOS Safari zooms the whole page whenever a focused form control renders below
