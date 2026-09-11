@@ -98,7 +98,7 @@ function describeSync(status: SyncStatus, pendingCount: number) {
 function DashboardContent() {
   const location = useLocation()
   const currentPath = location.pathname
-  const { nav: navPlacement, compact } = useAppLayout()
+  const { nav: navPlacement, compact, railLabels, wide } = useAppLayout()
 
   const {
     activeListId,
@@ -133,7 +133,7 @@ function DashboardContent() {
   if (!activeList) {
     return (
       <div className="h-dvh bg-black text-white flex justify-center items-center font-sans antialiased">
-        <div className="app-frame h-dvh bg-black flex flex-col items-center justify-center border-x border-[#1a1a1a] shadow-[0_0_50px_0_rgba(208,188,255,0.05)] space-y-4">
+        <div className="app-frame app-shell h-dvh bg-black flex flex-col items-center justify-center border-x border-[#1a1a1a] shadow-[0_0_50px_0_rgba(208,188,255,0.05)] space-y-4">
           <Loader2 className="w-8 h-8 text-primary animate-spin" />
           <span className="text-xs text-text-muted font-medium tracking-wide animate-pulse">
             Initializing your lists...
@@ -173,15 +173,15 @@ function DashboardContent() {
       <div
         data-nav={navPlacement}
         className={cn(
-          "app-frame h-dvh bg-black flex relative overflow-hidden border-x border-[#1a1a1a] shadow-[0_0_50px_0_rgba(208,188,255,0.05)]",
+          "app-frame app-shell h-dvh bg-black flex relative overflow-hidden border-x border-[#1a1a1a] shadow-[0_0_50px_0_rgba(208,188,255,0.05)]",
           "pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]",
           navPlacement === 'rail' ? "flex-row" : "flex-col"
         )}
       >
 
-        {/* Navigation rail (short/landscape viewports) */}
+        {/* Navigation rail (short/landscape viewports, and anything tablet-sized) */}
         {navPlacement === 'rail' && (
-          <AppNav items={navItems} currentPath={currentPath} placement="rail" />
+          <AppNav items={navItems} currentPath={currentPath} placement="rail" labelled={railLabels} />
         )}
 
         {/* Header + content column */}
@@ -306,7 +306,12 @@ function DashboardContent() {
         )}
 
         {/* Primary Page Outlet -- the one scroll container in the shell. */}
-        <main className="app-scroll flex flex-col flex-1 min-h-0 px-4 py-4 scroll-smooth">
+        <main
+          className={cn(
+            'app-scroll app-content flex flex-col flex-1 min-h-0 py-4 scroll-smooth',
+            wide ? 'px-6' : 'px-4'
+          )}
+        >
           <Outlet context={{ 
             activeListId: activeList.id, 
             setActiveListId, 

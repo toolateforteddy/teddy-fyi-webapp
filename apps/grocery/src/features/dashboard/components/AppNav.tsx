@@ -15,13 +15,21 @@ interface AppNavProps {
   /**
    * 'bottom' is the thumb-reachable bar for portrait. 'rail' is the vertical
    * strip used when the viewport is too short for a bar to be worth 68px of
-   * height -- a phone in landscape, mostly.
+   * height -- a phone in landscape -- and on anything tablet-sized or larger.
    */
   placement: NavPlacement
+  /**
+   * Whether the rail is wide enough to set its labels beside the icons rather
+   * than under them. False on the landscape phone the rail started out for,
+   * where the scarce dimension is width; true on a tablet, which is where the
+   * Android app's rail also stops being a strip of icons.
+   */
+  labelled?: boolean
 }
 
-export function AppNav({ items, currentPath, placement }: AppNavProps) {
+export function AppNav({ items, currentPath, placement, labelled = false }: AppNavProps) {
   const isRail = placement === 'rail'
+  const isWideRail = isRail && labelled
 
   return (
     <nav
@@ -31,8 +39,15 @@ export function AppNav({ items, currentPath, placement }: AppNavProps) {
         isRail
           ? // The rail owns the left safe-area inset, since in landscape that is
             // where the notch sits.
-            'flex-col items-center justify-center gap-1 w-[4.5rem] border-r border-[#1a1a1a] pl-[env(safe-area-inset-left)] py-2 shadow-[10px_0_20px_rgba(0,0,0,0.5)]'
-          : 'items-center justify-around px-2 min-h-[68px] border-t border-[#1a1a1a] pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_20px_rgba(0,0,0,0.5)]'
+            'flex-col gap-1 border-r border-[#1a1a1a] pl-[env(safe-area-inset-left)] py-2 shadow-[10px_0_20px_rgba(0,0,0,0.5)]'
+          : 'items-center justify-around px-2 min-h-[68px] border-t border-[#1a1a1a] pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_20px_rgba(0,0,0,0.5)]',
+        isRail &&
+          (isWideRail
+            ? // 11rem is the width of a destination name, which is the point of
+              // the wide rail: "Planning" reads as a place to go rather than as a
+              // caption under a glyph.
+              'w-44 items-stretch px-2 pt-3'
+            : 'w-[4.5rem] items-center justify-center')
       )}
     >
       {items.map((item) => {
@@ -45,23 +60,33 @@ export function AppNav({ items, currentPath, placement }: AppNavProps) {
             to={item.path}
             aria-current={isActive ? 'page' : undefined}
             className={cn(
-              'flex flex-col items-center justify-center rounded-xl transition-all cursor-pointer group active:scale-95',
-              // 44px is the smallest comfortably tappable target; the rail keeps
-              // it while giving back the vertical space the bar was using.
-              isRail ? 'w-14 h-11' : 'w-16 h-12'
+              'flex rounded-xl transition-all cursor-pointer group active:scale-95',
+              // 44px is the smallest comfortably tappable target; every variant
+              // keeps it, and the wide rail spends the extra width on the label
+              // rather than on a taller row.
+              isWideRail
+                ? 'flex-row items-center gap-3 h-12 px-2.5'
+                : 'flex-col items-center justify-center',
+              !isWideRail && (isRail ? 'w-14 h-11' : 'w-16 h-12'),
+              isWideRail && isActive && 'bg-primary/10'
             )}
           >
             <div
               className={cn(
                 'p-1.5 rounded-full transition-all group-hover:bg-neutral-900',
-                isActive ? 'bg-primary/10 text-primary scale-110' : 'text-text-muted'
+                isActive
+                  ? isWideRail
+                    ? 'text-primary'
+                    : 'bg-primary/10 text-primary scale-110'
+                  : 'text-text-muted'
               )}
             >
               <Icon className="w-5 h-5 transition-transform" />
             </div>
             <span
               className={cn(
-                'text-[10px] font-medium tracking-wide mt-1 transition-colors',
+                'font-medium tracking-wide transition-colors',
+                isWideRail ? 'text-sm' : 'text-[10px] mt-1',
                 isActive ? 'text-primary font-semibold' : 'text-text-muted group-hover:text-neutral-300'
               )}
             >

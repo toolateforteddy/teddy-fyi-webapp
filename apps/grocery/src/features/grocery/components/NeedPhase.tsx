@@ -7,7 +7,8 @@ import { cn } from '@/utils/cn'
 import { generateUuid } from '@/utils/uuid'
 import { DEFAULT_CATEGORIES, getCategoryColor, DEFAULT_STORES } from '../config/constants'
 import { GroceryItemTile } from './GroceryItemTile'
-import { AddNeededItemSheet } from './AddNeededItemSheet'
+import { AddNeededItemSheet, AddNeededItemPane } from './AddNeededItemSheet'
+import { useAppLayout } from '@/hooks/useAppLayout'
 import { peekSharedItem, clearSharedItem } from '../utils/sharedItem'
 
 export function NeedPhase() {
@@ -20,6 +21,8 @@ export function NeedPhase() {
     itemStoreInfos, 
     setItemStoreInfos
   } = useGrocery()
+
+  const { dockAddPane } = useAppLayout()
 
   const [rawExpandedItemId, setExpandedItemId] = useState<string | null>(null)
   // An expanded item can be deleted remotely mid-sync, so treat a stale id as
@@ -44,7 +47,12 @@ export function NeedPhase() {
 
   const [shared] = useState<string | null>(() => peekSharedItem())
   const [sharedName, setSharedName] = useState<string | undefined>(shared ?? undefined)
-  const [isAddOpen, setIsAddOpen] = useState(shared !== null || wantsAdd)
+  const [wantsSheet, setIsAddOpen] = useState(shared !== null || wantsAdd)
+
+  // With the form docked there is nothing for the sheet to add, and a modal over
+  // a form that is already on screen is just something to dismiss. A rotation
+  // into the docked layout closes a sheet that was already up.
+  const isAddOpen = wantsSheet && !dockAddPane
 
   useEffect(() => {
     if (shared !== null) clearSharedItem()
@@ -232,15 +240,19 @@ export function NeedPhase() {
     setItems(prev => [...prev, newItem])
   }
 
-  return (
-    <div className="relative flex-1 flex flex-col min-h-0 space-y-4 pb-20">
+  const list = (
+    <div className="flex-1 min-w-0 space-y-4">
       {activeItems.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center p-8 mt-12 animate-in fade-in duration-300">
           <div className="w-16 h-16 rounded-full bg-surface-tile border border-neutral-800 flex items-center justify-center text-neutral-600 mb-4">
             <ShoppingBag className="w-8 h-8" />
           </div>
           <h3 className="text-lg font-semibold text-neutral-300 mb-1">Your list is empty</h3>
-          <p className="text-sm text-text-muted max-w-[240px]">Tap the floating action button below to add items you need.</p>
+          <p className="text-sm text-text-muted max-w-[240px]">
+            {dockAddPane
+              ? 'Use the form beside this list to add items you need.'
+              : 'Tap the floating action button below to add items you need.'}
+          </p>
         </div>
       ) : (
         <div className="space-y-6">
@@ -262,7 +274,7 @@ export function NeedPhase() {
               </div>
 
               {/* Fluid Responsive Grid */}
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2">
+              <div className="tile-grid gap-2">
                 {categoryItems.map((item) => {
                   const isExpanded = expandedItemId === item.id
                   const isPending = item.sync_state !== 'SYNCED'
@@ -289,8 +301,30 @@ export function NeedPhase() {
           ))}
         </div>
       )}
+    </div>
+  )
 
-      {/* Floating Action Button (FAB) */}
+  return (
+    <div
+      className={cn(
+        'relative flex-1 flex min-h-0',
+        // The docked pane is a sibling of the list, not an overlay on it.
+        dockAddPane ? 'flex-row gap-4' : 'flex-col space-y-4 pb-20'
+      )}
+    >
+      {list}
+
+      {dockAddPane && (
+        <AddNeededItemPane
+          activeCategories={activeCategories}
+          onAddItem={handleAddItem}
+          initialName={sharedName}
+        />
+      )}
+
+      {/* Floating Action Button (FAB). Absent while the form is docked -- there is
+          nothing left for it to open. */}
+      {!dockAddPane && (
       <button
         onClick={() => setIsAddOpen(true)}
         className={cn(
@@ -306,6 +340,7 @@ export function NeedPhase() {
       >
         <Plus className="w-6 h-6 stroke-[2.5]" />
       </button>
+      )}
 
       {/* Slide-Up Bottom Sheet Modal */}
       <AddNeededItemSheet
