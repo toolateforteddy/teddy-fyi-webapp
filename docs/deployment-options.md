@@ -36,44 +36,52 @@ PDFs, to save a handful of deploys annually.
 
 ## Option B — a real installed app: service worker + update prompt
 
-**Still open, and now the highest-value thing left.**
+**Mostly built. The precache landed; the update prompt and background sync did
+not.**
 
-The manifest says the list "keeps working offline." Today that means
-`localStorage` survives, but a cold launch with no network fetches `index.html`,
-gets nothing, and shows a browser error page. For an app that replaced a native
-one and gets opened in a grocery store — exactly where signal is worst — that is
-the gap that matters most.
+The problem it was written for: the manifest says the list "keeps working
+offline", and that meant `localStorage` survived, but a cold launch with no
+network fetched `index.html`, got nothing, and showed a browser error page. For an
+app that replaced a native one and gets opened in a grocery store — exactly where
+signal is worst — that was the gap that mattered most.
 
-Add `vite-plugin-pwa` (Workbox) and with it:
+`vite-plugin-pwa` (Workbox) is now configured in `apps/grocery/vite.config.ts`.
+Of the three things listed here:
 
-- **Precache the app shell.** Content-hashed assets are already `immutable`;
-  precaching makes a cold, offline launch render the list instead of failing.
-  This is the single biggest quality-of-life win left.
-- **A real update lifecycle.** `registerSW` with `onNeedRefresh` gives an in-app
-  "Update available — reload" prompt, plus periodic update checks. Today a client
-  picks up a new bundle on its next launch, silently, with no way to know or
-  hurry it.
-- **Background sync** for mutations made offline, instead of hoping the app is
-  foregrounded when signal returns.
+- **Precache the app shell — done.** The whole build precaches (nine files; there
+  are no dynamic imports to miss), plus the Google Fonts stylesheet and font files
+  via runtime caching. A cold, offline launch renders the list.
+- **A real update lifecycle — not done.** The worker deliberately installs, waits
+  and takes over on the next cold launch, which is what the HTTP caching already
+  did; nothing was made worse, but nothing got better either. There is still no
+  "Update available — reload" prompt and no periodic update check. The generated
+  worker does carry Workbox's `SKIP_WAITING` message listener, so what is left is
+  a registration callback and a piece of UI rather than a redesign.
+- **Background sync — not done.** Offline mutations still queue in `localStorage`
+  (every row carries a `sync_state`) and flush when the app is foregrounded and
+  the `online` event fires. That is "hoping the app is open when signal returns",
+  which is usually true for this app and not always.
 
-Two things to get right, or a service worker makes shipping *harder*:
+The two caveats, resolved:
 
-- **Scope is no longer a problem** — this was a real caveat when the app lived at
+- **Scope was no longer a problem** — a real caveat when the app lived at
   `teddy.fyi/grocery` and a root-scoped SW would have sat over the resume
-  redirects and article pages. On its own origin it owns everything and there is
-  nothing else to break. **This is the concrete payoff of having done the move
+  redirects and article pages. On its own origin it owns everything and there was
+  nothing else to break. **This was the concrete payoff of having done the move
   first.**
-- **A kill switch is still needed.** A bad service worker is the one deploy that
-  does not fix itself with a re-ship. Keep a tested "unregister and clear caches"
-  path before the first one goes out.
+- **The kill switch shipped with it**, at two scopes: `?sw=off` for one device,
+  and a `VITE_DISABLE_SW` repository variable plus a manual deploy for the fleet,
+  which ships a self-unregistering worker. Both are described in
+  [`DEPLOYMENT.md`](../DEPLOYMENT.md); the per-device path has unit tests in
+  `apps/grocery/src/__tests__/pwa.test.ts`.
 
 Doing this after the origin move rather than before was deliberate: a SW
 installed at `teddy.fyi` would have kept serving the old app from cache on every
 device after deploys stopped going there, and clearing it would have meant
 shipping a self-unregistering SW to the old origin.
 
-**Cost:** a couple of days, most of it testing the update and offline paths on a
-real phone.
+**Remaining cost:** under a day for the update prompt. Background sync is its own
+piece of work and is worth doing only if the foreground flush proves insufficient.
 
 ## Option C — move the static half to a CDN
 
@@ -106,10 +114,12 @@ this one does not change the origin, so nobody signs out.
 
 ## Recommendation
 
-**B next, C when the Deployment starts feeling like overhead.**
+**B's remainder when someone wants it, C when the Deployment starts feeling like
+overhead.**
 
-B is the one the household actually notices — an app that opens in a shop with no
-signal — and the origin move already removed its worst caveat. C is a real
-simplification but the pipeline it would replace now works; do it when the
-maintenance of a GKE Deployment for a bag of static files stops being worth it,
-not before.
+B's headline — an app that opens in a shop with no signal — is shipped, and it was
+the one the household actually notices. What is left of it, the update prompt, is
+a convenience for whoever deploys rather than for whoever shops, so it is no longer
+the highest thing on the list. C is a real simplification but the pipeline it would
+replace now works; do it when the maintenance of a GKE Deployment for a bag of
+static files stops being worth it, not before.

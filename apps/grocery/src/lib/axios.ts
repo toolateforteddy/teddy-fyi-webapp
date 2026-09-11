@@ -4,6 +4,7 @@ import { env } from '@/config/env'
 import { storage } from '@/utils/storage'
 import { STORAGE_KEYS } from '@/config/storageKeys'
 import { getClientUuid } from '@/utils/uuid'
+import { isSessionRejected } from '@/features/auth/utils/sessionFailure'
 
 // Resolve initial API base URL from storage, env, or default
 const getInitialBaseURL = (): string => {
@@ -166,7 +167,13 @@ api.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError)
         isRefreshing = false
-        triggerUnauthorized()
+        // Only a refusal ends the session. A refresh that never reached the server
+        // -- signal dropped between the 401 and this call, a timeout, a 502 -- leaves
+        // the credentials in place so the next attempt can use them, for the same
+        // reason AuthContext's bootstrap does. See isSessionRejected.
+        if (isSessionRejected(refreshError)) {
+          triggerUnauthorized()
+        }
         return Promise.reject(refreshError)
       }
     }

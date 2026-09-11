@@ -131,9 +131,17 @@ jobs:
       # VITE_API_BASE_URL is deliberately not passed: its default in
       # src/config/env.ts is already the production value. The client id's default
       # is a placeholder that cannot work, which is the whole reason for this.
+      #
+      # VITE_DISABLE_SW is the service worker's fleet kill switch, and it is wired
+      # through here so that throwing it is setting a repository variable and
+      # pressing the manual deploy button -- not writing, reviewing and merging a
+      # code change while every installed phone is serving itself a broken cache.
+      # Normally unset, which is the same as `false`. See src/pwa.ts and
+      # DEPLOYMENT.md.
       - name: Build the grocery app
         env:
           VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+          VITE_DISABLE_SW: ${{ vars.VITE_DISABLE_SW }}
         run: pnpm --filter grocery build
 
       # Preflight can only see that the variable is set; this sees what actually
