@@ -45,6 +45,8 @@ describe('StoreConfigPanel Component', () => {
       pendingCount: 0,
       lastSyncedAt: '',
       handleManualSync: mockHandleManualSync,
+      bootstrapState: 'ready' as const,
+      retryBootstrap: vi.fn(),
     })
   })
 

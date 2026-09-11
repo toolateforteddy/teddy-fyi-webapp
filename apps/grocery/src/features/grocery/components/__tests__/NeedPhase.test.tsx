@@ -64,6 +64,8 @@ describe('NeedPhase Component', () => {
       pendingCount: 0,
       lastSyncedAt: '',
       handleManualSync: vi.fn(),
+      bootstrapState: 'ready' as const,
+      retryBootstrap: vi.fn(),
     })
   })
 
@@ -89,6 +91,8 @@ describe('NeedPhase Component', () => {
       pendingCount: 0,
       lastSyncedAt: '',
       handleManualSync: vi.fn(),
+      bootstrapState: 'ready' as const,
+      retryBootstrap: vi.fn(),
     })
 
     renderNeedPhase()

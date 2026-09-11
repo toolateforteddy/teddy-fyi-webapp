@@ -35,6 +35,36 @@ import {
  */
 export type SyncStatus = 'syncing' | 'offline' | 'pending' | 'stale' | 'synced'
 
+/**
+ * Whether the app has enough to render a list yet.
+ *
+ * This exists because "no lists" and "not loaded yet" used to be the same thing --
+ * the shell showed its splash whenever `lists` was empty, and the only code that
+ * could ever fill `lists` from empty lived inside the success branch of the first
+ * sync. Every other outcome of that sync left the splash on screen with nothing
+ * scheduled to clear it: a throw was caught and logged, and the "client and remote
+ * match" short-circuit returned `null` without ever being an error at all. That one
+ * is the cruel case, because it survives a reload -- the server keeps agreeing that
+ * nothing has changed since the last sync, so the next launch short-circuits too.
+ *
+ * `failed` is therefore not only "the network is down". It is the single state the
+ * shell can render a button in, and it is reachable from every way the bootstrap can
+ * end without a list, including ways nobody has thought of yet: see BOOTSTRAP_TIMEOUT_MS.
+ */
+export type BootstrapState = 'loading' | 'ready' | 'failed'
+
+/**
+ * How long the splash may stay on screen before it becomes a screen with a button.
+ *
+ * Longer than the 10s Axios timeout in `lib/axios`, so an ordinary slow request still
+ * resolves the normal way and this never fires for it. The point of the timer is the
+ * case where nothing settles at all -- a request the Axios timeout does not cover, a
+ * service worker holding a fetch open, a promise chain that loses its own resolution.
+ * The old code had no such bound, which is why "stuck on the spinner" was a state the
+ * app could stay in indefinitely rather than for a bounded number of seconds.
+ */
+export const BOOTSTRAP_TIMEOUT_MS = 15000
+
 interface GroceryContextType {
   activeListId: string
   setActiveListId: (id: string) => void
@@ -58,6 +88,10 @@ interface GroceryContextType {
   pendingCount: number
   lastSyncedAt: string
   handleManualSync: () => Promise<any>
+  /** Whether the shell has a list to render, is still waiting for one, or gave up. */
+  bootstrapState: BootstrapState
+  /** Put the shell back into `loading` and try the first sync again. */
+  retryBootstrap: () => void
 }
 
 const GroceryContext = createContext<GroceryContextType | undefined>(undefined)
@@ -190,6 +224,34 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
 
   const isOnline = useOnlineStatus()
 
+  // A launch that already has lists in local storage is not a launch that waits. This
+  // is the offline-first case the rest of the app is built for -- the sync still runs,
+  // it just runs behind the list rather than in front of it.
+  const [bootstrapState, setBootstrapState] = useState<BootstrapState>(
+    () => (lists.length > 0 ? 'ready' : 'loading')
+  )
+
+  // Any list at all ends the wait, whichever sync it arrived on.
+  useEffect(() => {
+    if (lists.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setBootstrapState(prev => (prev === 'ready' ? prev : 'ready'))
+    }
+  }, [lists])
+
+  // The backstop. Every known way the bootstrap ends is handled where it ends; this is
+  // for the unknown ones, and it is what makes "stuck on the spinner" impossible rather
+  // than merely unlikely. Re-arms whenever the state goes back to `loading`, so a retry
+  // is bounded the same way the first attempt was.
+  useEffect(() => {
+    if (bootstrapState !== 'loading') return
+    const timer = setTimeout(() => {
+      console.warn(`[Bootstrap] No list after ${BOOTSTRAP_TIMEOUT_MS}ms; showing the recovery screen.`)
+      setBootstrapState('failed')
+    }, BOOTSTRAP_TIMEOUT_MS)
+    return () => clearTimeout(timer)
+  }, [bootstrapState])
+
   /**
    * Rows this device has changed that the server has not acknowledged yet.
    *
@@ -230,6 +292,69 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
   const isSyncingRef = useRef(false)
   const syncNeededRef = useRef(false)
   const handleManualSyncRef = useRef<() => Promise<any>>(null as any)
+  /** Set when the short-circuit path has seeded the default list, so it seeds only one. */
+  const adoptedDefaultListRef = useRef(false)
+
+  /**
+   * The list an account with no lists starts from, plus its owning membership.
+   *
+   * Both go in as `PENDING_INSERT`, so the ordinary auto-sync pushes them up the way it
+   * pushes up anything else typed into the app. Adopting one is only ever correct after
+   * the server has *answered* -- a sync that failed to reach it has not established that
+   * the account owns no lists, and inventing one on that basis is how a device ends up
+   * with a second "My List" that the real one then has to live beside.
+   */
+  const buildDefaultList = (): { list: GroceryList; member: GroceryListMember } | null => {
+    if (!user) return null
+    const rowId = rowUserId(user)
+    const listId = generateUuid()
+    return {
+      list: {
+        id: listId,
+        name: 'My List',
+        ownerId: rowId,
+        createdAt: Date.now(),
+        sync_state: 'PENDING_INSERT',
+        version: 1,
+        is_deleted: false,
+      },
+      member: {
+        id: generateUuid(),
+        listId,
+        userId: rowId || '',
+        role: 'OWNER',
+        joinedAt: Date.now(),
+        sync_state: 'PENDING_INSERT',
+        version: 1,
+        is_deleted: false,
+      },
+    }
+  }
+
+  /**
+   * Adopt the default list when a concluded sync has left the device with none.
+   *
+   * The success branch below does this itself, against the lists it has just merged. This
+   * is the other exit from `syncNow`: `null`, meaning the status endpoint said nothing has
+   * changed on either side. That is a *successful* answer -- "you are up to date" -- and if
+   * being up to date means owning no lists, then owning no lists is the truth and the
+   * account needs its first one. Before this existed, that answer skipped the whole
+   * `if (response)` block and left the splash up, and left it up on the next launch too,
+   * because the next launch asked the same question and got the same answer.
+   */
+  const adoptDefaultListIfEmpty = () => {
+    // One decision, taken once, so the list and its membership cannot disagree about
+    // whether it was taken -- a member whose list never landed is an orphan row that goes
+    // up to the server on the next sync. The success branch below keeps its own check; the
+    // two are mutually exclusive per call, since one runs on a response and one on `null`.
+    if (adoptedDefaultListRef.current) return
+    if (listsRef.current.filter(l => !l.is_deleted).length > 0) return
+    const seed = buildDefaultList()
+    if (!seed) return
+    adoptedDefaultListRef.current = true
+    setLists(prev => sortLists([...prev, seed.list]))
+    setListMembers(prev => sortMembers([...prev, seed.member]))
+  }
 
   // Triggers manual sync using the real syncNow hook
   const handleManualSync = async (): Promise<any> => {
@@ -275,31 +400,9 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
         const mergedListsForCheck = resolveListConflicts(currentLists, response.remote_grocery_list_changes, sentListIds)
         const activeListsForCheck = mergedListsForCheck.filter(l => !l.is_deleted)
         
-        let defaultList: GroceryList | null = null
-        let defaultMember: GroceryListMember | null = null
-        
-        if (activeListsForCheck.length === 0) {
-          const defaultListId = generateUuid()
-          defaultList = {
-            id: defaultListId,
-            name: 'My List',
-            ownerId: rowUserId(user),
-            createdAt: Date.now(),
-            sync_state: 'PENDING_INSERT',
-            version: 1,
-            is_deleted: false,
-          }
-          defaultMember = {
-            id: generateUuid(),
-            listId: defaultListId,
-            userId: rowUserId(user) || '',
-            role: 'OWNER',
-            joinedAt: Date.now(),
-            sync_state: 'PENDING_INSERT',
-            version: 1,
-            is_deleted: false,
-          }
-        }
+        const seed = activeListsForCheck.length === 0 ? buildDefaultList() : null
+        const defaultList: GroceryList | null = seed?.list ?? null
+        const defaultMember: GroceryListMember | null = seed?.member ?? null
 
         // Apply functional updates to all states using the resolved conflicts and sent IDs
         setItems(prev => {
@@ -342,10 +445,21 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
 
         setLastSyncedAt(response.server_timestamp)
         storage.setItem(STORAGE_KEYS.LAST_SYNCED, response.server_timestamp)
+        setBootstrapState('ready')
         return response
       }
+
+      // `syncNow` returning null is its "client and remote match" short-circuit, which
+      // is an answer rather than a failure. See adoptDefaultListIfEmpty.
+      adoptDefaultListIfEmpty()
+      setBootstrapState('ready')
     } catch (err) {
       console.error('[Sync] Manual sync failed:', err)
+      // Only while the shell is still waiting on its first list. A sync that fails later,
+      // with a list already on screen, is what the sync dot in the header is for; taking
+      // the shell down to a recovery screen over it would lose the list the user can
+      // still read and still edit offline.
+      setBootstrapState(prev => (prev === 'loading' ? 'failed' : prev))
     } finally {
       isSyncingRef.current = false
       if (syncNeededRef.current) {
@@ -365,6 +479,16 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     handleManualSyncRef.current = handleManualSync
   })
+
+  // What the button on the recovery screen does. Going back to `loading` re-arms the
+  // timeout above, so a retry that hangs lands back on the same screen rather than on
+  // the spinner it replaced.
+  const retryBootstrap = () => {
+    setBootstrapState('loading')
+    if (handleManualSyncRef.current) {
+      handleManualSyncRef.current().catch(err => console.error('[Bootstrap] Retry failed:', err))
+    }
+  }
 
   // Auto-sync on mount and on online reconnect
   useEffect(() => {
@@ -500,7 +624,9 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
       isOnline,
       pendingCount,
       lastSyncedAt,
-      handleManualSync
+      handleManualSync,
+      bootstrapState,
+      retryBootstrap
     }}>
       {children}
     </GroceryContext.Provider>
