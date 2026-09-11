@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# vite-plugin-pwa's dev-mode output. devOptions is off in
+# apps/grocery/vite.config.ts, so this should never appear -- listed so that
+# turning it on for an afternoon's debugging cannot commit a service worker.
+dev-dist
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

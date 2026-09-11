@@ -5,6 +5,7 @@ import type { User, AuthState, RefreshResponse } from '../types'
 import { storage } from '@/utils/storage'
 import { STORAGE_KEYS } from '@/config/storageKeys'
 import { getClientUuid } from '@/utils/uuid'
+import { isSessionRejected } from '../utils/sessionFailure'
 
 export interface AuthContextType {
   isAuthenticated: boolean
@@ -48,8 +49,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         return
       }
 
+      // Read outside the try: the catch needs it to keep an offline launch signed in.
+      const user = storage.getItem<User | null>(STORAGE_KEYS.USER_INFO, null)
+
       try {
-        const user = storage.getItem<User | null>(STORAGE_KEYS.USER_INFO, null)
         // The subject, deliberately: sessions are keyed by it, not by the surrogate.
         const userId = user?.id || ''
         const clientUuid = getClientUuid()
@@ -82,12 +85,32 @@ export function AuthProvider({ children }: AuthProviderProps) {
           isLoading: false,
         })
       } catch (error) {
-        console.error('Session bootstrapping failed:', error)
-        storage.removeItem(STORAGE_KEYS.REFRESH_TOKEN)
-        storage.removeItem(STORAGE_KEYS.USER_INFO)
+        if (isSessionRejected(error)) {
+          // The server answered, and the answer was no. Nothing stored here is
+          // worth keeping and a retry will not change it.
+          console.error('Session bootstrapping refused by the server:', error)
+          storage.removeItem(STORAGE_KEYS.REFRESH_TOKEN)
+          storage.removeItem(STORAGE_KEYS.USER_INFO)
+          setAuthStateInternal({
+            isAuthenticated: false,
+            user: null,
+            isLoading: false,
+          })
+          return
+        }
+
+        // We never got an answer -- no signal, DNS, a timeout, a bad gateway. The
+        // stored session is still the best thing we know, so run on it and show the
+        // local list. The credentials stay put, so the next launch with signal can
+        // rotate them properly; until then the first API call to come back 401 sends
+        // the Axios interceptor through a refresh, which is the recovery path.
+        //
+        // Signing out here instead is a one-way door: the way back in is Google
+        // sign-in, which needs the network this branch exists because we lack.
+        console.warn('Session bootstrapping could not reach the server; continuing on the stored session:', error)
         setAuthStateInternal({
-          isAuthenticated: false,
-          user: null,
+          isAuthenticated: user !== null,
+          user,
           isLoading: false,
         })
       }

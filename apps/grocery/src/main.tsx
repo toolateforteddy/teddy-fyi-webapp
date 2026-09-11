@@ -4,6 +4,7 @@ import './index.css'
 import App from './App.tsx'
 import { storage } from './utils/storage'
 import { STORAGE_KEYS } from './config/storageKeys'
+import { registerServiceWorker } from './pwa'
 
 // One-time automatic purge of local storage fake data.
 // NOTE: storage.setItem writes plain strings raw, but storage.getItem runs them
@@ -24,3 +25,7 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </StrictMode>,
 )
+
+// After render, never before: registration is what makes the *next* launch work
+// offline, so nothing about this load should wait on it. Errors are handled inside.
+registerServiceWorker()

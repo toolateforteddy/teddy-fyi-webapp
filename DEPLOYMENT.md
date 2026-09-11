@@ -233,13 +233,21 @@ undoing means checking out an older commit and running `dn` again.
 The grocery app is installed to home screens, so this matters more than it would
 for a page people visit.
 
-There is still **no service worker.** The manifest's description says the list
-"keeps working offline" — that is `localStorage` (see
-`apps/grocery/src/config/storageKeys.ts`), not a cached app shell. A cold launch
-with no network still fails.
+There **is** a service worker now (`apps/grocery/vite.config.ts` configures
+vite-plugin-pwa; `apps/grocery/src/pwa.ts` registers it), so a cold launch with no
+network renders the list instead of a browser error page. What it precaches is the
+whole build — there are no dynamic imports, so "the whole build" is nine files —
+plus the Google Fonts stylesheet and font files, which come from another origin and
+would otherwise silently drop to the system font offline.
 
-So updates are entirely HTTP caching, and `apps/grocery/nginx.conf` is what makes
-them work:
+The data was already surviving offline in `localStorage` (see
+`apps/grocery/src/config/storageKeys.ts`); what was missing was anything to serve
+the app that reads it.
+
+Updates still work exactly as they did, on purpose. The worker installs, **waits**,
+and takes over on the next cold launch — no `skipWaiting` — so a running session is
+never swapped underneath itself, and HTTP caching remains what actually delivers a
+new build. `apps/grocery/nginx.conf` is what makes that work:
 
 - `/assets/*` — content-hashed by Vite, `immutable`, cached forever.
 - `/index.html` — `no-cache`, i.e. revalidate every time. Load-bearing: it is the
@@ -248,11 +256,37 @@ them work:
 - `/manifest.webmanifest` — `no-cache` too. It is neither content-hashed nor the
   entry document, so without this an installed app keeps an old name, icon or
   `start_url` after a deploy changes it.
+- `/sw.js` — `no-cache`, and this one for a harder reason than the others: see the
+  kill switch below.
+- `/workbox-<hash>.js` — content-hashed like `/assets/*`, but emitted at the root
+  rather than under it, so the immutable rule needs restating for it.
 
 Practically: a launch revalidates `index.html` (a 304 when nothing shipped) and
 picks up a new bundle **on the next launch or reload**, never mid-session. There
-is no in-app "update available" prompt and no way to force a client forward.
-Adding one is Option B in [`docs/deployment-options.md`](./docs/deployment-options.md).
+is still no in-app "update available" prompt and no way to force a client forward.
+Adding one is Option B in [`docs/deployment-options.md`](./docs/deployment-options.md)
+— the generated worker already carries the `SKIP_WAITING` message listener a prompt
+would talk to, so it is UI and a registration callback, not a rethink.
+
+### Turning the service worker off
+
+A bad service worker is the one deploy that does not fix itself by re-shipping: it
+can keep serving its own cache to a phone that never asks the network again. There
+are two ways to undo one, at different scopes, and **both are meant to be used
+before you know why**.
+
+**One device** — open `https://grocery.teddy.fyi/?sw=off`. That unregisters every
+worker, deletes every cache, and remembers, so the next load does not reinstall it.
+`?sw=on` reverses it. Use this when one phone is stuck.
+
+**The fleet** — set the repository variable `VITE_DISABLE_SW` to `true` and run
+**Deploy Grocery** from the Actions tab (`workflow_dispatch`; no commit needed). The
+build then ships vite-plugin-pwa's self-destroying worker instead of the real one:
+it unregisters itself and clears its caches on every client that picks it up. This
+reaches devices whose cached app is otherwise unreachable **because** the browser
+fetches `sw.js` over the network rather than through the worker, and nginx serves
+that file `no-cache` — which is why that rule is load-bearing rather than tidy.
+Unset the variable and deploy again to bring the worker back.
 
 Two failure modes this design is scar tissue from, both worth not
 re-introducing:
