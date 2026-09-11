@@ -11,8 +11,10 @@ import {
   ChevronRight,
   MapPin,
   Tag,
-  Smartphone
+  Smartphone,
+  HelpCircle
 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { storage } from '@/utils/storage'
 import { STORAGE_KEYS } from '@/config/storageKeys'
 import { setApiBaseUrl } from '@/lib/axios'
@@ -272,6 +274,20 @@ export function SettingsPhase() {
             </div>
             <ChevronRight className="w-4 h-4 text-text-muted group-hover:text-white transition-colors" />
           </button>
+
+          {/* The gestures this app uses are invisible until somebody explains them, and
+              Settings is where a person goes looking when something will not do what they
+              expect. See /help. */}
+          <Link
+            to="/help"
+            className="w-full bg-neutral-900 hover:bg-neutral-850 text-white border border-neutral-800 py-3 px-4 rounded-lg text-sm font-semibold transition-all active:scale-[0.99] flex items-center justify-between cursor-pointer group no-underline"
+          >
+            <div className="flex items-center gap-2.5">
+              <HelpCircle className="w-4 h-4 text-primary shrink-0" />
+              <span>How this works</span>
+            </div>
+            <ChevronRight className="w-4 h-4 text-text-muted group-hover:text-white transition-colors" />
+          </Link>
         </div>
       </div>
 
