@@ -93,7 +93,10 @@ you go looking for it:
   `apps/grocery/src/features/pwa/install.ts` — from `main.tsx`, before React
   mounts, because Chrome fires it early and an uncaptured event is an offer nobody
   sees. `InstallBanner` makes the offer and `InstallCard` keeps it in Settings for
-  anyone who dismissed it; the dismissal persists, so the banner is not a nag.
+  anyone who dismissed it; the dismissal persists, so the banner is not a nag. The
+  banner is withheld on anything with a mouse (`(pointer: coarse)`) — Chrome fires
+  the event on a laptop too, and the pitch for installing is a home-screen icon that
+  opens with no signal. Settings still offers it everywhere, worded for the device.
   iOS has no such event and no API, so there the banner shows the Share → Add to
   Home Screen steps instead.
 - **The manifest carries shortcuts, screenshots and a share target.** Long-pressing

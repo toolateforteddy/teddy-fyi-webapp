@@ -2,15 +2,18 @@ import { useEffect, useState } from 'react'
 import { Download, X } from 'lucide-react'
 import { storage } from '@/utils/storage'
 import { subscribeToUpdates } from '@/pwa'
-import { subscribeToInstall, promptInstall, type InstallKind } from '../install'
+import { subscribeToInstall, promptInstall, isHandheld, type InstallKind } from '../install'
 import { BottomNotice } from './BottomNotice'
 import { IosInstallSteps } from './IosInstallSteps'
 
 /**
  * "Add to your home screen", offered once and then not again.
  *
- * Two rules keep this from being the nag every PWA banner turns into:
+ * Three rules keep this from being the nag every PWA banner turns into:
  *
+ *   - **Phones and tablets only.** See isHandheld. A laptop can install this and
+ *     Settings will happily do it, but being asked on one is noise: the pitch for
+ *     installing is a home-screen icon that opens with no signal.
  *   - **Dismissal persists.** It is written to localStorage rather than held in
  *     state, because a banner that comes back on the next launch is one the user has
  *     to dismiss forever. Settings keeps the offer for anyone who changes their mind.
@@ -24,6 +27,9 @@ const DISMISSED_KEY = 'grocery_install_dismissed'
 
 export function InstallBanner() {
   const [kind, setKind] = useState<InstallKind>('none')
+  // Read once: a pointer does not change under a running page, and re-reading it
+  // per render would be a media query on every keystroke elsewhere in the tree.
+  const [handheld] = useState(() => isHandheld())
   const [updateReady, setUpdateReady] = useState(false)
   const [dismissed, setDismissed] = useState(() =>
     Boolean(storage.getItem<boolean>(DISMISSED_KEY, false))
@@ -33,7 +39,7 @@ export function InstallBanner() {
   useEffect(() => subscribeToInstall(setKind), [])
   useEffect(() => subscribeToUpdates(setUpdateReady), [])
 
-  if (kind === 'none' || dismissed || updateReady) return null
+  if (kind === 'none' || !handheld || dismissed || updateReady) return null
 
   const dismiss = () => {
     storage.setItem(DISMISSED_KEY, true)

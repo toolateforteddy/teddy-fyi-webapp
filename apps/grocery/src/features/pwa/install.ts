@@ -62,6 +62,29 @@ export function isIos(): boolean {
   return /iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)
 }
 
+/**
+ * A device you hold, rather than one with a mouse.
+ *
+ * This is what decides whether the app *asks* to be installed. Chrome fires
+ * `beforeinstallprompt` on desktop just as readily as on a phone, and the first
+ * version of this shipped the nudge to laptops -- for an app whose whole install
+ * pitch is that it opens full screen, with no signal, in a shop. On a desktop an
+ * installed window buys close to nothing over a tab, so the offer is noise.
+ *
+ * `(pointer: coarse)` is the primary input being a finger. It is a better question
+ * than screen width, which a narrow window on a laptop also answers "yes" to, and a
+ * better one than the user agent, which nobody has parsed correctly yet. A
+ * touchscreen laptop reports `fine` as its primary pointer, which is the answer we
+ * want from it.
+ *
+ * It only gates the *unprompted* offer. Settings keeps the button on every
+ * platform: somebody who goes looking for it has already decided.
+ */
+export function isHandheld(): boolean {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
+  return window.matchMedia('(pointer: coarse)').matches
+}
+
 function currentKind(): InstallKind {
   if (installed || isStandalone()) return 'none'
   if (deferred) return 'prompt'
