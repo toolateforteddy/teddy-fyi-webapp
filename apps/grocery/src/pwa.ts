@@ -23,10 +23,12 @@
  *      and `apps/grocery/nginx.conf` serves it `no-cache`, so this reaches devices
  *      whose cached app is otherwise unreachable. See DEPLOYMENT.md.
  *
- * Update policy is deliberately the same as the HTTP caching it joins: a new worker
- * installs, waits, and takes over on the next cold launch. No `skipWaiting`, so a
- * running session is never swapped underneath itself. An in-app "update available"
- * prompt is a separate piece of work (Option B in docs/deployment-options.md).
+ * Update policy: a new worker installs and then *waits*. It never calls
+ * `skipWaiting` on its own, so a running session is never swapped underneath itself
+ * -- which matters here because a swap mid-session would throw away whatever is
+ * half-typed in the add-item sheet. Taking the update over is the user's choice,
+ * offered by `UpdateBanner` through `subscribeToUpdates` and `applyUpdate` below,
+ * and it still happens on its own at the next cold launch if they ignore it.
  */
 
 import { storage } from '@/utils/storage'
@@ -35,6 +37,17 @@ import { storage } from '@/utils/storage'
 const SW_DISABLED_KEY = 'grocery_sw_disabled'
 
 const KILL_PARAM = 'sw'
+
+/**
+ * How often to ask whether a new worker has shipped.
+ *
+ * An installed app is launched, not loaded -- it can sit in the background for days
+ * without the browser ever re-fetching sw.js on its own, which is exactly the case
+ * where a deploy would otherwise never arrive. Each check is a conditional request
+ * for one small file, so hourly is cheap; the visibility check below is what
+ * actually catches most updates, since this app is opened rather than left open.
+ */
+const UPDATE_POLL_MS = 60 * 60 * 1000
 
 /**
  * Tear down every worker and cache this origin has. Exported because it is also the
@@ -95,10 +108,116 @@ export async function registerServiceWorker(): Promise<void> {
   }
 
   try {
-    await navigator.serviceWorker.register('/sw.js', { scope: '/' })
+    const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' })
+    watchForUpdates(registration)
   } catch (error) {
     // A failed registration is not a failed app -- it just means no offline launch.
     // Never let it take the page down with it.
     console.error('[PWA] Service worker registration failed:', error)
   }
+}
+
+// --------------------------------------------------------------------------------
+// "A new version is ready"
+//
+// Three things have to line up before we say that, and the middle one is the whole
+// subtlety: a worker sitting in `installed` means a new version is ready ONLY if
+// something is already controlling the page. On a first-ever visit the very first
+// worker also passes through `installed`, and announcing an update to someone who
+// just arrived is nonsense -- they are already on the newest thing there is.
+// `navigator.serviceWorker.controller` is what tells the two apart.
+// --------------------------------------------------------------------------------
+
+type UpdateListener = (updateReady: boolean) => void
+
+const listeners = new Set<UpdateListener>()
+
+/** The installed-and-waiting worker, once there is one. */
+let waiting: ServiceWorker | null = null
+
+/** Set the moment we ask a worker to take over, so the reload below happens once. */
+let activating = false
+
+function announce(worker: ServiceWorker | null) {
+  waiting = worker
+  listeners.forEach(listener => listener(worker !== null))
+}
+
+/**
+ * Subscribe to "a new version is waiting". Fires immediately with the current state,
+ * so a component mounting after the update was found still learns about it. Returns
+ * its own unsubscribe.
+ */
+export function subscribeToUpdates(listener: UpdateListener): () => void {
+  listeners.add(listener)
+  listener(waiting !== null)
+  return () => {
+    listeners.delete(listener)
+  }
+}
+
+/**
+ * Take the waiting version over, and reload onto it.
+ *
+ * The worker only skips waiting when asked -- `SKIP_WAITING` is the message Workbox
+ * generates a listener for, and this is the only thing that sends it. The reload is
+ * driven by `controllerchange` rather than fired straight after the message, because
+ * the new worker has to be in control *before* the page asks for the new bundle;
+ * reloading too early just re-serves the old one from the old worker.
+ */
+export function applyUpdate(): void {
+  if (!waiting || activating) return
+  activating = true
+  waiting.postMessage({ type: 'SKIP_WAITING' })
+}
+
+function watchForUpdates(registration: ServiceWorkerRegistration): void {
+  // Reload exactly once, however many times controllerchange fires.
+  let reloading = false
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!activating || reloading) return
+    reloading = true
+    window.location.reload()
+  })
+
+  // Already waiting when we registered: the update landed during a previous visit
+  // and the user never took it.
+  if (registration.waiting && navigator.serviceWorker.controller) {
+    announce(registration.waiting)
+  }
+
+  registration.addEventListener('updatefound', () => {
+    const installing = registration.installing
+    if (!installing) return
+
+    installing.addEventListener('statechange', () => {
+      if (installing.state !== 'installed') return
+      // The controller check: an update, or just this device's first install?
+      if (navigator.serviceWorker.controller) {
+        announce(installing)
+      }
+    })
+  })
+
+  const checkForUpdate = () => {
+    // Offline this throws, and that is not worth a line in the console: it means
+    // exactly what it should, which is that we will ask again later.
+    registration.update().catch(() => {})
+  }
+
+  window.setInterval(checkForUpdate, UPDATE_POLL_MS)
+
+  // The one that matters on a phone. An installed app spends most of its life
+  // backgrounded, and coming back to it is the moment a deploy from yesterday
+  // should be found -- long before the interval above would next fire.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') checkForUpdate()
+  })
+}
+
+/** Test seam: forget any waiting worker and every listener. */
+export function resetUpdateStateForTests(): void {
+  listeners.clear()
+  waiting = null
+  activating = false
 }

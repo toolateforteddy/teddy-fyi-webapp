@@ -262,11 +262,31 @@ new build. `apps/grocery/nginx.conf` is what makes that work:
   rather than under it, so the immutable rule needs restating for it.
 
 Practically: a launch revalidates `index.html` (a 304 when nothing shipped) and
-picks up a new bundle **on the next launch or reload**, never mid-session. There
-is still no in-app "update available" prompt and no way to force a client forward.
-Adding one is Option B in [`docs/deployment-options.md`](./docs/deployment-options.md)
-— the generated worker already carries the `SKIP_WAITING` message listener a prompt
-would talk to, so it is UI and a registration callback, not a rethink.
+picks up a new bundle on the next launch or reload, never on its own mid-session.
+
+What a client can now do is *offer* the update mid-session.
+`apps/grocery/src/pwa.ts` watches for a worker that has installed and is waiting,
+and `UpdateBanner` puts "A new version is ready" above the bottom nav with a Reload
+button. Pressing it posts `SKIP_WAITING` to the waiting worker and reloads once that
+worker is in control — not before, because reloading first just re-serves the old
+bundle from the old worker. Dismissing the banner only hides it: the worker stays
+waiting and still takes over at the next cold launch, so ignoring the prompt costs
+nothing.
+
+Two details worth not re-deriving:
+
+- **A first install is not an update.** The very first worker on a device also
+  passes through `installed`, so the check is whether
+  `navigator.serviceWorker.controller` exists — no controller means this page is not
+  running a worker yet, and there is nothing to announce.
+- **How a deploy gets noticed at all.** An installed app is launched rather than
+  loaded and can sit backgrounded for days without the browser re-fetching `sw.js`.
+  So `pwa.ts` calls `registration.update()` hourly and on every
+  `visibilitychange` back to visible — the latter is what actually catches most
+  deploys, since this app is opened rather than left open.
+
+There is still no way to *force* a client forward; the fleet kill switch below is
+the only thing that reaches a device whose user never presses Reload.
 
 ### Turning the service worker off
 

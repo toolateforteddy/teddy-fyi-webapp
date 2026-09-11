@@ -36,8 +36,7 @@ PDFs, to save a handful of deploys annually.
 
 ## Option B — a real installed app: service worker + update prompt
 
-**Mostly built. The precache landed; the update prompt and background sync did
-not.**
+**Built, apart from background sync.**
 
 The problem it was written for: the manifest says the list "keeps working
 offline", and that meant `localStorage` survived, but a cold launch with no
@@ -45,18 +44,21 @@ network fetched `index.html`, got nothing, and showed a browser error page. For 
 app that replaced a native one and gets opened in a grocery store — exactly where
 signal is worst — that was the gap that mattered most.
 
-`vite-plugin-pwa` (Workbox) is now configured in `apps/grocery/vite.config.ts`.
-Of the three things listed here:
+`vite-plugin-pwa` (Workbox) is configured in `apps/grocery/vite.config.ts`. Of the
+three things listed here:
 
 - **Precache the app shell — done.** The whole build precaches (nine files; there
   are no dynamic imports to miss), plus the Google Fonts stylesheet and font files
   via runtime caching. A cold, offline launch renders the list.
-- **A real update lifecycle — not done.** The worker deliberately installs, waits
-  and takes over on the next cold launch, which is what the HTTP caching already
-  did; nothing was made worse, but nothing got better either. There is still no
-  "Update available — reload" prompt and no periodic update check. The generated
-  worker does carry Workbox's `SKIP_WAITING` message listener, so what is left is
-  a registration callback and a piece of UI rather than a redesign.
+- **A real update lifecycle — done.** The worker still installs and waits rather
+  than seizing a running session, but the session is now told: `UpdateBanner`
+  offers "A new version is ready" with a Reload button, which posts `SKIP_WAITING`
+  and reloads once the new worker controls the page. Dismissing it is free — the
+  worker stays waiting and takes over at the next cold launch either way.
+  `registration.update()` runs hourly and on every return to the foreground, which
+  is what makes a deploy reachable at all on a device that is launched rather than
+  loaded. The mechanics, and the two things worth not re-deriving, are in
+  [`DEPLOYMENT.md`](../DEPLOYMENT.md).
 - **Background sync — not done.** Offline mutations still queue in `localStorage`
   (every row carries a `sync_state`) and flush when the app is foregrounded and
   the `online` event fires. That is "hoping the app is open when signal returns",
@@ -80,7 +82,7 @@ installed at `teddy.fyi` would have kept serving the old app from cache on every
 device after deploys stopped going there, and clearing it would have meant
 shipping a self-unregistering SW to the old origin.
 
-**Remaining cost:** under a day for the update prompt. Background sync is its own
+**Remaining cost:** none for what is described above. Background sync is its own
 piece of work and is worth doing only if the foreground flush proves insufficient.
 
 ## Option C — move the static half to a CDN
@@ -114,12 +116,14 @@ this one does not change the origin, so nobody signs out.
 
 ## Recommendation
 
-**B's remainder when someone wants it, C when the Deployment starts feeling like
-overhead.**
+**C when the Deployment starts feeling like overhead. B is done bar background
+sync, which is not worth starting speculatively.**
 
-B's headline — an app that opens in a shop with no signal — is shipped, and it was
-the one the household actually notices. What is left of it, the update prompt, is
-a convenience for whoever deploys rather than for whoever shops, so it is no longer
-the highest thing on the list. C is a real simplification but the pipeline it would
-replace now works; do it when the maintenance of a GKE Deployment for a bag of
-static files stops being worth it, not before.
+B's headline — an app that opens in a shop with no signal — is shipped, along with
+the update prompt that tells a running session a deploy happened. What remains of it
+is background sync, and the honest case for that is thin: offline mutations already
+flush when the app is foregrounded, which for an app people open is nearly always.
+Wait for a real instance of changes sitting unsent before building it. C is a real
+simplification but the pipeline it would replace now works; do it when the
+maintenance of a GKE Deployment for a bag of static files stops being worth it, not
+before.

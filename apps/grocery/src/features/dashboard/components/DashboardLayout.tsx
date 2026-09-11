@@ -20,6 +20,7 @@ import { GroceryProvider, useGrocery } from '@/features/grocery/context/GroceryC
 import { AppNav, type NavItem } from './AppNav'
 import { ShareListSheet } from './ShareListSheet'
 import { JoinListSheet } from './JoinListSheet'
+import { UpdateBanner } from '@/features/pwa/components/UpdateBanner'
 
 function DashboardContent() {
   const location = useLocation()
@@ -269,6 +270,12 @@ function DashboardContent() {
         {navPlacement === 'bottom' && (
           <AppNav items={navItems} currentPath={currentPath} placement="bottom" />
         )}
+
+        {/* Inside the frame, like the FAB in NeedPhase and for the same reason: it
+            is fixed, but it reads --app-frame-width and --app-nav-height, and those
+            resolve correctly only for a descendant -- data-nav="rail" above sets the
+            nav height to 0 on this element. */}
+        <UpdateBanner />
 
       </div>
 
