@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom'
 import { LoginPage } from './LoginPage'
 import { DeviceLinkPage } from './DeviceLinkPage'
+import { HelpPage } from './HelpPage'
 import { NotFoundPage } from './NotFoundPage'
 import { AuthenticatedRoute } from './AuthenticatedRoute'
 import { DashboardLayout } from '@/features/dashboard/components/DashboardLayout'
@@ -18,6 +19,11 @@ export function AppRoutes() {
       {/* Tablet pairing. Public on purpose: the page signs itself in with
           Google, and the parent reaching it is not signed in on this browser. */}
       <Route path="/link" element={<DeviceLinkPage />} />
+
+      {/* How to use the app. Public like /link, and for the same sort of reason: it is
+          about the app rather than about anybody's list, and it is the page you send to
+          somebody who cannot find the thing you are describing. */}
+      <Route path="/help" element={<HelpPage />} />
 
       {/* The grocery shell is the root of this origin. It used to hang off
           /grocery on teddy.fyi, where "/" was the personal landing page; here
