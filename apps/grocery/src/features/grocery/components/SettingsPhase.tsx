@@ -10,7 +10,8 @@ import {
   LogOut,
   ChevronRight,
   MapPin,
-  Tag
+  Tag,
+  Smartphone
 } from 'lucide-react'
 import { storage } from '@/utils/storage'
 import { STORAGE_KEYS } from '@/config/storageKeys'
@@ -21,6 +22,7 @@ import { useGrocery } from '@/features/grocery/context/GroceryContext'
 import { StoreConfigPanel } from './StoreConfigPanel'
 import { CategoryConfigPanel } from './CategoryConfigPanel'
 import { ConnectionConfigPanel } from './ConnectionConfigPanel'
+import { InstallCard } from '@/features/pwa/components/InstallCard'
 
 export function SettingsPhase() {
   const { 
@@ -225,6 +227,18 @@ export function SettingsPhase() {
             {loggingOut ? 'Signing out...' : 'Sign Out'}
           </button>
         </div>
+      </div>
+
+      {/* This Device */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 px-1">
+          <Smartphone className="w-4 h-4 text-primary" />
+          <h4 className="text-xs font-bold tracking-widest text-text-muted uppercase">
+            This Device
+          </h4>
+        </div>
+
+        <InstallCard />
       </div>
 
       {/* Grocery Configurations Section */}

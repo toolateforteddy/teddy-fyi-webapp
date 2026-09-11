@@ -32,6 +32,10 @@ export default defineConfig({
         // The app is a single bundle with no dynamic imports, so precaching the whole
         // build is both cheap and complete -- there is no chunk that can go missing.
         globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'],
+        // The manifest's screenshots are read by the browser's install dialog and
+        // never by the app, so precaching them would spend ~170 KiB of a phone's
+        // offline budget on images no user will ever see in the app.
+        globIgnores: ['**/screenshot-*.png'],
         // Every SPA route is served from index.html (see nginx.conf's try_files), and
         // offline the worker has to do the same job.
         navigateFallback: '/index.html',

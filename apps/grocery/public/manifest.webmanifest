@@ -6,11 +6,17 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["standalone", "minimal-ui"],
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
   "background_color": "#000000",
   "theme_color": "#000000",
   "orientation": "any",
-  "categories": ["shopping", "productivity"],
+  "categories": [
+    "shopping",
+    "productivity"
+  ],
   "icons": [
     {
       "src": "/icon-192.png",
@@ -35,6 +41,76 @@
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
+    }
+  ],
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
+  "shortcuts": [
+    {
+      "name": "Need list",
+      "short_name": "Need",
+      "description": "What still has to be bought",
+      "url": "/",
+      "icons": [
+        {
+          "src": "/shortcut-need-96.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Shopping",
+      "short_name": "Shopping",
+      "description": "Tick items off in the shop",
+      "url": "/shopping",
+      "icons": [
+        {
+          "src": "/shortcut-shopping-96.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Add an item",
+      "short_name": "Add",
+      "description": "Open the list with the add sheet ready",
+      "url": "/?add=1",
+      "icons": [
+        {
+          "src": "/shortcut-add-96.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
+  "share_target": {
+    "action": "/share",
+    "method": "GET",
+    "enctype": "application/x-www-form-urlencoded",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
+  "screenshots": [
+    {
+      "src": "/screenshot-need.png",
+      "sizes": "720x1440",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "The need list, grouped by category"
+    },
+    {
+      "src": "/screenshot-shopping.png",
+      "sizes": "720x1440",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Shopping mode, ticking items off by store"
     }
   ]
 }

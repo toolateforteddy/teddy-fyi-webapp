@@ -56,6 +56,8 @@ describe('ShoppingPhase Component', () => {
       setItemStoreInfos: vi.fn(),
       syncStatus: 'synced',
       isSyncing: false,
+      isOnline: true,
+      pendingCount: 0,
       lastSyncedAt: '',
       handleManualSync: vi.fn(),
     })

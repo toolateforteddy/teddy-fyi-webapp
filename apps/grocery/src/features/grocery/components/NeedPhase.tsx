@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useGrocery } from '@/features/grocery/context/GroceryContext'
 import { Plus, ShoppingBag } from 'lucide-react'
 import type { GroceryItem, GroceryItemStoreInfo } from '@/types/grocery'
@@ -7,6 +8,7 @@ import { generateUuid } from '@/utils/uuid'
 import { DEFAULT_CATEGORIES, getCategoryColor, DEFAULT_STORES } from '../config/constants'
 import { GroceryItemTile } from './GroceryItemTile'
 import { AddNeededItemSheet } from './AddNeededItemSheet'
+import { peekSharedItem, clearSharedItem } from '../utils/sharedItem'
 
 export function NeedPhase() {
   const { 
@@ -20,14 +22,43 @@ export function NeedPhase() {
   } = useGrocery()
 
   const [rawExpandedItemId, setExpandedItemId] = useState<string | null>(null)
-  const [isAddOpen, setIsAddOpen] = useState(false)
-
   // An expanded item can be deleted remotely mid-sync, so treat a stale id as
   // collapsed rather than resetting it from an effect.
   const expandedItemId =
     rawExpandedItemId && items.some(item => item.id === rawExpandedItemId && !item.is_deleted)
       ? rawExpandedItemId
       : null
+
+  /**
+   * Two ways into the add sheet besides the button: the manifest's "Add an item"
+   * shortcut, which launches at /?add=1, and a share, which lands at /share and
+   * parks the text before redirecting here.
+   *
+   * Both are read as the component initialises rather than from an effect, so the
+   * sheet is open on the first paint instead of the list flashing up first. The
+   * read is a peek, not a take -- clearing is a side effect and belongs in the
+   * effect below, which also means a double render cannot lose the shared name.
+   */
+  const [searchParams, setSearchParams] = useSearchParams()
+  const wantsAdd = searchParams.get('add') !== null
+
+  const [shared] = useState<string | null>(() => peekSharedItem())
+  const [sharedName, setSharedName] = useState<string | undefined>(shared ?? undefined)
+  const [isAddOpen, setIsAddOpen] = useState(shared !== null || wantsAdd)
+
+  useEffect(() => {
+    if (shared !== null) clearSharedItem()
+  }, [shared])
+
+  // Consume the query parameter, so a reload or a back gesture does not reopen the
+  // sheet over a list the user has already moved on from.
+  useEffect(() => {
+    if (!wantsAdd) return
+
+    const next = new URLSearchParams(searchParams)
+    next.delete('add')
+    setSearchParams(next, { replace: true })
+  }, [wantsAdd, searchParams, setSearchParams])
 
   // Memoize active stores
   const activeStores = useMemo(() => {
@@ -279,7 +310,11 @@ export function NeedPhase() {
       {/* Slide-Up Bottom Sheet Modal */}
       <AddNeededItemSheet
         isOpen={isAddOpen}
-        onClose={() => setIsAddOpen(false)}
+        initialName={sharedName}
+        onClose={() => {
+          setIsAddOpen(false)
+          setSharedName(undefined)
+        }}
         activeCategories={activeCategories}
         onAddItem={handleAddItem}
       />

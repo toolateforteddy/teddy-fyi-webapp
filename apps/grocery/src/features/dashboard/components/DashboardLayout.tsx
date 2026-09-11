@@ -11,16 +11,89 @@ import {
   Loader2,
   Pencil,
   Share2,
-  Plus
+  Plus,
+  WifiOff,
+  UploadCloud
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { getSyncedTimeString } from '@/utils/date'
 import { useAppLayout } from '@/hooks/useAppLayout'
-import { GroceryProvider, useGrocery } from '@/features/grocery/context/GroceryContext'
+import { GroceryProvider, useGrocery, type SyncStatus } from '@/features/grocery/context/GroceryContext'
 import { AppNav, type NavItem } from './AppNav'
 import { ShareListSheet } from './ShareListSheet'
 import { JoinListSheet } from './JoinListSheet'
 import { UpdateBanner } from '@/features/pwa/components/UpdateBanner'
+import { InstallBanner } from '@/features/pwa/components/InstallBanner'
+
+/**
+ * What the sync icon says, in each of the five states.
+ *
+ * The two states beyond synced/syncing/stale are the ones a shopper in a basement
+ * aisle actually needs. `offline` says the changes are safe and says why they have
+ * not gone up; `pending` says the same changes are not going up *despite* a network,
+ * which is the only one of the five worth investigating. Collapsing them back into
+ * one amber dot is what made "no signal" and "idle tab" look identical.
+ */
+function describeSync(status: SyncStatus, pendingCount: number) {
+  const changes = `${pendingCount} ${pendingCount === 1 ? 'change' : 'changes'}`
+
+  switch (status) {
+    case 'syncing':
+      return {
+        Icon: RefreshCw,
+        tone: 'text-primary',
+        dotTone: '',
+        spin: true,
+        label: 'Syncing...',
+        detail: null,
+        showDot: false,
+      }
+    case 'offline':
+      return {
+        Icon: WifiOff,
+        tone: 'text-amber-500',
+        dotTone: 'bg-amber-500',
+        spin: false,
+        label: 'Offline',
+        detail:
+          pendingCount > 0
+            ? `${changes} will send when you are back online.`
+            : 'Everything here is saved on this device.',
+        showDot: true,
+      }
+    case 'pending':
+      return {
+        Icon: UploadCloud,
+        tone: 'text-yellow-500',
+        dotTone: 'bg-yellow-500',
+        spin: false,
+        label: `${changes} to send`,
+        detail: 'Sending shortly. Tap to send them now.',
+        showDot: true,
+      }
+    case 'stale':
+      return {
+        Icon: AlertCircle,
+        tone: 'text-yellow-500',
+        dotTone: 'bg-yellow-500',
+        spin: false,
+        label: 'Stale state',
+        detail: 'Nothing has come down from the server in a while.',
+        showDot: true,
+      }
+    case 'synced':
+    default:
+      return {
+        Icon: CheckCircle2,
+        tone: 'text-emerald-500',
+        dotTone: '',
+        spin: false,
+        label: 'Synced',
+        detail: null,
+        showDot: false,
+      }
+  }
+}
 
 function DashboardContent() {
   const location = useLocation()
@@ -43,6 +116,7 @@ function DashboardContent() {
     itemStoreInfos,
     setItemStoreInfos,
     syncStatus,
+    pendingCount,
     lastSyncedAt,
     handleManualSync
   } = useGrocery()
@@ -51,6 +125,8 @@ function DashboardContent() {
   const [isEditMode, setIsEditMode] = useState(false)
   const [isShareOpen, setIsShareOpen] = useState(false)
   const [isJoinOpen, setIsJoinOpen] = useState(false)
+
+  const sync = describeSync(syncStatus, pendingCount)
 
   const activeList = lists.find(l => l.id === activeListId && !l.is_deleted) || lists.find(l => !l.is_deleted) || lists[0]
 
@@ -154,41 +230,28 @@ function DashboardContent() {
                 onMouseLeave={() => setShowSyncTooltip(false)}
                 onClickCapture={() => setShowSyncTooltip(!showSyncTooltip)}
                 className="p-2 rounded-lg bg-surface-tile border border-neutral-800 active:scale-95 hover:border-neutral-700 transition-all cursor-pointer relative"
-                aria-label="Sync status"
+                aria-label={`Sync status: ${sync.label}`}
+                title={sync.label}
               >
-                <RefreshCw className={cn(
-                  "w-4 h-4 transition-all duration-700",
-                  syncStatus === 'syncing' && "animate-spin text-primary",
-                  syncStatus === 'synced' && "text-emerald-500",
-                  syncStatus === 'stale' && "text-yellow-500 animate-pulse"
-                )} />
-                {syncStatus === 'stale' && (
-                  <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-yellow-500" />
+                <sync.Icon
+                  className={cn(
+                    'w-4 h-4 transition-all duration-700',
+                    sync.tone,
+                    sync.spin && 'animate-spin'
+                  )}
+                />
+                {sync.showDot && (
+                  <span className={cn('absolute top-1 right-1 w-2 h-2 rounded-full', sync.dotTone)} />
                 )}
               </button>
 
               {showSyncTooltip && (
-                <div className="absolute right-0 mt-2 w-48 bg-surface-tile border border-neutral-800 p-2.5 rounded-lg shadow-lg z-50 text-xs text-text-muted animate-in fade-in duration-100">
+                <div className="absolute right-0 mt-2 w-52 bg-surface-tile border border-neutral-800 p-2.5 rounded-lg shadow-lg z-50 text-xs text-text-muted animate-in fade-in duration-100">
                   <div className="flex items-center gap-1.5 mb-1">
-                    {syncStatus === 'synced' && (
-                      <>
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                        <span className="font-semibold text-emerald-500">Synced</span>
-                      </>
-                    )}
-                    {syncStatus === 'stale' && (
-                      <>
-                        <AlertCircle className="w-3.5 h-3.5 text-yellow-500" />
-                        <span className="font-semibold text-yellow-500">Stale state</span>
-                      </>
-                    )}
-                    {syncStatus === 'syncing' && (
-                      <>
-                        <RefreshCw className="w-3.5 h-3.5 text-primary animate-spin" />
-                        <span className="font-semibold text-primary">Syncing...</span>
-                      </>
-                    )}
+                    <sync.Icon className={cn('w-3.5 h-3.5 shrink-0', sync.tone, sync.spin && 'animate-spin')} />
+                    <span className={cn('font-semibold', sync.tone)}>{sync.label}</span>
                   </div>
+                  {sync.detail && <p className="mb-1">{sync.detail}</p>}
                   <p>Last synced: {getSyncedTimeString(lastSyncedAt)}</p>
                   <p className="mt-1 text-[10px] text-neutral-500">Tap icon to force upload/download changes.</p>
                 </div>
@@ -276,6 +339,7 @@ function DashboardContent() {
             resolve correctly only for a descendant -- data-nav="rail" above sets the
             nav height to 0 on this element. */}
         <UpdateBanner />
+        <InstallBanner />
 
       </div>
 

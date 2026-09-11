@@ -41,6 +41,8 @@ describe('StoreConfigPanel Component', () => {
       setItemStoreInfos: vi.fn(),
       syncStatus: 'synced',
       isSyncing: false,
+      isOnline: true,
+      pendingCount: 0,
       lastSyncedAt: '',
       handleManualSync: mockHandleManualSync,
     })

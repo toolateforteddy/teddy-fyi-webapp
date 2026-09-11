@@ -14,9 +14,14 @@ interface AddNeededItemSheetProps {
   onClose: () => void
   activeCategories: Array<{ id: string | number; name: string; color: string; icon?: string }>
   onAddItem: (name: string, quantity: string, categoryId: string | undefined) => void
+  /**
+   * Name to open with, from a share. Read only as the sheet opens -- it is a
+   * starting value, not a controlled one, so the user can type over it.
+   */
+  initialName?: string
 }
 
-export function AddNeededItemSheet({ isOpen, onClose, activeCategories, onAddItem }: AddNeededItemSheetProps) {
+export function AddNeededItemSheet({ isOpen, onClose, activeCategories, onAddItem, initialName }: AddNeededItemSheetProps) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [newItemName, setNewItemName] = useState('')
   const [newItemQuantity, setNewItemQuantity] = useState('1')
@@ -29,7 +34,7 @@ export function AddNeededItemSheet({ isOpen, onClose, activeCategories, onAddIte
     if (isOpen) {
       if (!dialog.open) {
         dialog.showModal()
-        setNewItemName('')
+        setNewItemName(initialName || '')
         setNewItemQuantity('1')
         setNewItemCategory(undefined)
       }
@@ -38,6 +43,9 @@ export function AddNeededItemSheet({ isOpen, onClose, activeCategories, onAddIte
         dialog.close()
       }
     }
+  // initialName is read at open time only, so it is deliberately not a dependency:
+  // adding it would wipe what the user has typed the moment the value changed.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen])
 
   // Filter autocomplete suggestions

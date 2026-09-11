@@ -5,6 +5,7 @@ import App from './App.tsx'
 import { storage } from './utils/storage'
 import { STORAGE_KEYS } from './config/storageKeys'
 import { registerServiceWorker } from './pwa'
+import { listenForInstallPrompt } from './features/pwa/install'
 
 // One-time automatic purge of local storage fake data.
 // NOTE: storage.setItem writes plain strings raw, but storage.getItem runs them
@@ -19,6 +20,11 @@ if (cleared !== true && cleared !== 'true') {
   storage.removeItem(STORAGE_KEYS.LAST_SYNCED)
   storage.setItem('fake_data_cleared_v1', 'true')
 }
+
+// Before render, unlike registration: Chrome can fire `beforeinstallprompt` while
+// React is still mounting, and an event nobody is listening for is an install
+// offer the user never sees.
+listenForInstallPrompt()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

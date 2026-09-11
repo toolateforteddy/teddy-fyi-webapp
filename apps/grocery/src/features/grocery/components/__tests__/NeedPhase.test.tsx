@@ -1,13 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { NeedPhase } from '../NeedPhase'
 import { useGrocery } from '@/features/grocery/context/GroceryContext'
 import type { Store, Category, GroceryItem } from '@/types/grocery'
+import { stashSharedItem, peekSharedItem } from '../../utils/sharedItem'
 
 // Mock useGrocery
 vi.mock('@/features/grocery/context/GroceryContext', () => ({
   useGrocery: vi.fn(),
 }))
+
+/** NeedPhase reads the query string (the manifest's "Add an item" shortcut). */
+function renderNeedPhase(route = '/') {
+  return render(
+    <MemoryRouter initialEntries={[route]}>
+      <NeedPhase />
+    </MemoryRouter>
+  )
+}
 
 describe('NeedPhase Component', () => {
   const mockSetItems = vi.fn()
@@ -49,6 +60,8 @@ describe('NeedPhase Component', () => {
       setItemStoreInfos: mockSetItemStoreInfos,
       syncStatus: 'synced',
       isSyncing: false,
+      isOnline: true,
+      pendingCount: 0,
       lastSyncedAt: '',
       handleManualSync: vi.fn(),
     })
@@ -72,18 +85,20 @@ describe('NeedPhase Component', () => {
       setItemStoreInfos: mockSetItemStoreInfos,
       syncStatus: 'synced',
       isSyncing: false,
+      isOnline: true,
+      pendingCount: 0,
       lastSyncedAt: '',
       handleManualSync: vi.fn(),
     })
 
-    render(<NeedPhase />)
+    renderNeedPhase()
 
     expect(screen.getByText('Your list is empty')).toBeInTheDocument()
     expect(screen.getByText(/Tap the floating action button below/)).toBeInTheDocument()
   })
 
   it('should render items grouped by category', () => {
-    render(<NeedPhase />)
+    renderNeedPhase()
 
     expect(screen.getByRole('heading', { name: 'Produce' })).toBeInTheDocument()
     expect(screen.getByText('Apples')).toBeInTheDocument()
@@ -92,7 +107,7 @@ describe('NeedPhase Component', () => {
   })
 
   it('should expand item tile when clicked, revealing edit controls', () => {
-    render(<NeedPhase />)
+    renderNeedPhase()
 
     const applesTile = screen.getByText('Apples')
     fireEvent.click(applesTile)
@@ -106,7 +121,7 @@ describe('NeedPhase Component', () => {
   })
 
   it('should update quantity when increment/decrement buttons are clicked', () => {
-    render(<NeedPhase />)
+    renderNeedPhase()
 
     // Expand Apples
     fireEvent.click(screen.getByText('Apples'))
@@ -124,7 +139,7 @@ describe('NeedPhase Component', () => {
   })
 
   it('should toggle store availability when store chip is clicked', () => {
-    render(<NeedPhase />)
+    renderNeedPhase()
 
     // Expand Apples
     fireEvent.click(screen.getByText('Apples'))
@@ -146,7 +161,7 @@ describe('NeedPhase Component', () => {
   })
 
   it('should call deleteItem when delete button is clicked', () => {
-    render(<NeedPhase />)
+    renderNeedPhase()
 
     // Expand Apples
     fireEvent.click(screen.getByText('Apples'))
@@ -165,11 +180,49 @@ describe('NeedPhase Component', () => {
   })
 
   it('should open AddNeededItemSheet when FAB is clicked', () => {
-    render(<NeedPhase />)
+    renderNeedPhase()
 
     const fabBtn = screen.getByRole('button', { name: 'Add grocery item' })
     fireEvent.click(fabBtn)
 
     expect(screen.getByPlaceholderText('What is needed? (e.g. Milk, Eggs)')).toBeInTheDocument()
+  })
+
+
+  /**
+   * The two ways in that are not the button: the manifest's "Add an item" shortcut,
+   * and an OS share. Both have to land with the sheet already open -- a share that
+   * drops the user on the plain list has lost what they shared.
+   */
+  describe('opening the add sheet from outside the app', () => {
+    it('stays closed on a plain launch', () => {
+      renderNeedPhase()
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+
+    it('opens for the shortcut at /?add=1', () => {
+      renderNeedPhase('/?add=1')
+
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+    })
+
+    it('opens prefilled with what was shared', () => {
+      stashSharedItem('Oat milk')
+
+      renderNeedPhase()
+
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+      expect(screen.getByDisplayValue('Oat milk')).toBeInTheDocument()
+    })
+
+    // One shot. A reload after adding must not reopen the sheet with the same thing.
+    it('consumes the shared item so it does not come back', () => {
+      stashSharedItem('Oat milk')
+
+      renderNeedPhase()
+
+      expect(peekSharedItem()).toBeNull()
+    })
   })
 })
