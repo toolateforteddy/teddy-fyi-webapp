@@ -44,6 +44,30 @@ function Probe() {
   return <span data-testid="layout">{`${nav}:${compact}`}</span>
 }
 
+function WideProbe() {
+  const { nav, railLabels, wide, dockAddPane } = useAppLayout()
+  return <span data-testid="wide">{`${nav}:${railLabels}:${wide}:${dockAddPane}`}</span>
+}
+
+/**
+ * The stubs above answer per query string, so a "viewport" here is just the set
+ * of queries a browser of that size would report as matching. Spelling them out
+ * rather than pattern-matching on substrings is what keeps a test honest about
+ * queries that cannot both be true -- (max-height: 560px) and (min-height: 561px)
+ * being the pair this hook now leans on.
+ */
+const VIEWPORTS = {
+  /** 390x844, the phone the layout is designed around: nothing here matches. */
+  phonePortrait: () => false,
+  /** 844x390: wide enough for the tablet queries, too short for them. */
+  phoneLandscape: (query: string) =>
+    query.includes('orientation: landscape') || query.includes('max-height: 560px'),
+  /** 768x1024, a tablet held upright. */
+  tabletPortrait: (query: string) => query.includes('min-width: 600px') && !query.includes('1000px'),
+  /** 1440x900, a laptop. */
+  desktop: (query: string) => query.includes('min-width'),
+} as const
+
 afterEach(() => {
   // @ts-expect-error -- deliberately restoring the jsdom default of "absent".
   delete window.matchMedia
@@ -69,11 +93,35 @@ describe('useAppLayout', () => {
   })
 
   it('compacts the header on a short viewport without moving the bar in portrait', () => {
-    // Short, but portrait: the height query matches while the rail query (which
-    // also requires landscape) does not.
-    installMatchMedia(query => !query.includes('orientation'))
+    // Short, but portrait: only the height query matches. The rail query also
+    // requires landscape, and the tablet queries require the opposite height.
+    installMatchMedia(query => query === '(max-height: 560px)')
     render(<Probe />)
     expect(screen.getByTestId('layout')).toHaveTextContent('bottom:true')
+  })
+
+  it('leaves a phone on the bottom bar in either orientation', () => {
+    const media = installMatchMedia(VIEWPORTS.phonePortrait)
+    render(<WideProbe />)
+    expect(screen.getByTestId('wide')).toHaveTextContent('bottom:false:false:false')
+
+    // Turned sideways it is wider than the 600px tablet breakpoint, which is
+    // exactly what the height half of that query is there to catch: the rail it
+    // gets is the short-viewport one, unlabelled, and the shell does not widen.
+    media.set(VIEWPORTS.phoneLandscape)
+    expect(screen.getByTestId('wide')).toHaveTextContent('rail:false:false:false')
+  })
+
+  it('gives a tablet a labelled rail but keeps the add form in a sheet', () => {
+    installMatchMedia(VIEWPORTS.tabletPortrait)
+    render(<WideProbe />)
+    expect(screen.getByTestId('wide')).toHaveTextContent('rail:true:true:false')
+  })
+
+  it('docks the add form once there is room for it beside the list', () => {
+    installMatchMedia(VIEWPORTS.desktop)
+    render(<WideProbe />)
+    expect(screen.getByTestId('wide')).toHaveTextContent('rail:true:true:true')
   })
 
   it('re-renders when the device is rotated', () => {

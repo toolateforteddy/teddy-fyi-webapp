@@ -178,7 +178,10 @@ export function SettingsPhase() {
   // --- Main Settings View ---
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
+    // Settings is a stack of rows and short prose, and neither reads better at
+    // 1200px than at 700px -- so it caps itself and centres inside the wide frame
+    // rather than stretching to it.
+    <div className="reading-column space-y-6 animate-in fade-in duration-200">
       
       {/* Premium Success Toast */}
       {successMessage && (

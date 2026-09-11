@@ -21,32 +21,36 @@ interface AddNeededItemSheetProps {
   initialName?: string
 }
 
-export function AddNeededItemSheet({ isOpen, onClose, activeCategories, onAddItem, initialName }: AddNeededItemSheetProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null)
-  const [newItemName, setNewItemName] = useState('')
+interface AddNeededItemFormProps {
+  activeCategories: AddNeededItemSheetProps['activeCategories']
+  onAddItem: AddNeededItemSheetProps['onAddItem']
+  /** Called after a successful add. The sheet closes; the docked pane stays put. */
+  onAdded?: () => void
+  initialName?: string
+  autoFocus?: boolean
+}
+
+/**
+ * The fields themselves, with no opinion about what is around them.
+ *
+ * Extracted so the same form can be a bottom sheet on a phone and a pane beside
+ * the list on a tablet, which is the arrangement the Android app switches to at
+ * 720dp (`AddItemPanel.kt`): a full-width modal plus the keyboard buries the very
+ * list you are adding to, and on a tablet there is no reason to cover it.
+ */
+function AddNeededItemForm({
+  activeCategories,
+  onAddItem,
+  onAdded,
+  initialName,
+  autoFocus = false,
+}: AddNeededItemFormProps) {
+  // `initialName` is a starting value, not a controlled one, so the user can type
+  // over it. Starting again from it is a remount, keyed by the caller -- an effect
+  // that reset these would wipe what was typed the moment the prop changed.
+  const [newItemName, setNewItemName] = useState(initialName || '')
   const [newItemQuantity, setNewItemQuantity] = useState('1')
   const [newItemCategory, setNewItemCategory] = useState<string | undefined>(undefined)
-
-  useEffect(() => {
-    const dialog = dialogRef.current
-    if (!dialog) return
-
-    if (isOpen) {
-      if (!dialog.open) {
-        dialog.showModal()
-        setNewItemName(initialName || '')
-        setNewItemQuantity('1')
-        setNewItemCategory(undefined)
-      }
-    } else {
-      if (dialog.open) {
-        dialog.close()
-      }
-    }
-  // initialName is read at open time only, so it is deliberately not a dependency:
-  // adding it would wipe what the user has typed the moment the value changed.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen])
 
   // Filter autocomplete suggestions
   const query = newItemName.trim().toLowerCase()
@@ -61,31 +65,13 @@ export function AddNeededItemSheet({ isOpen, onClose, activeCategories, onAddIte
     if (!newItemName.trim()) return
 
     onAddItem(newItemName.trim(), newItemQuantity, newItemCategory)
-    onClose()
+    setNewItemName('')
+    setNewItemQuantity('1')
+    setNewItemCategory(undefined)
+    onAdded?.()
   }
 
-  // top-auto and max-w-none override the <dialog> UA styles (inset: 0 and
-  // max-width: calc(100% - padding)), which otherwise pin this sheet to the top
-  // edge at less than full width. Tailwind's preflight resets the UA margin: auto.
   return (
-    <dialog
-      ref={dialogRef}
-      onClose={onClose}
-      className="app-frame fixed top-auto bottom-0 left-1/2 -translate-x-1/2 max-h-[85dvh] overflow-y-auto overscroll-contain bg-surface-tile border-t border-neutral-800 rounded-t-2xl z-50 px-4 pt-4 pb-[calc(2rem+env(safe-area-inset-bottom))] shadow-2xl backdrop:bg-black/60 backdrop:backdrop-blur-sm animate-in slide-in-from-bottom duration-250 ease-out focus:outline-none"
-    >
-      <div className="flex items-center justify-between mb-4 border-b border-neutral-800 pb-3">
-        <div className="flex items-center gap-1.5">
-          <Sparkles className="w-4 h-4 text-primary" />
-          <h3 className="font-semibold text-white">Add Needed Item</h3>
-        </div>
-        <button 
-          onClick={onClose}
-          className="p-1 text-text-muted hover:text-white rounded-md cursor-pointer"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      </div>
-
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Input name */}
         <div>
@@ -96,7 +82,7 @@ export function AddNeededItemSheet({ isOpen, onClose, activeCategories, onAddIte
             placeholder="What is needed? (e.g. Milk, Eggs)"
             value={newItemName}
             onChange={(e) => setNewItemName(e.target.value)}
-            autoFocus
+            autoFocus={autoFocus}
             role="combobox"
             aria-autocomplete="list"
             aria-expanded={filteredSuggestions.length > 0}
@@ -172,6 +158,87 @@ export function AddNeededItemSheet({ isOpen, onClose, activeCategories, onAddIte
           Add Item
         </button>
       </form>
+  )
+}
+
+export function AddNeededItemSheet({ isOpen, onClose, activeCategories, onAddItem, initialName }: AddNeededItemSheetProps) {
+  const dialogRef = useRef<HTMLDialogElement>(null)
+
+  useEffect(() => {
+    const dialog = dialogRef.current
+    if (!dialog) return
+
+    if (isOpen) {
+      if (!dialog.open) {
+        dialog.showModal()
+      }
+    } else {
+      if (dialog.open) {
+        dialog.close()
+      }
+    }
+  }, [isOpen])
+
+  // top-auto and max-w-none override the <dialog> UA styles (inset: 0 and
+  // max-width: calc(100% - padding)), which otherwise pin this sheet to the top
+  // edge at less than full width. Tailwind's preflight resets the UA margin: auto.
+  return (
+    <dialog
+      ref={dialogRef}
+      onClose={onClose}
+      className="app-frame fixed top-auto bottom-0 left-1/2 -translate-x-1/2 max-h-[85dvh] overflow-y-auto overscroll-contain bg-surface-tile border-t border-neutral-800 rounded-t-2xl z-50 px-4 pt-4 pb-[calc(2rem+env(safe-area-inset-bottom))] shadow-2xl backdrop:bg-black/60 backdrop:backdrop-blur-sm animate-in slide-in-from-bottom duration-250 ease-out focus:outline-none"
+    >
+      <div className="flex items-center justify-between mb-4 border-b border-neutral-800 pb-3">
+        <div className="flex items-center gap-1.5">
+          <Sparkles className="w-4 h-4 text-primary" />
+          <h3 className="font-semibold text-white">Add Needed Item</h3>
+        </div>
+        <button 
+          onClick={onClose}
+          className="p-1 text-text-muted hover:text-white rounded-md cursor-pointer"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* Keyed on open/closed, so every open mounts a fresh, blank form rather
+          than reopening on whatever was half-typed last time. */}
+      <AddNeededItemForm
+        key={isOpen ? 'open' : 'closed'}
+        activeCategories={activeCategories}
+        onAddItem={onAddItem}
+        onAdded={onClose}
+        initialName={initialName}
+        autoFocus
+      />
     </dialog>
+  )
+}
+
+interface AddNeededItemPaneProps {
+  activeCategories: AddNeededItemSheetProps['activeCategories']
+  onAddItem: AddNeededItemSheetProps['onAddItem']
+  initialName?: string
+}
+
+/**
+ * The same form, docked beside the list on a wide screen. It never closes, so
+ * there is no FAB while it is up and nothing covers the grid -- the item you
+ * just added appears next to the field you typed it in.
+ */
+export function AddNeededItemPane({ activeCategories, onAddItem, initialName }: AddNeededItemPaneProps) {
+  return (
+    <aside className="w-80 shrink-0 self-start sticky top-0 bg-surface-tile border border-neutral-900 rounded-xl p-4">
+      <div className="flex items-center gap-1.5 mb-4 border-b border-neutral-800 pb-3">
+        <Sparkles className="w-4 h-4 text-primary" />
+        <h3 className="font-semibold text-white">Add Needed Item</h3>
+      </div>
+
+      <AddNeededItemForm
+        activeCategories={activeCategories}
+        onAddItem={onAddItem}
+        initialName={initialName}
+      />
+    </aside>
   )
 }

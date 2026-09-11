@@ -10,10 +10,19 @@
      Custom properties inherit through the DOM regardless of positioning, so
      even `position: fixed` descendants of the frame resolve them correctly. */
   --app-frame-width: 28rem;
-  /* Distance from the viewport edge to the frame edge, once the viewport is
-     wider than the frame. Resolved lazily, so the media queries below that
-     change --app-frame-width change this too. */
-  --app-frame-gutter: max(0px, calc((100vw - var(--app-frame-width)) / 2));
+
+  /* The width of the *shell* -- the signed-in dashboard, which is the only
+     surface with a navigation rail and grids to spread out into. It tracks the
+     frame right up until the tablet breakpoint below, where the two part ways:
+     the shell fills the screen while the bottom sheets and the standalone pages
+     (login, /help, /link, 404) stay the readable column they have always been. */
+  --app-shell-width: var(--app-frame-width);
+
+  /* Distance from the viewport edge to the shell edge, once the viewport is
+     wider than the shell. Its one consumer is the add-item button, which lives
+     inside the shell. Resolved lazily, so the media queries below that change
+     --app-shell-width change this too. */
+  --app-frame-gutter: max(0px, calc((100vw - var(--app-shell-width)) / 2));
 
   /* Height reserved for the bottom navigation bar. The nav rail variant sets
      this to 0 (see .app-frame[data-nav="rail"]) so overlays stop leaving a gap
@@ -30,10 +39,31 @@
   }
 }
 
-@media (min-width: 1024px) {
+/* Tablet and up: the shell stops pretending to be a phone. The same query as
+   useAppLayout's TABLET -- wide enough for a rail, tall enough not to be a phone
+   on its side -- so the shell widens exactly when the navigation moves to the
+   side, and no phone in either orientation is touched.
+
+   The Android app caps nothing and runs edge to edge; 100rem is the one
+   deliberate divergence, because a browser window can be 3440px wide and a
+   grocery list 3440px wide is a row of tiles nobody can scan.
+
+   --app-nav-height goes to 0 here for the same reason .app-frame[data-nav='rail']
+   sets it: there is no bottom bar left for an overlay to clear. */
+@media (min-width: 600px) and (min-height: 561px) {
   :root {
-    --app-frame-width: 44rem;
+    --app-shell-width: 100rem;
+    --app-nav-height: 0px;
   }
+}
+
+/* A column of prose or settings rows does not get better as it gets wider, so
+   the pages that are a single column cap themselves inside the wide frame
+   instead of stretching to it. */
+.reading-column {
+  width: 100%;
+  max-width: 48rem;
+  margin-inline: auto;
 }
 
 body {
@@ -51,10 +81,75 @@ body {
   max-width: var(--app-frame-width);
 }
 
+/* The signed-in shell, which is allowed to be wider than the frame. */
+.app-shell {
+  max-width: var(--app-shell-width);
+}
+
 /* A phone held sideways has ~330px of usable height. The bottom bar moves to a
    side rail in that case (see useAppLayout), so nothing is reserved for it. */
 .app-frame[data-nav='rail'] {
   --app-nav-height: 0px;
+}
+
+/* The scrolling content column is a query container, so what is inside it reacts
+   to the width it actually got rather than to the viewport. This is the same
+   split the Android app makes: the navigation reads the window, the panes and
+   grids read the space left over once the rail has taken its share
+   (PlanningPhaseContent.kt's TwoPaneMinWidth comment says so explicitly). */
+.app-content {
+  container-type: inline-size;
+  container-name: content;
+}
+
+/* Item tiles. 160px is what a phone has room for, and it is why names truncate:
+   the name and the quantity chip are fighting over one 160px row, so "Sourdough
+   Bread" renders as "Sourdou...". 220px is what the Android app uses at its
+   default density (GroceryDensity.kt, minTileWidth) and is where that stops.
+
+   Gated on the same media query as the wide shell rather than on the container,
+   so no phone -- in either orientation -- gets a different grid than it has
+   today. */
+.tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+}
+
+@media (min-width: 600px) and (min-height: 561px) {
+  .tile-grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
+}
+
+/* ...except where the rail has left a content column too narrow to fit two of
+   them, on a 600-700px tablet. One tile per row is worse than two slightly
+   cramped ones, and this is the container's call rather than the viewport's:
+   the same viewport has a wider column on Settings than on Need. */
+@container content (max-width: 439px) {
+  .tile-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+}
+
+/* Planning: the recommendation tray sits above the list on a phone and beside it
+   once the content column can carry two panes, at the 40/60 split the Android
+   tablet layout uses (TRAY_PANE_WEIGHT / LIST_PANE_WEIGHT). */
+.planning-panes {
+  display: grid;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@container content (min-width: 600px) {
+  .planning-panes {
+    grid-template-columns: 2fr 3fr;
+  }
+}
+
+/* Planning's list rows and Shopping's chips are the full width of their pane, so
+   the pane itself is what has to stop growing. */
+.planning-panes > * {
+  min-width: 0;
 }
 
 /* Chrome -- bars, tabs, buttons -- should not be text you can accidentally

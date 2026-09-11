@@ -329,7 +329,7 @@ export function ShoppingPhase() {
                   </h5>
 
                   {/* Fluid responsive columns layout */}
-                  <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2">
+                  <div className="tile-grid gap-2">
                     {categoryItems.map((item) => (
                       <button
                         key={item.id}
@@ -379,7 +379,7 @@ export function ShoppingPhase() {
                     <p className="text-[10px] text-neutral-500 px-1">
                       Tap to buy one here anyway. Your mapping stays as it is unless you say otherwise when you complete the trip.
                     </p>
-                    <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2">
+                    <div className="tile-grid gap-2">
                       {offMappingItems.map(({ item, storeNames }) => (
                         <button
                           key={item.id}
@@ -414,7 +414,7 @@ export function ShoppingPhase() {
                   </h5>
                 </div>
 
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2 opacity-35">
+                <div className="tile-grid gap-2 opacity-35">
                   {inCartItems.map((item) => (
                     <button
                       key={item.id}

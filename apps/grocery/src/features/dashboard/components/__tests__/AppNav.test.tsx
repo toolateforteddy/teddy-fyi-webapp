@@ -9,10 +9,10 @@ const items: NavItem[] = [
   { path: '/planning', label: 'Planning', icon: Calendar },
 ]
 
-function renderNav(placement: 'bottom' | 'rail', currentPath = '/') {
+function renderNav(placement: 'bottom' | 'rail', currentPath = '/', labelled = false) {
   return render(
     <MemoryRouter>
-      <AppNav items={items} currentPath={currentPath} placement={placement} />
+      <AppNav items={items} currentPath={currentPath} placement={placement} labelled={labelled} />
     </MemoryRouter>
   )
 }
@@ -33,6 +33,20 @@ describe('AppNav', () => {
     renderNav('bottom', '/planning')
     expect(screen.getByRole('link', { name: 'Planning' })).toHaveAttribute('aria-current', 'page')
     expect(screen.getByRole('link', { name: 'Need' })).not.toHaveAttribute('aria-current')
+  })
+
+  it('names its destinations in every variant', () => {
+    // The labelled rail sets the name beside the icon rather than under it, so
+    // the accessible name has to come out the same either way -- the two
+    // arrangements are one navigation, not two.
+    const { unmount } = renderNav('rail', '/', true)
+    expect(screen.getByRole('link', { name: 'Need' })).toBeInTheDocument()
+    expect(screen.getByRole('navigation').className).toContain('w-44')
+    unmount()
+
+    renderNav('rail', '/', false)
+    expect(screen.getByRole('link', { name: 'Need' })).toBeInTheDocument()
+    expect(screen.getByRole('navigation').className).toContain('w-[4.5rem]')
   })
 
   it('reserves no bottom-bar height when it renders as a rail', () => {
