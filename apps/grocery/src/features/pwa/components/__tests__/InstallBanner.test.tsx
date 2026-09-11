@@ -9,11 +9,13 @@ let announceInstall: ((kind: InstallKind) => void) | null = null
 let announceUpdate: ((ready: boolean) => void) | null = null
 let initialKind: InstallKind = 'none'
 let initialUpdate = false
+let handheld = true
 
 vi.mock('../../install', async importOriginal => {
   const actual = await importOriginal<typeof import('../../install')>()
   return {
     ...actual,
+    isHandheld: () => handheld,
     subscribeToInstall: (listener: (kind: InstallKind) => void) => {
       announceInstall = listener
       listener(initialKind)
@@ -43,6 +45,7 @@ beforeEach(() => {
   announceUpdate = null
   initialKind = 'none'
   initialUpdate = false
+  handheld = true
 })
 
 describe('InstallBanner', () => {
@@ -127,5 +130,16 @@ describe('InstallBanner', () => {
     rerender(<InstallBanner />)
 
     expect(screen.queryByText('Add Grocery to your home screen.')).not.toBeInTheDocument()
+  })
+
+  // The offer is a home-screen icon that opens with no signal, which is not
+  // something a laptop wants. Chrome fires beforeinstallprompt there anyway.
+  it('does not ask on a device with a mouse', () => {
+    initialKind = 'prompt'
+    handheld = false
+
+    const { container } = render(<InstallBanner />)
+
+    expect(container).toBeEmptyDOMElement()
   })
 })

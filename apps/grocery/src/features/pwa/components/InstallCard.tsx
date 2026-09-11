@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Download, CheckCircle2, Smartphone } from 'lucide-react'
-import { subscribeToInstall, promptInstall, isStandalone, type InstallKind } from '../install'
+import { subscribeToInstall, promptInstall, isStandalone, isHandheld, type InstallKind } from '../install'
 import { IosInstallSteps } from './IosInstallSteps'
 
 /**
@@ -10,10 +10,16 @@ import { IosInstallSteps } from './IosInstallSteps'
  * tapped the X, or who only later decided they wanted the app on their home screen,
  * finds it again. It also reports the finished state, because "am I actually running
  * the installed one?" is otherwise unanswerable from inside the app.
+ *
+ * Unlike the banner, this shows on a desktop too. The banner is withheld there
+ * because asking is noise; offering is not, and somebody who has opened Settings
+ * looking for this has already decided. The wording follows the device, because a
+ * laptop has no home screen to add anything to.
  */
 export function InstallCard() {
   const [kind, setKind] = useState<InstallKind>('none')
   const [standalone] = useState(() => isStandalone())
+  const [handheld] = useState(() => isHandheld())
 
   useEffect(() => subscribeToInstall(setKind), [])
 
@@ -51,9 +57,13 @@ export function InstallCard() {
       <div className="flex items-start gap-3">
         <Download className="w-8 h-8 text-primary shrink-0" />
         <div>
-          <h5 className="font-semibold text-sm text-white">Add Grocery to your home screen</h5>
+          <h5 className="font-semibold text-sm text-white">
+            {handheld ? 'Add Grocery to your home screen' : 'Install Grocery on this computer'}
+          </h5>
           <p className="text-[11px] text-text-muted mt-0.5">
-            Opens full screen, without the browser bars, and launches with no signal.
+            {handheld
+              ? 'Opens full screen, without the browser bars, and launches with no signal.'
+              : 'Opens in its own window, without the browser bars, and works with no network.'}
           </p>
         </div>
       </div>
