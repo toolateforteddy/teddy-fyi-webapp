@@ -29,6 +29,16 @@ export interface LoginRequest {
   client_uuid: string
   google_auth_token: string
   use_cookie?: boolean
+  /**
+   * An account invite: a signed credential naming one email address, which lets the server
+   * create an account it would otherwise refuse.
+   *
+   * Absent on every ordinary sign-in. It only ever widens account creation, and only for the
+   * address it names -- checked against the verified email on the Google token sent with it --
+   * so a wrong or expired one is not an error in itself: the sign-in then succeeds or fails
+   * exactly as it would have without it.
+   */
+  invite_code?: string
 }
 
 export interface LoginResponse {

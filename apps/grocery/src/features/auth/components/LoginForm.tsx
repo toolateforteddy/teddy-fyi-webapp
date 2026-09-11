@@ -38,11 +38,23 @@ declare global {
 }
 
 export function LoginForm() {
-  const { loginWithGoogle, isLoading, error } = useLogin()
+  const { loginWithGoogle, isLoading, error, needsInvite } = useLogin()
   const navigate = useNavigate()
   const buttonRef = useRef<HTMLDivElement>(null)
   const [scriptLoaded, setScriptLoaded] = useState(() => !!window.google?.accounts?.id)
   const [gsiError, setGsiError] = useState<string | null>(null)
+  const [inviteCode, setInviteCode] = useState('')
+
+  /**
+   * The invite code as the Google callback will see it.
+   *
+   * A ref rather than the state value itself, because the callback is handed to
+   * `google.accounts.id.initialize` once and then lives inside Google's button. Closing over
+   * the state would capture whatever was typed at the moment the button was rendered -- which
+   * is "" -- and re-running the effect on every keystroke to fix that would tear down and
+   * redraw Google's button under the person's fingers.
+   */
+  const inviteCodeRef = useRef('')
 
   useEffect(() => {
     // Check if script is already present
@@ -84,7 +96,7 @@ export function LoginForm() {
         callback: async (response: GoogleIdCredentialResponse) => {
           if (response.credential) {
             try {
-              await loginWithGoogle(response.credential)
+              await loginWithGoogle(response.credential, inviteCodeRef.current)
               navigate('/')
             } catch (err) {
               console.error('Google Sign-In exchange failed:', err)
@@ -111,6 +123,28 @@ export function LoginForm() {
 
   return (
     <div className="flex flex-col items-center justify-center gap-4 w-full">
+      {needsInvite && (
+        <div className="w-[320px] flex flex-col gap-2 bg-neutral-900/60 border border-neutral-800 px-3 py-3 rounded-lg">
+          <p className="text-sm text-neutral-200 font-semibold">There&apos;s no account here yet</p>
+          <p className="text-xs text-text-muted">
+            Signing in worked — there just isn&apos;t an account for you yet, and this app
+            can&apos;t open one. If somebody sent you an invite code, paste it here and sign in
+            again.
+          </p>
+          <input
+            type="text"
+            value={inviteCode}
+            onChange={(e) => {
+              setInviteCode(e.target.value)
+              inviteCodeRef.current = e.target.value
+            }}
+            placeholder="Invite code"
+            aria-label="Invite code"
+            className="w-full bg-neutral-950 border border-neutral-800 focus:border-neutral-600 outline-none text-neutral-200 text-xs px-2.5 py-2 rounded-md"
+          />
+        </div>
+      )}
+
       {gsiError && (
         <div className="text-red-400 text-xs bg-red-950/20 border border-red-500/20 px-3 py-2.5 rounded-lg text-center max-w-xs">
           {gsiError}
