@@ -24,6 +24,7 @@ import { ShareListSheet } from './ShareListSheet'
 import { JoinListSheet } from './JoinListSheet'
 import { UpdateBanner } from '@/features/pwa/components/UpdateBanner'
 import { InstallBanner } from '@/features/pwa/components/InstallBanner'
+import { BootstrapFailure } from './BootstrapFailure'
 
 /**
  * What the sync icon says, in each of the five states.
@@ -118,7 +119,9 @@ function DashboardContent() {
     syncStatus,
     pendingCount,
     lastSyncedAt,
-    handleManualSync
+    handleManualSync,
+    bootstrapState,
+    retryBootstrap
   } = useGrocery()
 
   const [showSyncTooltip, setShowSyncTooltip] = useState(false)
@@ -130,7 +133,15 @@ function DashboardContent() {
 
   const activeList = lists.find(l => l.id === activeListId && !l.is_deleted) || lists.find(l => !l.is_deleted) || lists[0]
 
+  // No list to render. Which of the two screens that is, is the whole of what
+  // `bootstrapState` decides -- and it leaves `loading` within BOOTSTRAP_TIMEOUT_MS
+  // whatever happens, so the spinner below is bounded by construction. Gating the
+  // spinner on `!activeList` alone is what used to make it permanent: every way the
+  // first sync could end without a list ended here, with nothing scheduled to clear it.
   if (!activeList) {
+    if (bootstrapState !== 'loading') {
+      return <BootstrapFailure onRetry={retryBootstrap} />
+    }
     return (
       <div className="h-dvh bg-black text-white flex justify-center items-center font-sans antialiased">
         <div className="app-frame app-shell h-dvh bg-black flex flex-col items-center justify-center border-x border-[#1a1a1a] shadow-[0_0_50px_0_rgba(208,188,255,0.05)] space-y-4">
