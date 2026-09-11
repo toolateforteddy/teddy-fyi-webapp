@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Share2, X, Loader2, Copy, Check } from 'lucide-react'
 import api from '@/lib/axios'
+import { apiErrorMessage } from '@/lib/apiError'
 
 interface ShareListSheetProps {
   isOpen: boolean
@@ -26,11 +27,19 @@ export function ShareListSheet({ isOpen, onClose, activeListId }: ShareListSheet
       setInviteCode(response.data.code)
     } catch (err: any) {
       console.error('Failed to generate invite code:', err)
-      setError(err.response?.data?.message || 'Failed to generate invite code. Please try again.')
+      setError(apiErrorMessage(err, 'Could not reach the server. Check your connection and try again.'))
     } finally {
       setIsGenerating(false)
     }
   }, [activeListId])
+
+  // The code this sheet last obtained, per list. Opening the sheet again shows that code
+  // rather than minting another, because minting *supersedes*: the server keeps one live
+  // code per list and deletes the previous one. Re-opening to re-read a code you have
+  // already sent someone therefore used to kill the code they were holding, and the only
+  // evidence was the "invalid or expired" they got back. Superseding is still available,
+  // it is just a button somebody presses on purpose now.
+  const issuedForListRef = useRef<string | null>(null)
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -39,14 +48,20 @@ export function ShareListSheet({ isOpen, onClose, activeListId }: ShareListSheet
     if (isOpen) {
       if (!dialog.open) {
         dialog.showModal()
-        generateCode()
+        if (issuedForListRef.current !== activeListId || !inviteCode) {
+          issuedForListRef.current = activeListId
+          generateCode()
+        }
       }
     } else {
       if (dialog.open) {
         dialog.close()
       }
     }
-  }, [isOpen, generateCode])
+    // `inviteCode` is deliberately not a dependency: this effect reacts to the sheet
+    // opening, and re-running it when the code arrives would mint a second one.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, activeListId, generateCode])
 
   const handleCopyCode = () => {
     if (!inviteCode) return
@@ -96,7 +111,8 @@ export function ShareListSheet({ isOpen, onClose, activeListId }: ShareListSheet
         ) : inviteCode ? (
           <div className="space-y-4">
             <p className="text-xs text-text-muted text-center">
-              Share this 8-digit invite code with household members to collaborate on this list.
+              Share this 8-character invite code with household members to collaborate on this
+              list. It works once, and lasts an hour.
             </p>
             <div className="flex flex-col items-center gap-3">
               <div className="w-full bg-black/40 border border-neutral-800 rounded-xl py-4 flex items-center justify-center">
@@ -120,6 +136,15 @@ export function ShareListSheet({ isOpen, onClose, activeListId }: ShareListSheet
                   </>
                 )}
               </button>
+              <button
+                onClick={generateCode}
+                className="text-[11px] text-text-muted underline underline-offset-2 hover:text-white transition-colors cursor-pointer"
+              >
+                Get a new code
+              </button>
+              <p className="text-[10px] text-text-muted text-center">
+                A new code replaces this one, so anyone still holding it will not get in.
+              </p>
             </div>
           </div>
         ) : null}

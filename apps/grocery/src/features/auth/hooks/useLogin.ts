@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { apiErrorMessage } from '@/lib/apiError'
 import api from '@/lib/axios'
 import { useAuth } from './useAuth'
 import { storage } from '@/utils/storage'
@@ -67,7 +68,7 @@ export function useLogin() {
       const apiError =
         err instanceof Error
           ? err
-          : new Error((err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Authentication exchange failed.')
+          : new Error(apiErrorMessage(err, 'Authentication exchange failed.'))
       setError(apiError)
       throw apiError
     } finally {

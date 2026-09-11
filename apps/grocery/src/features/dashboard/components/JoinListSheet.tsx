@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import type { FormEvent } from 'react'
 import { Plus, X, Loader2 } from 'lucide-react'
 import api from '@/lib/axios'
+import { apiErrorMessage } from '@/lib/apiError'
 import { useGrocery } from '@/features/grocery/context/GroceryContext'
 import { storage } from '@/utils/storage'
 import { STORAGE_KEYS } from '@/config/storageKeys'
@@ -65,7 +66,7 @@ export function JoinListSheet({ isOpen, onClose }: JoinListSheetProps) {
       }
     } catch (err: any) {
       console.error('Failed to join list:', err)
-      setError(err.response?.data?.message || 'Failed to join list. Please check the code and try again.')
+      setError(apiErrorMessage(err, 'Could not reach the server. Check your connection and try again.'))
     } finally {
       setIsJoining(false)
       setIsSyncingPostJoin(false)
