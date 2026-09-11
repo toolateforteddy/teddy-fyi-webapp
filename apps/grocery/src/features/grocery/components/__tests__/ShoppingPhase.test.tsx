@@ -56,6 +56,8 @@ describe('ShoppingPhase Component', () => {
       setItemStoreInfos: mockSetItemStoreInfos,
       syncStatus: 'synced',
       isSyncing: false,
+      isOnline: true,
+      pendingCount: 0,
       lastSyncedAt: '',
       handleManualSync: vi.fn(),
       ...overrides,

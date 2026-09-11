@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import { useAuth } from '@/features/auth/hooks/useAuth'
 import { rowUserId, legacyRowUserId } from '@/features/auth/utils/identity'
 import { useGrocerySync } from '@/features/sync/hooks/useGrocerySync'
+import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { storage } from '@/utils/storage'
 import { STORAGE_KEYS } from '@/config/storageKeys'
 import { generateUuid } from '@/utils/uuid'
@@ -23,6 +24,17 @@ import {
   normalizeStoreInfo
 } from '@/features/grocery/utils/normalize'
 
+/**
+ * What the sync dot in the header is saying.
+ *
+ * `offline` and `pending` both mean "your changes are still here", and they are
+ * separate because the answer to "should I worry?" differs: offline is expected and
+ * self-correcting, pending while online means a sync is failing for some other
+ * reason. `stale` is about *reading* -- nothing has come down in over a day -- which
+ * is why it is last: an unsent change is more worth saying than an old read.
+ */
+export type SyncStatus = 'syncing' | 'offline' | 'pending' | 'stale' | 'synced'
+
 interface GroceryContextType {
   activeListId: string
   setActiveListId: (id: string) => void
@@ -38,8 +50,12 @@ interface GroceryContextType {
   setCategories: React.Dispatch<React.SetStateAction<Category[]>>
   itemStoreInfos: GroceryItemStoreInfo[]
   setItemStoreInfos: React.Dispatch<React.SetStateAction<GroceryItemStoreInfo[]>>
-  syncStatus: 'syncing' | 'stale' | 'synced'
+  syncStatus: SyncStatus
   isSyncing: boolean
+  /** Whether the browser currently reports a network. See useOnlineStatus. */
+  isOnline: boolean
+  /** Rows edited here that the server has not acknowledged yet, across every table. */
+  pendingCount: number
   lastSyncedAt: string
   handleManualSync: () => Promise<any>
 }
@@ -171,6 +187,25 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener('storage', handleStorageChange)
     }
   }, [])
+
+  const isOnline = useOnlineStatus()
+
+  /**
+   * Rows this device has changed that the server has not acknowledged yet.
+   *
+   * Every table carries the same `sync_state`, and anything other than `SYNCED` is
+   * something still owed to the server -- which is exactly what a shopper wants
+   * counted when they are standing in an aisle with no signal. The auto-sync effect
+   * below triggers off this same number, so the indicator and the thing it describes
+   * cannot drift apart.
+   */
+  const pendingCount =
+    (items || []).filter(i => i.sync_state !== 'SYNCED').length +
+    (lists || []).filter(l => l.sync_state !== 'SYNCED').length +
+    (listMembers || []).filter(m => m.sync_state !== 'SYNCED').length +
+    (stores || []).filter(s => s.sync_state !== 'SYNCED').length +
+    (categories || []).filter(c => c.sync_state !== 'SYNCED').length +
+    (itemStoreInfos || []).filter(info => info.sync_state !== 'SYNCED').length
 
   // Derive sync status
   const isStale = (() => {
@@ -350,19 +385,14 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading, user])
 
-  // Debounced auto-sync trigger whenever any collections have unsynced (dirty) changes
+  // Debounced auto-sync trigger whenever anything is owed to the server. Keyed on the
+  // count rather than on the six collections: an edit that leaves the count unchanged
+  // (one row cleaned as another is dirtied) already has a sync coming, and restarting
+  // the debounce for it only delays that sync.
   useEffect(() => {
     if (isLoading || !user) return
 
-    const hasUnsynced =
-      (items || []).some(i => i.sync_state !== 'SYNCED') ||
-      (lists || []).some(l => l.sync_state !== 'SYNCED') ||
-      (listMembers || []).some(m => m.sync_state !== 'SYNCED') ||
-      (stores || []).some(s => s.sync_state !== 'SYNCED') ||
-      (categories || []).some(c => c.sync_state !== 'SYNCED') ||
-      (itemStoreInfos || []).some(info => info.sync_state !== 'SYNCED')
-
-    if (hasUnsynced) {
+    if (pendingCount > 0) {
       const timer = setTimeout(() => {
         if (handleManualSyncRef.current) {
           handleManualSyncRef.current().catch(err => console.error('[Sync] Auto-sync error:', err))
@@ -370,7 +400,7 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
       }, 1000)
       return () => clearTimeout(timer)
     }
-  }, [items, lists, listMembers, stores, categories, itemStoreInfos, isLoading, user])
+  }, [pendingCount, isLoading, user])
 
   // Stamp the account's row identity onto local list and membership rows: onto the ones
   // that have none yet, and onto the ones still carrying the pre-re-key Google subject.
@@ -429,11 +459,16 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
   }, [user, lists, setLists, setListMembers])
 
   // Derive sync status
-  const syncStatus: 'syncing' | 'stale' | 'synced' = isSyncing
+  // Order matters, and it is the order of what the user most needs to know: what is
+  // happening right now, then why their edits have not left the device, then whether
+  // what they are reading is old.
+  const syncStatus: SyncStatus = isSyncing
     ? 'syncing'
-    : isStale
-      ? 'stale'
-      : 'synced'
+    : pendingCount > 0
+      ? (isOnline ? 'pending' : 'offline')
+      : isOnline
+        ? (isStale ? 'stale' : 'synced')
+        : 'offline'
 
   // Resolve list defaults on mount / state adjustments
   const activeList = lists.find(l => l.id === activeListId && !l.is_deleted) || lists.find(l => !l.is_deleted) || lists[0]
@@ -462,6 +497,8 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
       setItemStoreInfos,
       syncStatus,
       isSyncing,
+      isOnline,
+      pendingCount,
       lastSyncedAt,
       handleManualSync
     }}>

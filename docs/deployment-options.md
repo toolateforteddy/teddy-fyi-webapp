@@ -47,9 +47,11 @@ signal is worst — that was the gap that mattered most.
 `vite-plugin-pwa` (Workbox) is configured in `apps/grocery/vite.config.ts`. Of the
 three things listed here:
 
-- **Precache the app shell — done.** The whole build precaches (nine files; there
-  are no dynamic imports to miss), plus the Google Fonts stylesheet and font files
-  via runtime caching. A cold, offline launch renders the list.
+- **Precache the app shell — done.** The whole build precaches (there are no
+  dynamic imports to miss), plus the Google Fonts stylesheet and font files via
+  runtime caching. A cold, offline launch renders the list. The manifest's
+  screenshots are deliberately excluded: the browser's install dialog reads them,
+  the app never does, and they are larger than everything else put together.
 - **A real update lifecycle — done.** The worker still installs and waits rather
   than seizing a running session, but the session is now told: `UpdateBanner`
   offers "A new version is ready" with a Reload button, which posts `SKIP_WAITING`
@@ -81,6 +83,31 @@ Doing this after the origin move rather than before was deliberate: a SW
 installed at `teddy.fyi` would have kept serving the old app from cache on every
 device after deploys stopped going there, and clearing it would have meant
 shipping a self-unregistering SW to the old origin.
+
+### The rest of the installed-app surface
+
+Added after the above, and worth knowing about because each one is invisible until
+you go looking for it:
+
+- **Installing it is offered, once.** `beforeinstallprompt` is captured in
+  `apps/grocery/src/features/pwa/install.ts` — from `main.tsx`, before React
+  mounts, because Chrome fires it early and an uncaptured event is an offer nobody
+  sees. `InstallBanner` makes the offer and `InstallCard` keeps it in Settings for
+  anyone who dismissed it; the dismissal persists, so the banner is not a nag.
+  iOS has no such event and no API, so there the banner shows the Share → Add to
+  Home Screen steps instead.
+- **The manifest carries shortcuts, screenshots and a share target.** Long-pressing
+  the icon offers Need, Shopping and Add an item; the install dialog shows two real
+  screenshots of the app; and Grocery appears in the OS share sheet, landing on
+  `/share`, which parks the shared text and opens the add sheet prefilled. The
+  screenshots and the shortcut icons are generated from the built app rather than
+  drawn, and `apps/grocery/tests/manifest.test.ts` asserts that every file the
+  manifest names exists and is the size it claims — a manifest that names a missing
+  or mis-sized asset fails silently.
+- **The sync indicator knows why it is not synced.** It distinguishes offline from
+  stale from "online and still holding N changes", which is the one of the three
+  worth investigating. Previously a shop with no signal and an idle tab looked
+  identical.
 
 **Remaining cost:** none for what is described above. Background sync is its own
 piece of work and is worth doing only if the foreground flush proves insufficient.

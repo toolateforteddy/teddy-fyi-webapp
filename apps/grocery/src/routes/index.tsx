@@ -3,6 +3,7 @@ import { LoginPage } from './LoginPage'
 import { DeviceLinkPage } from './DeviceLinkPage'
 import { HelpPage } from './HelpPage'
 import { NotFoundPage } from './NotFoundPage'
+import { ShareTargetPage } from './ShareTargetPage'
 import { AuthenticatedRoute } from './AuthenticatedRoute'
 import { DashboardLayout } from '@/features/dashboard/components/DashboardLayout'
 import { NeedPhase } from '@/features/grocery/components/NeedPhase'
@@ -24,6 +25,11 @@ export function AppRoutes() {
           about the app rather than about anybody's list, and it is the page you send to
           somebody who cannot find the thing you are describing. */}
       <Route path="/help" element={<HelpPage />} />
+
+      {/* Web Share Target. Public for the same reason /link is: the share can
+          arrive before the browser has a session, and bouncing it to /login
+          must not lose what was shared. */}
+      <Route path="/share" element={<ShareTargetPage />} />
 
       {/* The grocery shell is the root of this origin. It used to hang off
           /grocery on teddy.fyi, where "/" was the personal landing page; here
