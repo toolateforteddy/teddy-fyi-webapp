@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { flushSync } from 'react-dom'
 import { useGrocery } from '@/features/grocery/context/GroceryContext'
-import { CheckSquare, Square, Check, MapPin, ClipboardList } from 'lucide-react'
+import { CheckSquare, Square, Check, MapPin, MapPinOff, ClipboardList, ChevronDown } from 'lucide-react'
 import type { GroceryItem } from '@/types/grocery'
 import { cn } from '@/utils/cn'
 import { DEFAULT_STORES, DEFAULT_CATEGORIES } from '../config/constants'
 import { storage } from '@/utils/storage'
 import { STORAGE_KEYS } from '@/config/storageKeys'
+import { mappedStoreIds, isOffMappingAtStore, addStoreMapping } from '../utils/storeMapping'
 
 /**
  * Runs a state update inside a View Transition when the browser supports one.
@@ -34,14 +35,21 @@ function startTransitionSafely(update: () => void) {
 }
 
 export function ShoppingPhase() {
-  const { activeListId, items, setItems, stores, categories, itemStoreInfos } = useGrocery()
+  const { activeListId, items, setItems, stores, categories, itemStoreInfos, setItemStoreInfos } = useGrocery()
 
   const [rawSelectedStoreId, setSelectedStoreId] = useState<string | null>(() => {
     return storage.getItem<string | null>(STORAGE_KEYS.SELECTED_STORE_ID, null)
   })
 
   const [isConfirmTripOpen, setIsConfirmTripOpen] = useState(false)
+  const [isOffMappingOpen, setIsOffMappingOpen] = useState(false)
   const confirmDialogRef = useRef<HTMLDialogElement>(null)
+
+  // Which off-mapping purchases the shopper wants to keep. This starts empty on
+  // every trip and is cleared again whenever the dialog opens: buying something
+  // once at a store it is not mapped to is a one-off -- the expensive tub of
+  // yoghurt you grabbed anyway -- and must not quietly become the mapping.
+  const [mappingOptIns, setMappingOptIns] = useState<Record<string, boolean>>({})
 
   // Handle native confirmation dialog visibility
   useEffect(() => {
@@ -111,6 +119,12 @@ export function ShoppingPhase() {
 
   // Clear in-cart items (Complete trip workflow)
   const handleCompleteTrip = () => {
+    const storeId = selectedStoreId
+    // Only the ticked ones. An off-mapping purchase left unticked archives exactly
+    // like every other item and the mapping is untouched -- that is the default,
+    // and it is what makes buying something here once safe.
+    const optedIn = storeId === null ? [] : offMappingInCart.filter(item => mappingOptIns[item.id])
+
     const performArchive = () => {
       setItems(prev => prev.map(item => {
         if (item.isBought) {
@@ -124,13 +138,32 @@ export function ShoppingPhase() {
         }
         return item
       }))
+
+      if (storeId !== null && optedIn.length > 0) {
+        setItemStoreInfos(prev =>
+          optedIn.reduce((infos, item) => addStoreMapping(infos, item.id, storeId, activeListId), prev)
+        )
+      }
+
       setIsConfirmTripOpen(false)
+      setMappingOptIns({})
     }
 
     startTransitionSafely(performArchive)
   }
 
-  // Filter items dynamically based on selected list & isolated store
+  const openConfirmTrip = () => {
+    setMappingOptIns({})
+    setIsConfirmTripOpen(true)
+  }
+
+  // Filter items dynamically based on selected list & isolated store.
+  //
+  // An item this store is not mapped for stays out of the list until it is in the
+  // cart. You reach it through the "Not usually here" tray below, and from the
+  // moment it is checked it belongs on screen like anything else: so it can be
+  // unchecked again, so it counts towards trip progress, and so completing the
+  // trip can ask whether to map it.
   const activeItems = useMemo(() => {
     return items.filter(item => {
       if (item.listId !== activeListId || !item.isActive || item.is_deleted) {
@@ -139,15 +172,35 @@ export function ShoppingPhase() {
       if (selectedStoreId === null) {
         return true
       }
-      const itemMappings = itemStoreInfos.filter(
-        info => info.groceryItemId === item.id && info.listId === activeListId && !info.is_deleted && info.isAvailable
-      )
-      if (itemMappings.length === 0) {
+      if (!isOffMappingAtStore(itemStoreInfos, item.id, activeListId, selectedStoreId)) {
         return true
       }
-      return itemMappings.some(info => info.storeId === selectedStoreId)
+      return item.isBought
     })
   }, [items, activeListId, selectedStoreId, itemStoreInfos])
+
+  const selectedStore = activeStores.find(s => s.id === selectedStoreId)
+
+  // The tray: everything the store filter is hiding, with the stores it is mapped
+  // to, so "Fage -- usually Costco" is legible before you pick it up.
+  const offMappingItems = useMemo(() => {
+    if (selectedStoreId === null) return []
+    return items
+      .filter(item =>
+        item.listId === activeListId &&
+        item.isActive &&
+        !item.is_deleted &&
+        !item.isBought &&
+        isOffMappingAtStore(itemStoreInfos, item.id, activeListId, selectedStoreId)
+      )
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(item => ({
+        item,
+        storeNames: mappedStoreIds(itemStoreInfos, item.id, activeListId)
+          .map(id => activeStores.find(store => store.id === id)?.name)
+          .filter((name): name is string => Boolean(name))
+      }))
+  }, [items, activeListId, selectedStoreId, itemStoreInfos, activeStores])
 
   // Split to buy vs in cart
   const { toBuyItems, inCartItems } = useMemo(() => {
@@ -155,6 +208,16 @@ export function ShoppingPhase() {
     const inCart = activeItems.filter(item => item.isBought)
     return { toBuyItems: toBuy, inCartItems: inCart }
   }, [activeItems])
+
+  // What the completion dialog asks about: things in the cart that this store is
+  // not mapped for. Derived at completion time rather than tracked as you shop,
+  // so unchecking something takes it back out of the question with no bookkeeping.
+  const offMappingInCart =
+    selectedStoreId === null
+      ? []
+      : inCartItems
+          .filter(item => isOffMappingAtStore(itemStoreInfos, item.id, activeListId, selectedStoreId))
+          .sort((a, b) => a.name.localeCompare(b.name))
 
   const progressPercent = useMemo(() => {
     if (activeItems.length === 0) return 0
@@ -289,6 +352,59 @@ export function ShoppingPhase() {
               ))
             )}
 
+            {/* Things this store is not mapped for. Collapsed by default: the
+                point of store isolation is a short list, and this is the escape
+                hatch from it, not a second list. */}
+            {offMappingItems.length > 0 && (
+              <div className="space-y-2 pt-4 border-t border-[#1a1a1a]">
+                <button
+                  onClick={() => setIsOffMappingOpen(open => !open)}
+                  aria-expanded={isOffMappingOpen}
+                  className="w-full flex items-center justify-between px-1 cursor-pointer group"
+                >
+                  <h5 className="text-[10px] font-bold tracking-widest text-text-muted uppercase flex items-center gap-1.5 group-hover:text-neutral-300">
+                    <MapPinOff className="w-3 h-3" />
+                    Not usually here ({offMappingItems.length})
+                  </h5>
+                  <ChevronDown
+                    className={cn(
+                      "w-4 h-4 text-text-muted transition-transform duration-200",
+                      isOffMappingOpen && "rotate-180"
+                    )}
+                  />
+                </button>
+
+                {isOffMappingOpen && (
+                  <div className="space-y-2 animate-in fade-in duration-200">
+                    <p className="text-[10px] text-neutral-500 px-1">
+                      Tap to buy one here anyway. Your mapping stays as it is unless you say otherwise when you complete the trip.
+                    </p>
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2">
+                      {offMappingItems.map(({ item, storeNames }) => (
+                        <button
+                          key={item.id}
+                          onClick={() => toggleBought(item.id)}
+                          className="flex items-center justify-between p-3 h-12 rounded-lg bg-surface-tile border border-dashed border-neutral-800 active:scale-95 transition-all text-left cursor-pointer group/item"
+                        >
+                          <span className="min-w-0 pr-2">
+                            <span className="block text-sm font-semibold truncate text-neutral-300 group-hover/item:text-primary">
+                              {item.name}
+                            </span>
+                            {storeNames.length > 0 && (
+                              <span className="block text-[10px] text-neutral-500 truncate">
+                                Usually {storeNames.join(', ')}
+                              </span>
+                            )}
+                          </span>
+                          <Square className="w-4 h-4 text-text-muted shrink-0" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Collapsible/Faded "In Cart" Section */}
             {inCartItems.length > 0 && (
               <div className="space-y-2 pt-4 border-t border-[#1a1a1a]">
@@ -325,7 +441,7 @@ export function ShoppingPhase() {
           {inCartItems.length > 0 && (
             <div className="sticky bottom-0 bg-black pt-2 pb-1 z-30">
               <button
-                onClick={() => setIsConfirmTripOpen(true)}
+                onClick={openConfirmTrip}
                 className="w-full bg-emerald-500 hover:bg-emerald-600 text-black font-bold py-3 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 text-sm shadow-[0_0_20px_rgba(16,185,129,0.2)]"
               >
                 <Check className="w-5 h-5 stroke-[2.5]" />
@@ -343,9 +459,45 @@ export function ShoppingPhase() {
         className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-32px)] max-w-sm bg-surface-tile border border-neutral-800 p-6 rounded-2xl z-50 shadow-2xl backdrop:bg-black/75 backdrop:backdrop-blur-sm animate-in scale-in duration-200 focus:outline-none"
       >
         <h3 className="text-base font-bold text-white mb-2">Complete Grocery Trip?</h3>
-        <p className="text-xs text-text-muted mb-6">
+        <p className={cn("text-xs text-text-muted", offMappingInCart.length > 0 ? "mb-4" : "mb-6")}>
           This will archive and clear all {inCartItems.length} checked items from the current shopping cart. Unchecked items will remain on your list.
         </p>
+
+        {offMappingInCart.length > 0 && (
+          <div className="mb-6 space-y-2.5 rounded-xl border border-neutral-800 bg-black/30 p-3">
+            <div className="flex items-start gap-1.5">
+              <MapPinOff className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+              <p className="text-[11px] leading-relaxed text-text-muted">
+                You bought {offMappingInCart.length === 1 ? 'one thing' : `${offMappingInCart.length} things`}{' '}
+                {selectedStore ? `${selectedStore.name} isn't mapped for` : 'this store is not mapped for'}. Tick anything
+                you want to buy here from now on. Leave it unticked and your mapping does not change.
+              </p>
+            </div>
+
+            <div className="space-y-1.5 max-h-40 overflow-y-auto overscroll-contain">
+              {offMappingInCart.map(item => (
+                <label
+                  key={item.id}
+                  className="flex items-center gap-2.5 rounded-lg border border-neutral-900 bg-surface-tile px-3 py-2 cursor-pointer hover:border-neutral-800"
+                >
+                  <input
+                    type="checkbox"
+                    checked={mappingOptIns[item.id] === true}
+                    onChange={e => {
+                      const { checked } = e.target
+                      setMappingOptIns(prev => ({ ...prev, [item.id]: checked }))
+                    }}
+                    className="w-4 h-4 shrink-0 accent-emerald-500 cursor-pointer"
+                  />
+                  <span className="text-xs font-semibold text-white truncate">{item.name}</span>
+                  <span className="ml-auto text-[10px] text-neutral-500 shrink-0">
+                    {selectedStore ? `Add ${selectedStore.name}` : 'Add this store'}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-3">
           <button
             onClick={() => setIsConfirmTripOpen(false)}
