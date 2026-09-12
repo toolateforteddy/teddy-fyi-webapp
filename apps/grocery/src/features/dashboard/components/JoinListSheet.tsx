@@ -92,17 +92,17 @@ export function JoinListSheet({ isOpen, onClose }: JoinListSheetProps) {
     <dialog
       ref={dialogRef}
       onClose={onClose}
-      className="app-frame fixed top-auto bottom-0 left-1/2 -translate-x-1/2 max-h-[85dvh] overflow-y-auto overscroll-contain bg-surface-tile border-t border-neutral-800 rounded-t-2xl z-50 px-4 pt-4 pb-[calc(2rem+env(safe-area-inset-bottom))] shadow-2xl backdrop:bg-black/60 backdrop:backdrop-blur-sm animate-in slide-in-from-bottom duration-250 ease-out focus:outline-none"
+      className="app-frame fixed top-auto bottom-0 left-1/2 -translate-x-1/2 max-h-[85dvh] overflow-y-auto overscroll-contain bg-surface-tile border-t border-line rounded-t-2xl z-50 px-4 pt-4 pb-[calc(2rem+env(safe-area-inset-bottom))] shadow-2xl backdrop:bg-scrim/60 backdrop:backdrop-blur-sm animate-in slide-in-from-bottom duration-250 ease-out focus:outline-none"
     >
-      <div className="flex items-center justify-between mb-4 border-b border-neutral-800 pb-3">
+      <div className="flex items-center justify-between mb-4 border-b border-line pb-3">
         <div className="flex items-center gap-1.5">
           <Plus className="w-4 h-4 text-primary" />
-          <h3 className="font-semibold text-white">Join Shared List</h3>
+          <h3 className="font-semibold text-text-primary">Join Shared List</h3>
         </div>
         <button 
           onClick={onClose}
           disabled={isJoining || isSyncingPostJoin}
-          className="p-1 text-text-muted hover:text-white rounded-md disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+          className="p-1 text-text-muted hover:text-text-primary rounded-md disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
@@ -111,7 +111,7 @@ export function JoinListSheet({ isOpen, onClose }: JoinListSheetProps) {
       {isSyncingPostJoin ? (
         <div className="flex flex-col items-center justify-center py-8 gap-3">
           <Loader2 className="w-8 h-8 text-primary animate-spin" />
-          <p className="text-sm font-medium text-white">Downloading list items...</p>
+          <p className="text-sm font-medium text-text-primary">Downloading list items...</p>
           <p className="text-xs text-text-muted">Performing initial synchronization...</p>
         </div>
       ) : (
@@ -128,12 +128,12 @@ export function JoinListSheet({ isOpen, onClose }: JoinListSheetProps) {
               value={joinCode}
               onChange={(e) => setJoinCode(inviteCodeFromPastedText(e.target.value))}
               autoFocus
-              className="w-full bg-black/40 border border-neutral-800 rounded-lg py-2.5 px-3.5 text-center text-lg font-mono tracking-widest focus:outline-none focus:border-primary transition-colors text-white placeholder-neutral-600 disabled:opacity-50"
+              className="w-full bg-inset border border-line rounded-lg py-2.5 px-3.5 text-center text-lg font-mono tracking-widest focus:outline-none focus:border-primary transition-colors text-text-primary placeholder:text-text-faint disabled:opacity-50"
             />
           </div>
 
           {error && (
-            <p className="text-xs text-red-400 text-center animate-in fade-in duration-100">
+            <p className="text-xs text-danger text-center animate-in fade-in duration-100">
               {error}
             </p>
           )}
@@ -143,14 +143,14 @@ export function JoinListSheet({ isOpen, onClose }: JoinListSheetProps) {
               type="button"
               onClick={onClose}
               disabled={isJoining}
-              className="flex-1 py-2.5 px-4 bg-neutral-900 border border-neutral-800 hover:border-neutral-700 hover:text-white text-xs font-semibold rounded-lg text-text-muted active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+              className="flex-1 py-2.5 px-4 bg-surface-raised border border-line hover:border-line-strong hover:text-text-primary text-xs font-semibold rounded-lg text-text-muted active:scale-95 transition-all cursor-pointer disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isJoining || !isCompleteInviteCode(joinCode)}
-              className="flex-1 py-2.5 px-4 bg-primary hover:bg-[#c0a9f5] text-black font-semibold rounded-lg text-xs active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 py-2.5 px-4 bg-primary hover:bg-primary-hover text-on-primary font-semibold rounded-lg text-xs active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isJoining ? (
                 <>

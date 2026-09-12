@@ -11,6 +11,11 @@ export const STORAGE_KEYS = {
   ACTIVE_LIST_ID: 'grocery_active_list_id',
   ITEM_STORE_INFOS: 'grocery_item_store_infos',
   LIST_MEMBERS: 'grocery_list_members',
+  // 'system' | 'light' | 'dark'. Deliberately not cleared by "Clear Local
+  // Cache" or by the fake-data purge in main.tsx: a display preference is not
+  // list data, and resetting somebody's theme while fixing a sync problem is
+  // its own small betrayal.
+  THEME: 'grocery_theme',
   // Retired: the Settings page no longer lets a device pick a backend. Kept only so
   // axios can clear a value an older build left behind.
   LEGACY_API_BASE_URL: 'grocery_api_base_url',

@@ -52,8 +52,8 @@ function describeSync(status: SyncStatus, pendingCount: number) {
     case 'offline':
       return {
         Icon: WifiOff,
-        tone: 'text-amber-500',
-        dotTone: 'bg-amber-500',
+        tone: 'text-warning',
+        dotTone: 'bg-warning',
         spin: false,
         label: 'Offline',
         detail:
@@ -65,8 +65,8 @@ function describeSync(status: SyncStatus, pendingCount: number) {
     case 'pending':
       return {
         Icon: UploadCloud,
-        tone: 'text-yellow-500',
-        dotTone: 'bg-yellow-500',
+        tone: 'text-pending',
+        dotTone: 'bg-pending',
         spin: false,
         label: `${changes} to send`,
         detail: 'Sending shortly. Tap to send them now.',
@@ -75,8 +75,8 @@ function describeSync(status: SyncStatus, pendingCount: number) {
     case 'stale':
       return {
         Icon: AlertCircle,
-        tone: 'text-yellow-500',
-        dotTone: 'bg-yellow-500',
+        tone: 'text-pending',
+        dotTone: 'bg-pending',
         spin: false,
         label: 'Stale state',
         detail: 'Nothing has come down from the server in a while.',
@@ -86,7 +86,7 @@ function describeSync(status: SyncStatus, pendingCount: number) {
     default:
       return {
         Icon: CheckCircle2,
-        tone: 'text-emerald-500',
+        tone: 'text-success',
         dotTone: '',
         spin: false,
         label: 'Synced',
@@ -143,8 +143,8 @@ function DashboardContent() {
       return <BootstrapFailure onRetry={retryBootstrap} />
     }
     return (
-      <div className="h-dvh bg-black text-white flex justify-center items-center font-sans antialiased">
-        <div className="app-frame app-shell h-dvh bg-black flex flex-col items-center justify-center border-x border-[#1a1a1a] shadow-[0_0_50px_0_rgba(208,188,255,0.05)] space-y-4">
+      <div className="h-dvh bg-canvas text-text-primary flex justify-center items-center font-sans antialiased">
+        <div className="app-frame app-shell h-dvh bg-canvas flex flex-col items-center justify-center border-x border-line-faint shadow-[var(--shadow-frame)] space-y-4">
           <Loader2 className="w-8 h-8 text-primary animate-spin" />
           <span className="text-xs text-text-muted font-medium tracking-wide animate-pulse">
             Initializing your lists...
@@ -178,13 +178,13 @@ function DashboardContent() {
   ]
 
   return (
-    <div className="h-dvh overflow-hidden bg-black text-white flex justify-center font-sans antialiased selection:bg-primary selection:text-black">
+    <div className="h-dvh overflow-hidden bg-canvas text-text-primary flex justify-center font-sans antialiased selection:bg-primary selection:text-on-primary">
       {/* App frame. Fixed to the viewport height with its own internal scroller,
           so overscroll stays inside the list instead of dragging the shell. */}
       <div
         data-nav={navPlacement}
         className={cn(
-          "app-frame app-shell h-dvh bg-black flex relative overflow-hidden border-x border-[#1a1a1a] shadow-[0_0_50px_0_rgba(208,188,255,0.05)]",
+          "app-frame app-shell h-dvh bg-canvas flex relative overflow-hidden border-x border-line-faint shadow-[var(--shadow-frame)]",
           "pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]",
           navPlacement === 'rail' ? "flex-row" : "flex-col"
         )}
@@ -202,7 +202,7 @@ function DashboardContent() {
             standalone mode (apple-mobile-web-app-status-bar-style). */}
         <header
           className={cn(
-            "app-chrome shrink-0 z-40 bg-black/80 backdrop-blur-md border-b border-[#1a1a1a] flex items-center justify-between px-4 pt-[env(safe-area-inset-top)]",
+            "app-chrome shrink-0 z-40 bg-canvas/80 backdrop-blur-md border-b border-line-faint flex items-center justify-between px-4 pt-[env(safe-area-inset-top)]",
             compact ? "h-11" : "h-14"
           )}
         >
@@ -211,7 +211,7 @@ function DashboardContent() {
             <div className="w-7 h-7 shrink-0 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-xs">
               G
             </div>
-            <span className="text-sm font-bold tracking-wider text-white truncate">
+            <span className="text-sm font-bold tracking-wider text-text-primary truncate">
               Grocery: {activeList.name}
             </span>
           </div>
@@ -225,7 +225,7 @@ function DashboardContent() {
                 "p-2 rounded-lg border transition-all duration-200 cursor-pointer active:scale-95",
                 isEditMode
                   ? "bg-primary/20 border-primary/40 text-primary"
-                  : "bg-surface-tile border-neutral-800 hover:border-neutral-700 text-text-muted hover:text-white"
+                  : "bg-surface-tile border-line hover:border-line-strong text-text-muted hover:text-text-primary"
               )}
               aria-label="Manage lists"
               title="Manage lists"
@@ -240,7 +240,7 @@ function DashboardContent() {
                 onMouseEnter={() => setShowSyncTooltip(true)}
                 onMouseLeave={() => setShowSyncTooltip(false)}
                 onClickCapture={() => setShowSyncTooltip(!showSyncTooltip)}
-                className="p-2 rounded-lg bg-surface-tile border border-neutral-800 active:scale-95 hover:border-neutral-700 transition-all cursor-pointer relative"
+                className="p-2 rounded-lg bg-surface-tile border border-line active:scale-95 hover:border-line-strong transition-all cursor-pointer relative"
                 aria-label={`Sync status: ${sync.label}`}
                 title={sync.label}
               >
@@ -257,14 +257,14 @@ function DashboardContent() {
               </button>
 
               {showSyncTooltip && (
-                <div className="absolute right-0 mt-2 w-52 bg-surface-tile border border-neutral-800 p-2.5 rounded-lg shadow-lg z-50 text-xs text-text-muted animate-in fade-in duration-100">
+                <div className="absolute right-0 mt-2 w-52 bg-surface-tile border border-line p-2.5 rounded-lg shadow-lg z-50 text-xs text-text-muted animate-in fade-in duration-100">
                   <div className="flex items-center gap-1.5 mb-1">
                     <sync.Icon className={cn('w-3.5 h-3.5 shrink-0', sync.tone, sync.spin && 'animate-spin')} />
                     <span className={cn('font-semibold', sync.tone)}>{sync.label}</span>
                   </div>
                   {sync.detail && <p className="mb-1">{sync.detail}</p>}
                   <p>Last synced: {getSyncedTimeString(lastSyncedAt)}</p>
-                  <p className="mt-1 text-[10px] text-neutral-500">Tap icon to force upload/download changes.</p>
+                  <p className="mt-1 text-[10px] text-text-subtle">Tap icon to force upload/download changes.</p>
                 </div>
               )}
             </div>
@@ -273,7 +273,7 @@ function DashboardContent() {
 
         {/* List Selector / Management Panel (Edit Mode) */}
         {isEditMode && (
-          <div className="bg-surface-tile border-b border-[#1a1a1a] px-4 py-3.5 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="bg-surface-tile border-b border-line-faint px-4 py-3.5 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 min-w-0">
                 <ShoppingBag className="w-4 h-4 text-primary shrink-0" />
@@ -283,13 +283,13 @@ function DashboardContent() {
                 <select
                   value={activeListId}
                   onChange={(e) => setActiveListId(e.target.value)}
-                  className="bg-black border border-neutral-800 rounded-lg px-3 py-1.5 text-xs font-semibold focus:outline-none focus:border-primary text-white cursor-pointer active:scale-95 transition-all w-[180px]"
+                  className="bg-canvas border border-line rounded-lg px-3 py-1.5 text-xs font-semibold focus:outline-none focus:border-primary text-text-primary cursor-pointer active:scale-95 transition-all w-[180px]"
                 >
                   {lists
                     .filter(l => !l.is_deleted)
                     .sort((a, b) => a.name.localeCompare(b.name))
                     .map(list => (
-                      <option key={list.id} value={list.id} className="bg-surface-tile text-white">
+                      <option key={list.id} value={list.id} className="bg-surface-tile text-text-primary">
                         {list.name}
                       </option>
                     ))}
@@ -300,14 +300,14 @@ function DashboardContent() {
             <div className="flex gap-2">
               <button
                 onClick={() => setIsShareOpen(true)}
-                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 bg-black/40 border border-neutral-800 hover:border-neutral-700 hover:text-white rounded-lg text-xs text-text-muted active:scale-95 transition-all cursor-pointer"
+                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 bg-inset border border-line hover:border-line-strong hover:text-text-primary rounded-lg text-xs text-text-muted active:scale-95 transition-all cursor-pointer"
               >
                 <Share2 className="w-3.5 h-3.5 text-primary" />
                 <span>Invite Code</span>
               </button>
               <button
                 onClick={() => setIsJoinOpen(true)}
-                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 bg-black/40 border border-neutral-800 hover:border-neutral-700 hover:text-white rounded-lg text-xs text-text-muted active:scale-95 transition-all cursor-pointer"
+                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 bg-inset border border-line hover:border-line-strong hover:text-text-primary rounded-lg text-xs text-text-muted active:scale-95 transition-all cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5 text-primary" />
                 <span>Join List</span>

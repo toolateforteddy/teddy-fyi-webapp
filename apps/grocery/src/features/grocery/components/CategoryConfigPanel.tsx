@@ -134,16 +134,16 @@ export function CategoryConfigPanel({ onBack, showToast }: CategoryConfigPanelPr
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Header */}
-      <div className="flex items-center gap-3 border-b border-neutral-900 pb-3">
+      <div className="flex items-center gap-3 border-b border-line-faint pb-3">
         <button
           onClick={onBack}
-          className="p-1.5 hover:bg-neutral-900 rounded-lg text-text-muted hover:text-white transition-colors cursor-pointer"
+          className="p-1.5 hover:bg-surface-raised rounded-lg text-text-muted hover:text-text-primary transition-colors cursor-pointer"
           aria-label="Back to settings"
         >
           <ChevronLeft className="w-5 h-5" />
         </button>
         <div>
-          <h3 className="text-base font-bold text-white">Manage Categories</h3>
+          <h3 className="text-base font-bold text-text-primary">Manage Categories</h3>
           <p className="text-[11px] text-text-muted">Configure active product categories and styling preset icons</p>
         </div>
       </div>
@@ -154,21 +154,21 @@ export function CategoryConfigPanel({ onBack, showToast }: CategoryConfigPanelPr
           Add New Category
         </label>
         
-        <form onSubmit={handleAddCategory} className="bg-surface-tile border border-neutral-900 rounded-xl p-4 space-y-4">
+        <form onSubmit={handleAddCategory} className="bg-surface-tile border border-line-faint rounded-xl p-4 space-y-4">
           <div className="flex gap-2">
             <input
               type="text"
               placeholder="Category name..."
               value={newCategoryName}
               onChange={(e) => setNewCategoryName(e.target.value)}
-              className="flex-1 bg-neutral-900 border border-neutral-800 rounded-lg py-2.5 px-3 text-xs focus:outline-none focus:border-primary text-white"
+              className="flex-1 bg-surface-raised border border-line rounded-lg py-2.5 px-3 text-xs focus:outline-none focus:border-primary text-text-primary"
             />
             <input
               type="text"
               placeholder="Emoji"
               value={newCategoryIcon}
               onChange={(e) => setNewCategoryIcon(e.target.value.slice(0, 2))}
-              className="w-16 bg-neutral-900 border border-neutral-800 rounded-lg py-2.5 px-2 text-xs focus:outline-none focus:border-primary text-white text-center font-sans"
+              className="w-16 bg-surface-raised border border-line rounded-lg py-2.5 px-2 text-xs focus:outline-none focus:border-primary text-text-primary text-center font-sans"
             />
           </div>
 
@@ -182,8 +182,8 @@ export function CategoryConfigPanel({ onBack, showToast }: CategoryConfigPanelPr
                   type="button"
                   onClick={() => setNewCategoryIcon(emoji)}
                   className={cn(
-                    "w-8 h-8 rounded-lg bg-neutral-900 border text-sm flex items-center justify-center transition-all cursor-pointer hover:bg-neutral-800 active:scale-90",
-                    newCategoryIcon === emoji ? "border-primary text-white" : "border-neutral-850 text-neutral-400"
+                    "w-8 h-8 rounded-lg bg-surface-raised border text-sm flex items-center justify-center transition-all cursor-pointer hover:bg-surface-hover active:scale-90",
+                    newCategoryIcon === emoji ? "border-primary text-text-primary" : "border-line text-text-muted"
                   )}
                 >
                   {emoji}
@@ -194,7 +194,7 @@ export function CategoryConfigPanel({ onBack, showToast }: CategoryConfigPanelPr
 
           <button
             type="submit"
-            className="w-full bg-primary hover:bg-[#c0a9f5] text-black font-semibold rounded-lg py-2.5 text-xs transition-all active:scale-[0.99] cursor-pointer flex items-center justify-center gap-1.5"
+            className="w-full bg-primary hover:bg-primary-hover text-on-primary font-semibold rounded-lg py-2.5 text-xs transition-all active:scale-[0.99] cursor-pointer flex items-center justify-center gap-1.5"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" /> Add Category
           </button>
@@ -207,7 +207,7 @@ export function CategoryConfigPanel({ onBack, showToast }: CategoryConfigPanelPr
           Categories List ({activeCategories.length})
         </label>
         
-        <div className="bg-surface-tile border border-neutral-900 rounded-xl divide-y divide-neutral-900">
+        <div className="bg-surface-tile border border-line-faint rounded-xl divide-y divide-line-faint">
           {activeCategories.length === 0 ? (
             <div className="p-8 text-center text-xs text-text-muted">
               No categories configured. Add a category above to start.
@@ -217,7 +217,7 @@ export function CategoryConfigPanel({ onBack, showToast }: CategoryConfigPanelPr
               const isEditing = editingCategoryId === category.id
               const catColor = getCategoryColor(category.id)
               return (
-                <div key={category.id} className="p-3.5 flex flex-col gap-2.5 text-sm transition-colors hover:bg-neutral-900/20 justify-center">
+                <div key={category.id} className="p-3.5 flex flex-col gap-2.5 text-sm transition-colors hover:bg-surface-raised/20 justify-center">
                   {isEditing ? (
                     <div className="space-y-3">
                       <div className="flex gap-2">
@@ -225,14 +225,14 @@ export function CategoryConfigPanel({ onBack, showToast }: CategoryConfigPanelPr
                           type="text"
                           value={editingCategoryName}
                           onChange={(e) => setEditingCategoryName(e.target.value)}
-                          className="flex-1 bg-black border border-neutral-800 rounded-lg px-2.5 py-1 text-xs focus:outline-none focus:border-primary text-white"
+                          className="flex-1 bg-canvas border border-line rounded-lg px-2.5 py-1 text-xs focus:outline-none focus:border-primary text-text-primary"
                           placeholder="Name"
                         />
                         <input
                           type="text"
                           value={editingCategoryIcon}
                           onChange={(e) => setEditingCategoryIcon(e.target.value.slice(0, 2))}
-                          className="w-16 bg-black border border-neutral-800 rounded-lg px-2.5 py-1 text-xs text-center focus:outline-none focus:border-primary text-white"
+                          className="w-16 bg-canvas border border-line rounded-lg px-2.5 py-1 text-xs text-center focus:outline-none focus:border-primary text-text-primary"
                           placeholder="Emoji"
                         />
                       </div>
@@ -244,8 +244,8 @@ export function CategoryConfigPanel({ onBack, showToast }: CategoryConfigPanelPr
                             type="button"
                             onClick={() => setEditingCategoryIcon(emoji)}
                             className={cn(
-                              "w-7 h-7 rounded-md bg-neutral-900 border text-xs flex items-center justify-center transition-all cursor-pointer hover:bg-neutral-800",
-                              editingCategoryIcon === emoji ? "border-primary text-white" : "border-neutral-850 text-neutral-400"
+                              "w-7 h-7 rounded-md bg-surface-raised border text-xs flex items-center justify-center transition-all cursor-pointer hover:bg-surface-hover",
+                              editingCategoryIcon === emoji ? "border-primary text-text-primary" : "border-line text-text-muted"
                             )}
                           >
                             {emoji}
@@ -253,10 +253,10 @@ export function CategoryConfigPanel({ onBack, showToast }: CategoryConfigPanelPr
                         ))}
                       </div>
 
-                      <div className="flex justify-end gap-2 pt-1 border-t border-neutral-900">
+                      <div className="flex justify-end gap-2 pt-1 border-t border-line-faint">
                         <button
                           onClick={() => handleUpdateCategory(category.id)}
-                          className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-md text-xs font-semibold"
+                          className="bg-success/10 hover:bg-success/20 text-success-strong border border-success/20 px-3 py-1 rounded-md text-xs font-semibold"
                         >
                           Save
                         </button>
@@ -266,7 +266,7 @@ export function CategoryConfigPanel({ onBack, showToast }: CategoryConfigPanelPr
                             setEditingCategoryName('')
                             setEditingCategoryIcon('')
                           }}
-                          className="bg-neutral-900 hover:bg-neutral-800 text-text-muted px-3 py-1 rounded-md text-xs"
+                          className="bg-surface-raised hover:bg-surface-hover text-text-muted px-3 py-1 rounded-md text-xs"
                         >
                           Cancel
                         </button>
@@ -280,7 +280,7 @@ export function CategoryConfigPanel({ onBack, showToast }: CategoryConfigPanelPr
                           style={{ backgroundColor: catColor }} 
                         />
                         {category.icon && <span className="text-base shrink-0">{category.icon}</span>}
-                        <span className="font-semibold text-white truncate">{category.name}</span>
+                        <span className="font-semibold text-text-primary truncate">{category.name}</span>
                       </div>
                       
                       <div className="flex items-center gap-1 shrink-0">
@@ -288,7 +288,7 @@ export function CategoryConfigPanel({ onBack, showToast }: CategoryConfigPanelPr
                           type="button"
                           onClick={() => handleMoveCategory(category.id, 'up')}
                           disabled={idx === 0}
-                          className="p-1.5 hover:bg-neutral-900 rounded-md text-text-muted hover:text-white disabled:opacity-20 disabled:pointer-events-none cursor-pointer"
+                          className="p-1.5 hover:bg-surface-raised rounded-md text-text-muted hover:text-text-primary disabled:opacity-20 disabled:pointer-events-none cursor-pointer"
                           aria-label="Move category up"
                         >
                           <ChevronUp className="w-4 h-4" />
@@ -297,7 +297,7 @@ export function CategoryConfigPanel({ onBack, showToast }: CategoryConfigPanelPr
                           type="button"
                           onClick={() => handleMoveCategory(category.id, 'down')}
                           disabled={idx === activeCategories.length - 1}
-                          className="p-1.5 hover:bg-neutral-900 rounded-md text-text-muted hover:text-white disabled:opacity-20 disabled:pointer-events-none cursor-pointer"
+                          className="p-1.5 hover:bg-surface-raised rounded-md text-text-muted hover:text-text-primary disabled:opacity-20 disabled:pointer-events-none cursor-pointer"
                           aria-label="Move category down"
                         >
                           <ChevronDown className="w-4 h-4" />
@@ -310,7 +310,7 @@ export function CategoryConfigPanel({ onBack, showToast }: CategoryConfigPanelPr
                             setEditingCategoryName(category.name)
                             setEditingCategoryIcon(category.icon || '')
                           }}
-                          className="p-1.5 hover:bg-neutral-900 rounded-md text-text-muted hover:text-white cursor-pointer"
+                          className="p-1.5 hover:bg-surface-raised rounded-md text-text-muted hover:text-text-primary cursor-pointer"
                           aria-label="Edit category"
                         >
                           <Edit2 className="w-4 h-4" />
@@ -318,7 +318,7 @@ export function CategoryConfigPanel({ onBack, showToast }: CategoryConfigPanelPr
                         <button
                           type="button"
                           onClick={() => handleDeleteCategory(category.id)}
-                          className="p-1.5 hover:bg-red-500/10 rounded-md text-neutral-500 hover:text-red-400 cursor-pointer"
+                          className="p-1.5 hover:bg-danger/10 rounded-md text-text-subtle hover:text-danger cursor-pointer"
                           aria-label="Delete category"
                         >
                           <Trash2 className="w-4 h-4" />

@@ -135,16 +135,16 @@ export function ShareListSheet({ isOpen, onClose, activeListId }: ShareListSheet
     <dialog
       ref={dialogRef}
       onClose={onClose}
-      className="app-frame fixed top-auto bottom-0 left-1/2 -translate-x-1/2 max-h-[85dvh] overflow-y-auto overscroll-contain bg-surface-tile border-t border-neutral-800 rounded-t-2xl z-50 px-4 pt-4 pb-[calc(2rem+env(safe-area-inset-bottom))] shadow-2xl backdrop:bg-black/60 backdrop:backdrop-blur-sm animate-in slide-in-from-bottom duration-250 ease-out focus:outline-none"
+      className="app-frame fixed top-auto bottom-0 left-1/2 -translate-x-1/2 max-h-[85dvh] overflow-y-auto overscroll-contain bg-surface-tile border-t border-line rounded-t-2xl z-50 px-4 pt-4 pb-[calc(2rem+env(safe-area-inset-bottom))] shadow-2xl backdrop:bg-scrim/60 backdrop:backdrop-blur-sm animate-in slide-in-from-bottom duration-250 ease-out focus:outline-none"
     >
-      <div className="flex items-center justify-between mb-4 border-b border-neutral-800 pb-3">
+      <div className="flex items-center justify-between mb-4 border-b border-line pb-3">
         <div className="flex items-center gap-1.5">
           <Share2 className="w-4 h-4 text-primary" />
-          <h3 className="font-semibold text-white">Share List</h3>
+          <h3 className="font-semibold text-text-primary">Share List</h3>
         </div>
         <button 
           onClick={onClose}
-          className="p-1 text-text-muted hover:text-white rounded-md cursor-pointer"
+          className="p-1 text-text-muted hover:text-text-primary rounded-md cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
@@ -158,10 +158,10 @@ export function ShareListSheet({ isOpen, onClose, activeListId }: ShareListSheet
           </div>
         ) : error && !inviteCode ? (
           <div className="space-y-3 text-center">
-            <p className="text-sm text-red-400">{error}</p>
+            <p className="text-sm text-danger">{error}</p>
             <button
               onClick={generateCode}
-              className="py-2 px-4 bg-primary text-black font-semibold rounded-lg text-xs active:scale-95 transition-all cursor-pointer"
+              className="py-2 px-4 bg-primary text-on-primary font-semibold rounded-lg text-xs active:scale-95 transition-all cursor-pointer"
             >
               Retry
             </button>
@@ -175,9 +175,9 @@ export function ShareListSheet({ isOpen, onClose, activeListId }: ShareListSheet
 
             {/* The link, and the two ways to move it. Sending is the primary action: the
                 code below it is the fallback for somebody you cannot send a link to. */}
-            <div className="w-full bg-black/40 border border-neutral-800 rounded-xl px-3 py-3 flex items-center gap-2">
+            <div className="w-full bg-inset border border-line rounded-xl px-3 py-3 flex items-center gap-2">
               <Link2 className="w-4 h-4 text-primary shrink-0" />
-              <span className="text-[11px] font-mono text-neutral-300 break-all leading-relaxed">
+              <span className="text-[11px] font-mono text-text-secondary break-all leading-relaxed">
                 {inviteLink}
               </span>
             </div>
@@ -185,19 +185,19 @@ export function ShareListSheet({ isOpen, onClose, activeListId }: ShareListSheet
             <div className="flex flex-col gap-2">
               <button
                 onClick={share}
-                className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-primary hover:bg-[#c0a9f5] text-black font-semibold rounded-lg text-xs active:scale-95 transition-all cursor-pointer"
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-primary hover:bg-primary-hover text-on-primary font-semibold rounded-lg text-xs active:scale-95 transition-all cursor-pointer"
               >
                 <Share2 className="w-4 h-4" />
                 <span>Send invite link</span>
               </button>
               <button
                 onClick={() => copy('link', inviteLink)}
-                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-neutral-900 border border-neutral-800 hover:border-neutral-700 hover:text-white text-xs font-semibold rounded-lg text-text-muted active:scale-95 transition-all cursor-pointer"
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-surface-raised border border-line hover:border-line-strong hover:text-text-primary text-xs font-semibold rounded-lg text-text-muted active:scale-95 transition-all cursor-pointer"
               >
                 {copied === 'link' ? (
                   <>
-                    <Check className="w-4 h-4 text-emerald-500" />
-                    <span className="text-emerald-500">Link copied!</span>
+                    <Check className="w-4 h-4 text-success" />
+                    <span className="text-success">Link copied!</span>
                   </>
                 ) : (
                   <>
@@ -211,7 +211,7 @@ export function ShareListSheet({ isOpen, onClose, activeListId }: ShareListSheet
             {/* The code the link carries. Still here because a link is no use to somebody on
                 a tablet with no messaging app, or somebody you are reading it to down the
                 phone -- and because it is the same credential either way. */}
-            <div className="pt-1 border-t border-neutral-850/60 space-y-2">
+            <div className="pt-1 border-t border-line/60 space-y-2">
               <p className="text-[10px] text-text-muted text-center pt-3">
                 Or read out the code, and they can type it into Join List.
               </p>
@@ -222,10 +222,10 @@ export function ShareListSheet({ isOpen, onClose, activeListId }: ShareListSheet
                 <button
                   onClick={() => copy('code', inviteCode)}
                   aria-label={copied === 'code' ? 'Invite code copied' : 'Copy invite code'}
-                  className="p-1.5 text-text-muted hover:text-white rounded-md cursor-pointer"
+                  className="p-1.5 text-text-muted hover:text-text-primary rounded-md cursor-pointer"
                 >
                   {copied === 'code' ? (
-                    <Check className="w-4 h-4 text-emerald-500" />
+                    <Check className="w-4 h-4 text-success" />
                   ) : (
                     <Copy className="w-4 h-4" />
                   )}
@@ -233,12 +233,12 @@ export function ShareListSheet({ isOpen, onClose, activeListId }: ShareListSheet
               </div>
             </div>
 
-            {error && <p className="text-[11px] text-red-400 text-center">{error}</p>}
+            {error && <p className="text-[11px] text-danger text-center">{error}</p>}
 
             <div className="flex flex-col items-center gap-1.5">
               <button
                 onClick={generateCode}
-                className="text-[11px] text-text-muted underline underline-offset-2 hover:text-white transition-colors cursor-pointer"
+                className="text-[11px] text-text-muted underline underline-offset-2 hover:text-text-primary transition-colors cursor-pointer"
               >
                 Get a new link
               </button>

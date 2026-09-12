@@ -24,9 +24,9 @@ export function BootstrapFailure({ onRetry }: BootstrapFailureProps) {
   const { logout } = useAuth()
 
   return (
-    <div className="h-dvh bg-black text-white flex justify-center font-sans antialiased">
-      <div className="app-frame app-shell h-dvh bg-black flex flex-col items-center justify-center border-x border-[#1a1a1a] shadow-[0_0_50px_0_rgba(208,188,255,0.05)] px-6 text-center overflow-y-auto">
-        <AlertCircle className="w-10 h-10 text-amber-500 shrink-0" aria-hidden="true" />
+    <div className="h-dvh bg-canvas text-text-primary flex justify-center font-sans antialiased">
+      <div className="app-frame app-shell h-dvh bg-canvas flex flex-col items-center justify-center border-x border-line-faint shadow-[var(--shadow-frame)] px-6 text-center overflow-y-auto">
+        <AlertCircle className="w-10 h-10 text-warning shrink-0" aria-hidden="true" />
 
         <h1 className="mt-5 text-lg font-semibold">Your lists did not load</h1>
         <p className="mt-2 text-sm text-text-muted max-w-xs">
@@ -38,7 +38,7 @@ export function BootstrapFailure({ onRetry }: BootstrapFailureProps) {
           <button
             type="button"
             onClick={onRetry}
-            className="w-full h-11 rounded-xl bg-primary text-black font-medium text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+            className="w-full h-11 rounded-xl bg-primary text-on-primary font-medium text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
           >
             <RefreshCw className="w-4 h-4" aria-hidden="true" />
             Try again
@@ -46,7 +46,7 @@ export function BootstrapFailure({ onRetry }: BootstrapFailureProps) {
 
           <a
             href="/?sw=off"
-            className="w-full h-11 rounded-xl border border-[#2a2a2a] text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+            className="w-full h-11 rounded-xl border border-line text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
           >
             <RotateCcw className="w-4 h-4" aria-hidden="true" />
             Reset the cached app

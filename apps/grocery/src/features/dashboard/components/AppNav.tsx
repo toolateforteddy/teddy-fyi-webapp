@@ -35,12 +35,12 @@ export function AppNav({ items, currentPath, placement, labelled = false }: AppN
     <nav
       aria-label="Primary"
       className={cn(
-        'app-chrome shrink-0 bg-black/90 backdrop-blur-lg flex z-40',
+        'app-chrome shrink-0 bg-canvas/90 backdrop-blur-lg flex z-40',
         isRail
           ? // The rail owns the left safe-area inset, since in landscape that is
             // where the notch sits.
-            'flex-col gap-1 border-r border-[#1a1a1a] pl-[env(safe-area-inset-left)] py-2 shadow-[10px_0_20px_rgba(0,0,0,0.5)]'
-          : 'items-center justify-around px-2 min-h-[68px] border-t border-[#1a1a1a] pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_20px_rgba(0,0,0,0.5)]',
+            'flex-col gap-1 border-r border-line-faint pl-[env(safe-area-inset-left)] py-2 shadow-[var(--shadow-rail)]'
+          : 'items-center justify-around px-2 min-h-[68px] border-t border-line-faint pb-[env(safe-area-inset-bottom)] shadow-[var(--shadow-bar)]',
         isRail &&
           (isWideRail
             ? // 11rem is the width of a destination name, which is the point of
@@ -73,7 +73,7 @@ export function AppNav({ items, currentPath, placement, labelled = false }: AppN
           >
             <div
               className={cn(
-                'p-1.5 rounded-full transition-all group-hover:bg-neutral-900',
+                'p-1.5 rounded-full transition-all group-hover:bg-surface-raised',
                 isActive
                   ? isWideRail
                     ? 'text-primary'
@@ -87,7 +87,7 @@ export function AppNav({ items, currentPath, placement, labelled = false }: AppN
               className={cn(
                 'font-medium tracking-wide transition-colors',
                 isWideRail ? 'text-sm' : 'text-[10px] mt-1',
-                isActive ? 'text-primary font-semibold' : 'text-text-muted group-hover:text-neutral-300'
+                isActive ? 'text-primary font-semibold' : 'text-text-muted group-hover:text-text-secondary'
               )}
             >
               {item.label}

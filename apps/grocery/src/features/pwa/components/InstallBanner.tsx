@@ -61,7 +61,7 @@ export function InstallBanner() {
             onClick={() => {
               promptInstall().catch(() => {})
             }}
-            className="shrink-0 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-black transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+            className="shrink-0 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-on-primary transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
           >
             Install
           </button>
@@ -70,7 +70,7 @@ export function InstallBanner() {
             type="button"
             onClick={() => setShowSteps(open => !open)}
             aria-expanded={showSteps}
-            className="shrink-0 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-black transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+            className="shrink-0 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-on-primary transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
           >
             {showSteps ? 'Hide' : 'How'}
           </button>
@@ -80,14 +80,14 @@ export function InstallBanner() {
           type="button"
           onClick={dismiss}
           aria-label="Do not offer this again"
-          className="shrink-0 rounded-lg p-1.5 text-text-muted transition-colors hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+          className="shrink-0 rounded-lg p-1.5 text-text-muted transition-colors hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
         >
           <X className="w-3.5 h-3.5" aria-hidden="true" />
         </button>
       </div>
 
       {showSteps && (
-        <div className="mt-2.5 border-t border-neutral-800 pt-2.5">
+        <div className="mt-2.5 border-t border-line pt-2.5">
           <IosInstallSteps />
         </div>
       )}

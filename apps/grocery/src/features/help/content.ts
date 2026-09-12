@@ -356,6 +356,11 @@ export const HELP_SECTIONS: HelpSection[] = [
       {
         kind: 'rows',
         rows: [
+          {
+            term: 'Appearance',
+            detail:
+              'System, Light or Dark. System follows whatever the phone or computer is set to, and is what you get until you choose otherwise. The choice is per device -- it is not synced, so a phone and a laptop can differ.',
+          },
           { term: 'Manage Stores', detail: 'Add, rename, reorder, delete.' },
           {
             term: 'Manage Categories',

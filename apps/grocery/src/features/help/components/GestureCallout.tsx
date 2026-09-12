@@ -35,13 +35,13 @@ export function GestureCallout({ gesture, verb, what, then }: GestureCalloutProp
     <div
       className={cn(
         'flex gap-3 rounded-xl border border-dashed p-3',
-        isDisabled ? 'border-neutral-800' : 'border-primary/30'
+        isDisabled ? 'border-line' : 'border-primary/30'
       )}
     >
       <div
         className={cn(
           'w-10 h-10 shrink-0 rounded-lg flex items-center justify-center',
-          isDisabled ? 'bg-neutral-900 text-text-muted' : 'bg-primary/10 text-primary'
+          isDisabled ? 'bg-surface-raised text-text-muted' : 'bg-primary/10 text-primary'
         )}
       >
         <Glyph className="w-5 h-5" aria-hidden="true" />
@@ -56,8 +56,8 @@ export function GestureCallout({ gesture, verb, what, then }: GestureCalloutProp
         >
           {verb}
         </span>
-        <span className="block text-sm font-semibold text-white leading-snug mt-0.5">{what}</span>
-        {then && <p className="text-xs text-neutral-400 leading-relaxed mt-1.5">{then}</p>}
+        <span className="block text-sm font-semibold text-text-primary leading-snug mt-0.5">{what}</span>
+        {then && <p className="text-xs text-text-muted leading-relaxed mt-1.5">{then}</p>}
       </div>
     </div>
   )

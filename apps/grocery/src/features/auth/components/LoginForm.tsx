@@ -124,8 +124,8 @@ export function LoginForm() {
   return (
     <div className="flex flex-col items-center justify-center gap-4 w-full">
       {needsInvite && (
-        <div className="w-[320px] flex flex-col gap-2 bg-neutral-900/60 border border-neutral-800 px-3 py-3 rounded-lg">
-          <p className="text-sm text-neutral-200 font-semibold">There&apos;s no account here yet</p>
+        <div className="w-[320px] flex flex-col gap-2 bg-surface-raised/60 border border-line px-3 py-3 rounded-lg">
+          <p className="text-sm text-text-secondary font-semibold">There&apos;s no account here yet</p>
           <p className="text-xs text-text-muted">
             Signing in worked — there just isn&apos;t an account for you yet, and this app
             can&apos;t open one. If somebody sent you an invite code, paste it here and sign in
@@ -140,19 +140,19 @@ export function LoginForm() {
             }}
             placeholder="Invite code"
             aria-label="Invite code"
-            className="w-full bg-neutral-950 border border-neutral-800 focus:border-neutral-600 outline-none text-neutral-200 text-xs px-2.5 py-2 rounded-md"
+            className="w-full bg-inset border border-line focus:border-line-strong outline-none text-text-secondary text-xs px-2.5 py-2 rounded-md"
           />
         </div>
       )}
 
       {gsiError && (
-        <div className="text-red-400 text-xs bg-red-950/20 border border-red-500/20 px-3 py-2.5 rounded-lg text-center max-w-xs">
+        <div className="text-danger text-xs bg-danger/10 border border-danger/20 px-3 py-2.5 rounded-lg text-center max-w-xs">
           {gsiError}
         </div>
       )}
 
       {error && (
-        <div className="text-red-400 text-xs bg-red-950/20 border border-red-500/20 px-3 py-2.5 rounded-lg text-center max-w-xs">
+        <div className="text-danger text-xs bg-danger/10 border border-danger/20 px-3 py-2.5 rounded-lg text-center max-w-xs">
           {error.message}
         </div>
       )}
@@ -178,9 +178,9 @@ export function LoginForm() {
             }
           }}
           disabled={isLoading}
-          className="w-[320px] mt-2 bg-neutral-900 border border-neutral-800 hover:border-neutral-700 text-neutral-300 hover:text-white font-semibold text-xs py-3 px-5 rounded-lg active:scale-[0.98] transition-all cursor-pointer shadow-md flex items-center justify-center gap-2"
+          className="w-[320px] mt-2 bg-surface-raised border border-line hover:border-line-strong text-text-secondary hover:text-text-primary font-semibold text-xs py-3 px-5 rounded-lg active:scale-[0.98] transition-all cursor-pointer shadow-md flex items-center justify-center gap-2"
         >
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
           <span>Dev Mode: Bypass Auth</span>
         </button>
       )}
