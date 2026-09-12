@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom'
 import { LoginPage } from './LoginPage'
 import { DeviceLinkPage } from './DeviceLinkPage'
+import { JoinPage } from './JoinPage'
 import { HelpPage } from './HelpPage'
 import { NotFoundPage } from './NotFoundPage'
 import { ShareTargetPage } from './ShareTargetPage'
@@ -25,6 +26,16 @@ export function AppRoutes() {
           about the app rather than about anybody's list, and it is the page you send to
           somebody who cannot find the thing you are describing. */}
       <Route path="/help" element={<HelpPage />} />
+
+      {/* Redeeming a shared list invite. Public because the whole point is that the
+          recipient is somebody who has never opened this app: the page signs them in
+          with Google itself, then joins, rather than bouncing to /login and losing the
+          code out of the URL on the way. */}
+      <Route path="/join/:code" element={<JoinPage />} />
+
+      {/* A link whose code got cut off still lands somewhere that explains itself,
+          rather than on the generic 404. */}
+      <Route path="/join" element={<JoinPage />} />
 
       {/* Web Share Target. Public for the same reason /link is: the share can
           arrive before the browser has a session, and bouncing it to /login

@@ -1,0 +1,22 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "fyi.teddy.android",
+      "sha256_cert_fingerprints": [
+        "2B:0B:02:80:64:E1:27:80:CE:02:AC:39:21:5D:E9:55:3A:9D:B4:43:1A:D9:EF:37:FC:B3:B8:FC:35:0D:FA:95"
+      ]
+    }
+  },
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "fyi.teddy.android.grocery",
+      "sha256_cert_fingerprints": [
+        "2B:0B:02:80:64:E1:27:80:CE:02:AC:39:21:5D:E9:55:3A:9D:B4:43:1A:D9:EF:37:FC:B3:B8:FC:35:0D:FA:95"
+      ]
+    }
+  }
+]

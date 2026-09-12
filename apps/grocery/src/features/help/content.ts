@@ -265,17 +265,22 @@ export const HELP_SECTIONS: HelpSection[] = [
         gesture: 'tap',
         verb: 'Tap the pencil',
         what: 'Drops down the list panel in the top bar',
-        then: 'It holds the active-list dropdown, Invite Code, and Join List. Tap the pencil again to close it.',
+        then: 'It holds the active-list dropdown, Share List, and Join List. Tap the pencil again to close it.',
       },
       {
         kind: 'rows',
         rows: [
           {
-            term: 'Invite Code',
+            term: 'Share List',
             detail:
-              'Generates an 8-character code for the list you are on, with a Copy Code button. Send it yourself; the app does not.',
+              'Makes an invite link for the list you are on. Send invite link hands it to your phone\u2019s share sheet, or copy it. Whoever opens it signs in and joins \u2014 nothing to install first. It works once, and lasts an hour.',
           },
-          { term: 'Join List', detail: 'Type the 8 characters. The app joins, pulls everything down, and switches you to it.' },
+          {
+            term: 'The code under the link',
+            detail:
+              'The same invite, as 8 characters, for somebody you cannot send a link to. Read it out and they type it into Join List.',
+          },
+          { term: 'Join List', detail: 'Paste the link or type the 8 characters. The app joins, pulls everything down, and switches you to it.' },
           {
             term: 'Active List',
             detail: 'Switches which list the whole app shows. Stores and categories belong to a list, so they change too.',
