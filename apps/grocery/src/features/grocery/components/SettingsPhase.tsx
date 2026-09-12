@@ -17,8 +17,6 @@ import {
 import { Link } from 'react-router-dom'
 import { storage } from '@/utils/storage'
 import { STORAGE_KEYS } from '@/config/storageKeys'
-import { setApiBaseUrl } from '@/lib/axios'
-import { env } from '@/config/env'
 import { useAuth } from '@/features/auth/hooks/useAuth'
 import { useGrocery } from '@/features/grocery/context/GroceryContext'
 import { StoreConfigPanel } from './StoreConfigPanel'
@@ -51,9 +49,6 @@ export function SettingsPhase() {
   const { user, logout } = useAuth()
   const [loggingOut, setLoggingOut] = useState(false)
   const [syncInterval, setSyncInterval] = useState('auto')
-  const [apiUrl, setApiUrl] = useState(() => {
-    return storage.getItem<string>(STORAGE_KEYS.API_BASE_URL, env.API_BASE_URL)
-  })
   const [clearing, setClearing] = useState(false)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
@@ -90,13 +85,6 @@ export function SettingsPhase() {
       setSuccessMessage(null)
       timeoutId.current = null
     }, 3000) as unknown as number
-  }
-
-  const handleSaveApiUrl = (newUrl: string) => {
-    setApiUrl(newUrl)
-    storage.setItem(STORAGE_KEYS.API_BASE_URL, newUrl)
-    setApiBaseUrl(newUrl)
-    showToast('API Base URL configuration updated.')
   }
 
   const handleClearLocal = () => {
@@ -304,8 +292,6 @@ export function SettingsPhase() {
         </div>
 
         <ConnectionConfigPanel
-          apiUrl={apiUrl}
-          onSaveApiUrl={handleSaveApiUrl}
           syncInterval={syncInterval}
           onChangeSyncInterval={setSyncInterval}
           pendingChanges={pendingChanges}

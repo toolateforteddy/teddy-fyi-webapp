@@ -8,10 +8,12 @@ export const STORAGE_KEYS = {
   LISTS: 'grocery_lists',
   STORES: 'grocery_stores',
   CATEGORIES: 'grocery_categories',
-  API_BASE_URL: 'grocery_api_base_url',
   ACTIVE_LIST_ID: 'grocery_active_list_id',
   ITEM_STORE_INFOS: 'grocery_item_store_infos',
   LIST_MEMBERS: 'grocery_list_members',
+  // Retired: the Settings page no longer lets a device pick a backend. Kept only so
+  // axios can clear a value an older build left behind.
+  LEGACY_API_BASE_URL: 'grocery_api_base_url',
 } as const;
 
 export type StorageKey = typeof STORAGE_KEYS[keyof typeof STORAGE_KEYS];

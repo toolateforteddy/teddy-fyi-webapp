@@ -360,10 +360,6 @@ export const HELP_SECTIONS: HelpSection[] = [
           { term: 'Pending Local Mutations', detail: 'Changes still queued for the server. Should return to 0 within a second or two.' },
           { term: 'Auto-Sync Frequency', detail: 'Has no effect today. Sync is always automatic, whatever this says.' },
           {
-            term: 'Backend API Base URL',
-            detail: 'Saves as you type. Changing it points the app at a different server and will stop sync working.',
-          },
-          {
             term: 'Clear Local Cache',
             detail: 'Deletes anything not yet synced, then reloads. Check that Pending Local Mutations reads 0 first.',
           },
