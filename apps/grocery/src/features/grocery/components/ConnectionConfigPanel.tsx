@@ -1,17 +1,12 @@
-import { Wifi } from 'lucide-react'
 import { cn } from '@/utils/cn'
 
 interface ConnectionConfigPanelProps {
-  apiUrl: string
-  onSaveApiUrl: (url: string) => void
   syncInterval: string
   onChangeSyncInterval: (interval: string) => void
   pendingChanges: number
 }
 
 export function ConnectionConfigPanel({
-  apiUrl,
-  onSaveApiUrl,
   syncInterval,
   onChangeSyncInterval,
   pendingChanges
@@ -44,24 +39,6 @@ export function ConnectionConfigPanel({
             <option value="hourly" className="bg-surface-tile">Every Hour</option>
             <option value="manual" className="bg-surface-tile">Manual Only</option>
           </select>
-        </div>
-
-        {/* API Endpoints */}
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <label className="text-xs text-text-muted font-medium block">
-              Backend API Base URL
-            </label>
-            <span className="flex items-center gap-1 text-[10px] text-emerald-500">
-              <Wifi className="w-3 h-3" /> Online
-            </span>
-          </div>
-          <input
-            type="text"
-            value={apiUrl}
-            onChange={(e) => onSaveApiUrl(e.target.value)}
-            className="w-full bg-black/40 border border-neutral-800 rounded-lg py-2 px-3 text-xs focus:outline-none focus:border-primary text-white font-mono"
-          />
         </div>
       </div>
     </div>

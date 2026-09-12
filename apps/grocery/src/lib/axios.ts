@@ -6,15 +6,13 @@ import { STORAGE_KEYS } from '@/config/storageKeys'
 import { getClientUuid } from '@/utils/uuid'
 import { isSessionRejected } from '@/features/auth/utils/sessionFailure'
 
-// Resolve initial API base URL from storage, env, or default
-const getInitialBaseURL = (): string => {
-  const savedUrl = storage.getItem<string>(STORAGE_KEYS.API_BASE_URL, '')
-  if (savedUrl) return savedUrl
-  
-  return env.isDev ? '' : env.API_BASE_URL
-}
+// There is one backend. Settings used to let a device override it, and a device that
+// did so kept that value in localStorage forever -- so drop any leftover override
+// rather than letting it keep pointing the app somewhere else.
+storage.removeItem(STORAGE_KEYS.LEGACY_API_BASE_URL)
 
-const baseURL = getInitialBaseURL()
+// In dev the Vite proxy fronts the API, so the base URL is the current origin.
+const baseURL = env.isDev ? '' : env.API_BASE_URL
 
 export const api = axios.create({
   baseURL,
@@ -34,14 +32,6 @@ const refreshApi = axios.create({
   },
   timeout: 10000,
 })
-
-/**
- * Dynamically updates the API base URL at runtime.
- */
-export function setApiBaseUrl(newUrl: string): void {
-  api.defaults.baseURL = newUrl
-  refreshApi.defaults.baseURL = newUrl
-}
 
 type UnauthorizedCallback = () => void
 let unauthorizedListener: UnauthorizedCallback | null = null
