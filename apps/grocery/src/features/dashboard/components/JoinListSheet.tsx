@@ -6,6 +6,11 @@ import { apiErrorMessage } from '@/lib/apiError'
 import { useGrocery } from '@/features/grocery/context/GroceryContext'
 import { storage } from '@/utils/storage'
 import { STORAGE_KEYS } from '@/config/storageKeys'
+import {
+  inviteCodeFromPastedText,
+  isCompleteInviteCode,
+  normalizeInviteCode,
+} from '@/features/grocery/utils/inviteLink'
 
 interface JoinListSheetProps {
   isOpen: boolean
@@ -39,7 +44,7 @@ export function JoinListSheet({ isOpen, onClose }: JoinListSheetProps) {
 
   const handleJoin = async (e: FormEvent) => {
     e.preventDefault()
-    if (!joinCode || joinCode.trim().length !== 8) {
+    if (!isCompleteInviteCode(normalizeInviteCode(joinCode))) {
       setError('Please enter a valid 8-character invite code.')
       return
     }
@@ -48,12 +53,19 @@ export function JoinListSheet({ isOpen, onClose }: JoinListSheetProps) {
     setError(null)
 
     try {
-      const response = await api.post<{ success: boolean; list_id: string }>('/api/lists/join', {
-        code: joinCode.trim().toUpperCase()
-      })
+      const response = await api.post<{ success: boolean; listId?: string; list_id?: string }>(
+        '/api/lists/join',
+        { code: normalizeInviteCode(joinCode) },
+      )
 
-      if (response.data.success && response.data.list_id) {
-        const newListId = response.data.list_id
+      // The API sends `listId`; it has since it renamed the field, and this read `list_id`
+      // for as long as that was true. Undefined is falsy, so a join that *worked* fell into
+      // the else below and told the user their code was invalid -- while the membership row
+      // it had just created sat there waiting for a sync nobody was going to ask for. Both
+      // spellings are read so a deployment older than that rename is not broken by the fix.
+      const newListId = response.data.listId || response.data.list_id
+
+      if (response.data.success && newListId) {
         
         setIsSyncingPostJoin(true)
         storage.removeItem(STORAGE_KEYS.LAST_SYNCED)
@@ -106,19 +118,15 @@ export function JoinListSheet({ isOpen, onClose }: JoinListSheetProps) {
         <form onSubmit={handleJoin} className="space-y-4">
           <div>
             <label htmlFor="join-code" className="text-[10px] uppercase tracking-wider font-bold text-text-muted block mb-1.5">
-              Invite Code (8 Alphanumerics)
+              Invite Code (or paste the invite link)
             </label>
             <input
               id="join-code"
               type="text"
               placeholder="e.g. ABC123XY"
-              maxLength={8}
               disabled={isJoining}
               value={joinCode}
-              onChange={(e) => {
-                const val = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()
-                setJoinCode(val)
-              }}
+              onChange={(e) => setJoinCode(inviteCodeFromPastedText(e.target.value))}
               autoFocus
               className="w-full bg-black/40 border border-neutral-800 rounded-lg py-2.5 px-3.5 text-center text-lg font-mono tracking-widest focus:outline-none focus:border-primary transition-colors text-white placeholder-neutral-600 disabled:opacity-50"
             />
@@ -141,7 +149,7 @@ export function JoinListSheet({ isOpen, onClose }: JoinListSheetProps) {
             </button>
             <button
               type="submit"
-              disabled={isJoining || joinCode.length !== 8}
+              disabled={isJoining || !isCompleteInviteCode(joinCode)}
               className="flex-1 py-2.5 px-4 bg-primary hover:bg-[#c0a9f5] text-black font-semibold rounded-lg text-xs active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isJoining ? (

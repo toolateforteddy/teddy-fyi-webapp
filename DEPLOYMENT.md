@@ -361,6 +361,39 @@ paper over:
   positive. Vite serialises `import.meta.env` with the `VITE_*` vars that existed
   at build time and omits the rest, so the real value's presence is the signal.
 
+## Android App Links (`/.well-known/assetlinks.json`)
+
+`apps/grocery/public/.well-known/assetlinks.json` is served at
+`https://grocery.teddy.fyi/.well-known/assetlinks.json`. It exists so a phone with
+the Android app installed opens an invite link (`/join/<code>`) in the app rather
+than the browser. Nothing about it is optional to get right and nothing about it
+breaks loudly when it is wrong.
+
+- **Failure is silent and harmless.** Android fetches the file at install time.
+  A match makes the app the default handler for `/join/*` with no disambiguation
+  dialog; a mismatch — wrong fingerprint, unreachable file, wrong content type —
+  just leaves the link opening in the browser, where the web app redeems it
+  anyway. So a broken file looks exactly like no file, and the only way to know
+  is `adb shell pm get-app-links fyi.teddy.android.grocery`.
+- **It must not be behind the SPA fallback.** nginx's `try_files $uri` serves it
+  as a real file before the `/index.html` fallback, and it is not in the service
+  worker's `globPatterns` (which lists no `json`), so nothing rewrites it. Both
+  are load-bearing: an `index.html` served at that path verifies as nothing.
+- **The fingerprints are the app's signing certificate**, one entry per
+  `applicationId` — `fyi.teddy.android` (the combined build) and
+  `fyi.teddy.android.grocery` (the grocery-only build). What is committed today
+  is the **debug** certificate from `app/debug.keystore` in the Android repo,
+  which is what sideloaded builds are signed with. **Before anything is
+  distributed through Play**, add the Play App Signing SHA-256 from the Play
+  Console (Setup → App integrity) and drop the debug one: leaving a publicly
+  known signing key in a production `assetlinks.json` lets anything signed with
+  it claim these links.
+
+  `keytool -list -v -keystore app/debug.keystore -storepass android -alias androiddebugkey`
+  prints the one that is there now, if it ever needs re-deriving.
+- **A change here only takes effect on install or re-verify.** Deploying the web
+  app does not re-run verification on phones that already have the app.
+
 ## Things that still belong to teddy.fyi
 
 Served by `teddyfyi`'s nginx, not by either app:

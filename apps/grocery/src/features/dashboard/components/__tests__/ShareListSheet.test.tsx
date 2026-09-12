@@ -48,7 +48,7 @@ describe('ShareListSheet', () => {
     render(<ShareListSheet isOpen onClose={vi.fn()} activeListId="list-1" />)
     await waitFor(() => expect(screen.getByText('CDFH2345')).toBeInTheDocument())
 
-    fireEvent.click(screen.getByRole('button', { name: /Get a new code/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Get a new link/ }))
 
     await waitFor(() => expect(screen.getByText('JKMN6789')).toBeInTheDocument())
     expect(api.post).toHaveBeenCalledTimes(2)
@@ -81,5 +81,79 @@ describe('ShareListSheet', () => {
         screen.getByText('Too many outstanding invites; wait for one to expire or be used')
       ).toBeInTheDocument()
     )
+  })
+
+  /**
+   * The point of the whole change: what the sender sends is a URL, not eight characters,
+   * and the URL carries the same code the server just minted.
+   */
+  it('offers the code as a link on this origin', async () => {
+    vi.mocked(api.post).mockResolvedValue({ data: { code: 'CDFH2345' } } as never)
+
+    render(<ShareListSheet isOpen onClose={vi.fn()} activeListId="list-1" />)
+
+    await waitFor(() =>
+      expect(screen.getByText(`${window.location.origin}/join/CDFH2345`)).toBeInTheDocument()
+    )
+    // And the code is still on screen, for somebody you cannot send a link to.
+    expect(screen.getByText('CDFH2345')).toBeInTheDocument()
+  })
+
+  it('hands the link to the OS share sheet when there is one', async () => {
+    vi.mocked(api.post).mockResolvedValue({ data: { code: 'CDFH2345' } } as never)
+    const share = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', { ...navigator, share, clipboard: { writeText: vi.fn() } })
+
+    render(<ShareListSheet isOpen onClose={vi.fn()} activeListId="list-1" />)
+    await waitFor(() => expect(screen.getByText('CDFH2345')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: /Send invite link/ }))
+
+    await waitFor(() => expect(share).toHaveBeenCalledTimes(1))
+    expect(share.mock.calls[0][0]).toMatchObject({
+      url: `${window.location.origin}/join/CDFH2345`,
+    })
+    vi.unstubAllGlobals()
+  })
+
+  /**
+   * Every desktop browser but Safari and Edge has no `navigator.share`, and the sender on a
+   * laptop is the one most likely to be pasting into Slack. The button has to still do
+   * something there.
+   */
+  it('falls back to the clipboard where there is no share sheet', async () => {
+    vi.mocked(api.post).mockResolvedValue({ data: { code: 'CDFH2345' } } as never)
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', { ...navigator, share: undefined, clipboard: { writeText } })
+
+    render(<ShareListSheet isOpen onClose={vi.fn()} activeListId="list-1" />)
+    await waitFor(() => expect(screen.getByText('CDFH2345')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: /Send invite link/ }))
+
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/join/CDFH2345`)
+    )
+    vi.unstubAllGlobals()
+  })
+
+  /** Dismissing the share sheet is not a failure, and must not read as one. */
+  it('says nothing when the sender dismisses the share sheet', async () => {
+    vi.mocked(api.post).mockResolvedValue({ data: { code: 'CDFH2345' } } as never)
+    const abort = Object.assign(new Error('cancelled'), { name: 'AbortError' })
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      share: vi.fn().mockRejectedValue(abort),
+      clipboard: { writeText },
+    })
+
+    render(<ShareListSheet isOpen onClose={vi.fn()} activeListId="list-1" />)
+    await waitFor(() => expect(screen.getByText('CDFH2345')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: /Send invite link/ }))
+
+    await waitFor(() => expect(screen.getByText('Copy Link')).toBeInTheDocument())
+    expect(writeText).not.toHaveBeenCalled()
   })
 })
