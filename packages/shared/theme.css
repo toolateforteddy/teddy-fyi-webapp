@@ -8,14 +8,190 @@
 
 @import "tailwindcss";
 
-@theme {
-  --color-primary: #D0BCFF;
-  --color-secondary: #CCC2DC;
-  --color-tertiary: #EFB8C8;
-  --color-surface-tile: #1A1A1A;
-  --color-bg-black: #000000;
-  --color-text-primary: #FFFFFF;
-  --color-text-muted: #888888;
+/* ---------------------------------------------------------------------------
+   The palette, in two schemes.
+
+   Every colour the apps draw with is a `--palette-*` custom property declared
+   twice: once here, on the bare `:root`, and once under `:root[data-theme]`.
+   Nothing else in either app may name a colour -- no `bg-black`, no
+   `text-neutral-500`, no hex in a className -- because a literal is a colour
+   that cannot be told to be something else in the other scheme.
+
+   **The dark scheme is the default, and it is what renders with no attribute
+   set at all.** That is what keeps the personal site, which has no theme
+   switch and never sets the attribute, byte-for-byte what it was; the light
+   values below simply never match there. The grocery app always stamps
+   `data-theme="dark"` or `data-theme="light"` on <html> (see its
+   features/theme), so its light scheme is opt-in twice over.
+
+   The light values are the Material 3 baseline light scheme, lightly tuned --
+   the same family the dark values have always come from (#D0BCFF is M3's
+   baseline dark primary), so the two schemes are the same design rather than
+   one of them inverted.
+   --------------------------------------------------------------------------- */
+
+:root {
+  /* Surfaces, from the page backwards. `canvas` is the page, `surface-tile` a
+     card or a bottom sheet, `surface-raised` a control sitting on a card,
+     `surface-hover` what that control becomes under the pointer, and `inset`
+     a well punched into a card -- an input, a progress track, a code chip. */
+  --palette-canvas: #000000;
+  --palette-inset: #0A0A0A;
+  --palette-surface-tile: #1A1A1A;
+  --palette-surface-raised: #171717;
+  --palette-surface-hover: #262626;
+  --palette-surface-hover-strong: #404040;
+
+  /* Three weights of hairline: `line-faint` separates two surfaces of almost
+     the same colour, `line` outlines a control, `line-strong` marks one that
+     is focused or hovered. */
+  --palette-line-faint: #1A1A1A;
+  --palette-line: #262626;
+  --palette-line-strong: #404040;
+
+  /* Text, from loudest to quietest. `muted` is the workhorse -- labels, units,
+     secondary rows -- and `faint` is placeholder text and nothing else. */
+  --palette-text-primary: #FFFFFF;
+  --palette-text-secondary: #D4D4D4;
+  --palette-text-muted: #888888;
+  --palette-text-subtle: #737373;
+  --palette-text-faint: #525252;
+
+  /* Brand. `on-primary` is the text colour for anything sitting *on* a primary
+     fill, and it is not simply the inverse of --palette-text-primary: the
+     lavender is light in both schemes' terms, so it takes black text on dark
+     and white text on light. */
+  --palette-primary: #D0BCFF;
+  --palette-primary-hover: #C0A9F5;
+  --palette-on-primary: #000000;
+  --palette-secondary: #CCC2DC;
+  --palette-tertiary: #EFB8C8;
+
+  /* Status. `success-strong` is the text weight used on a success *tint*
+     (bg-success/10), which needs more contrast than the fill colour itself. */
+  --palette-success: #10B981;
+  --palette-success-strong: #34D399;
+  --palette-success-hover: #059669;
+  --palette-on-success: #000000;
+  --palette-danger: #F87171;
+  --palette-danger-solid: #DC2626;
+  --palette-danger-solid-hover: #B91C1C;
+  --palette-on-danger: #FFFFFF;
+  /* Two yellows, kept apart on purpose: `warning` (amber) is something
+     degraded that is not the user's doing -- offline, a failed bootstrap --
+     and `pending` (yellow) is something queued or stale that a nudge fixes.
+     The grocery app's sync dot is the reason; see describeSync. */
+  --palette-warning: #F59E0B;
+  --palette-pending: #EAB308;
+
+  /* A scrim is dark in both schemes -- it exists to push a dialog forward, and
+     a light wash over a light page does not. */
+  --palette-scrim: #000000;
+
+  /* Shadows carry a colour too, so they are declared here rather than written
+     into a className. On black, a shadow is a lavender glow; on a light page it
+     has to be an actual shadow or it reads as a smudge. */
+  --shadow-frame: 0 0 50px 0 rgba(208, 188, 255, 0.05);
+  --shadow-halo: 0 0 30px rgba(208, 188, 255, 0.1);
+  --shadow-primary-glow: 0 0 12px rgba(208, 188, 255, 0.35);
+  --shadow-success-glow: 0 0 20px rgba(16, 185, 129, 0.2);
+  --shadow-rail: 10px 0 20px rgba(0, 0, 0, 0.5);
+  --shadow-bar: 0 -10px 20px rgba(0, 0, 0, 0.5);
+  --shadow-dialog: 0 10px 30px rgba(0, 0, 0, 0.6);
+}
+
+:root[data-theme='light'] {
+  /* The light ladder is not the dark one inverted. A dark UI stacks upwards
+     from black -- cards are *lighter* than the page; a light UI stacks the
+     other way, with white cards on a tinted page and controls a shade darker
+     again. Inverting the numbers instead produces grey cards on a white page,
+     which is the tell of a theme nobody looked at. */
+  --palette-canvas: #F7F2FA;
+  --palette-inset: #F1EBF6;
+  --palette-surface-tile: #FFFFFF;
+  --palette-surface-raised: #F2ECF7;
+  --palette-surface-hover: #E7E0EE;
+  --palette-surface-hover-strong: #DAD2E3;
+
+  --palette-line-faint: #E9E2EF;
+  --palette-line: #D5CDDE;
+  --palette-line-strong: #B3AABF;
+
+  --palette-text-primary: #1D1B20;
+  --palette-text-secondary: #38343F;
+  --palette-text-muted: #5C5664;
+  --palette-text-subtle: #736C7D;
+  --palette-text-faint: #948CA0;
+
+  --palette-primary: #6750A4;
+  --palette-primary-hover: #573F95;
+  --palette-on-primary: #FFFFFF;
+  --palette-secondary: #625B71;
+  --palette-tertiary: #7D5260;
+
+  --palette-success: #047857;
+  --palette-success-strong: #065F46;
+  --palette-success-hover: #036348;
+  --palette-on-success: #FFFFFF;
+  --palette-danger: #B3261E;
+  --palette-danger-solid: #B3261E;
+  --palette-danger-solid-hover: #8C1D18;
+  --palette-on-danger: #FFFFFF;
+  --palette-warning: #B45309;
+  --palette-pending: #A16207;
+
+  --palette-scrim: #000000;
+
+  --shadow-frame: 0 0 60px 0 rgba(103, 80, 164, 0.08);
+  --shadow-halo: 0 0 30px rgba(103, 80, 164, 0.12);
+  --shadow-primary-glow: 0 0 12px rgba(103, 80, 164, 0.3);
+  --shadow-success-glow: 0 0 20px rgba(4, 120, 87, 0.18);
+  --shadow-rail: 10px 0 20px rgba(29, 27, 32, 0.08);
+  --shadow-bar: 0 -10px 20px rgba(29, 27, 32, 0.08);
+  --shadow-dialog: 0 10px 30px rgba(29, 27, 32, 0.18);
+}
+
+/* `inline` rather than a plain @theme, and it is load-bearing: it makes
+   Tailwind emit `background-color: var(--palette-canvas)` at the use site
+   instead of resolving the value once at :root. That is what lets a
+   `data-theme` attribute change what an already-rendered utility class paints,
+   and it would work on a subtree too if either app ever wanted a light card on
+   a dark page. */
+@theme inline {
+  --color-canvas: var(--palette-canvas);
+  --color-inset: var(--palette-inset);
+  --color-surface-tile: var(--palette-surface-tile);
+  --color-surface-raised: var(--palette-surface-raised);
+  --color-surface-hover: var(--palette-surface-hover);
+  --color-surface-hover-strong: var(--palette-surface-hover-strong);
+
+  --color-line-faint: var(--palette-line-faint);
+  --color-line: var(--palette-line);
+  --color-line-strong: var(--palette-line-strong);
+
+  --color-text-primary: var(--palette-text-primary);
+  --color-text-secondary: var(--palette-text-secondary);
+  --color-text-muted: var(--palette-text-muted);
+  --color-text-subtle: var(--palette-text-subtle);
+  --color-text-faint: var(--palette-text-faint);
+
+  --color-primary: var(--palette-primary);
+  --color-primary-hover: var(--palette-primary-hover);
+  --color-on-primary: var(--palette-on-primary);
+  --color-secondary: var(--palette-secondary);
+  --color-tertiary: var(--palette-tertiary);
+
+  --color-success: var(--palette-success);
+  --color-success-strong: var(--palette-success-strong);
+  --color-success-hover: var(--palette-success-hover);
+  --color-on-success: var(--palette-on-success);
+  --color-danger: var(--palette-danger);
+  --color-danger-solid: var(--palette-danger-solid);
+  --color-danger-solid-hover: var(--palette-danger-solid-hover);
+  --color-on-danger: var(--palette-on-danger);
+  --color-warning: var(--palette-warning);
+  --color-pending: var(--palette-pending);
+  --color-scrim: var(--palette-scrim);
 
   --font-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
@@ -25,14 +201,21 @@
   line-height: 1.5;
   font-weight: 400;
 
+  /* Tells the browser which way round the page is, which is what gets form
+     controls, spell-check underlines and the default scrollbar right. It is the
+     one declaration that has to be a literal per scheme rather than a variable. */
   color-scheme: dark;
-  color: var(--color-text-primary);
-  background-color: var(--color-bg-black);
+  color: var(--palette-text-primary);
+  background-color: var(--palette-canvas);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
 }
 
 body {
@@ -43,8 +226,8 @@ body {
      collapsing bottom toolbar on iPhone. 100vh stays as the fallback. */
   min-height: 100vh;
   min-height: 100dvh;
-  background-color: var(--color-bg-black);
-  color: var(--color-text-primary);
+  background-color: var(--palette-canvas);
+  color: var(--palette-text-primary);
   /* Grey flash on every tap is the single clearest "this is a web page" tell. */
   -webkit-tap-highlight-color: transparent;
 }
@@ -68,21 +251,21 @@ body {
   }
 }
 
-/* Custom scrollbar matching dark theme */
+/* Custom scrollbar, in whichever scheme is showing. */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--color-bg-black);
+  background: var(--palette-canvas);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-surface-tile);
+  background: var(--palette-line);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #2a2a2a;
+  background: var(--palette-line-strong);
 }

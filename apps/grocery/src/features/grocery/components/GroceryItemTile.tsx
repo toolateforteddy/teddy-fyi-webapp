@@ -33,7 +33,7 @@ export function GroceryItemTile({
     <div
       className={cn(
         "relative rounded-lg bg-surface-tile border transition-all duration-200 overflow-hidden select-none",
-        isExpanded ? "col-span-2 h-[148px] border-neutral-700 bg-neutral-900/40" : "border-neutral-900 h-12",
+        isExpanded ? "col-span-2 h-[148px] border-line-strong bg-surface-raised/40" : "border-line-faint h-12",
         isPending && !isExpanded && "border-dashed border-primary/20"
       )}
     >
@@ -43,16 +43,16 @@ export function GroceryItemTile({
           {/* Main Item Tile */}
           <div
             onClick={onToggleExpand}
-            className="w-full shrink-0 h-full px-3 flex items-center justify-between cursor-pointer active:bg-neutral-800/40 transition-all snap-start"
+            className="w-full shrink-0 h-full px-3 flex items-center justify-between cursor-pointer active:bg-surface-hover/40 transition-all snap-start"
           >
             <div className="flex items-center gap-2 overflow-hidden mr-2">
-              <span className="text-sm font-semibold truncate text-white">{item.name}</span>
+              <span className="text-sm font-semibold truncate text-text-primary">{item.name}</span>
               {isPending && (
                 <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
               )}
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-text-muted bg-black/40 px-2 py-0.5 rounded-md border border-neutral-800">
+              <span className="text-xs text-text-muted bg-inset px-2 py-0.5 rounded-md border border-line">
                 {item.quantity}
               </span>
             </div>
@@ -64,7 +64,7 @@ export function GroceryItemTile({
               e.stopPropagation()
               onDeleteItem(item.id)
             }}
-            className="w-16 shrink-0 h-full bg-red-600 flex items-center justify-center text-white cursor-pointer snap-end active:bg-red-700 transition-colors"
+            className="w-16 shrink-0 h-full bg-danger-solid flex items-center justify-center text-text-primary cursor-pointer snap-end active:bg-danger-solid-hover transition-colors"
             aria-label="Delete item"
           >
             <Trash2 className="w-5 h-5" />
@@ -72,23 +72,23 @@ export function GroceryItemTile({
         </div>
       ) : (
         /* Expanded Drawer Controls */
-        <div className="absolute inset-0 bg-neutral-900 border-t border-neutral-800 flex flex-col justify-between p-3 animate-in fade-in duration-100">
+        <div className="absolute inset-0 bg-surface-raised border-t border-line flex flex-col justify-between p-3 animate-in fade-in duration-100">
           {/* Row 1: Item Name / Action buttons */}
           <div className="flex items-center justify-between w-full">
-            <span className="text-sm font-semibold text-white truncate max-w-[70%]">
+            <span className="text-sm font-semibold text-text-primary truncate max-w-[70%]">
               {item.name}
             </span>
             <div className="flex items-center gap-2">
               <button 
                 onClick={() => onDeleteItem(item.id)}
-                className="p-1.5 text-red-400 hover:text-red-500 rounded-md hover:bg-red-950/20 active:scale-95 cursor-pointer"
+                className="p-1.5 text-danger hover:text-danger-solid rounded-md hover:bg-danger/10 active:scale-95 cursor-pointer"
                 aria-label="Delete item"
               >
                 <Trash2 className="w-4.5 h-4.5" />
               </button>
               <button 
                 onClick={onToggleExpand}
-                className="p-1.5 text-text-muted hover:text-white rounded-md hover:bg-neutral-800 active:scale-95 cursor-pointer"
+                className="p-1.5 text-text-muted hover:text-text-primary rounded-md hover:bg-surface-hover active:scale-95 cursor-pointer"
                 aria-label="Close edit"
               >
                 <Check className="w-4.5 h-4.5 text-primary" />
@@ -97,7 +97,7 @@ export function GroceryItemTile({
           </div>
 
           {/* Row 2: Category and Quantity Controls */}
-          <div className="flex items-center justify-between gap-4 pt-2 border-t border-neutral-800/60">
+          <div className="flex items-center justify-between gap-4 pt-2 border-t border-line/60">
             {/* Category Selector */}
             <div className="flex items-center gap-1.5 flex-1 min-w-0">
               <span className="text-[10px] uppercase font-bold text-text-muted shrink-0">Cat:</span>
@@ -107,11 +107,11 @@ export function GroceryItemTile({
                   const newCatId = e.target.value ? e.target.value : undefined
                   onUpdateCategory(item.id, newCatId)
                 }}
-                className="bg-black/40 border border-neutral-800 rounded-md px-2 py-1 text-xs focus:outline-none focus:border-primary text-white w-full max-w-[130px] cursor-pointer"
+                className="bg-inset border border-line rounded-md px-2 py-1 text-xs focus:outline-none focus:border-primary text-text-primary w-full max-w-[130px] cursor-pointer"
               >
-                <option value="" className="bg-surface-tile text-neutral-400">Uncategorized</option>
+                <option value="" className="bg-surface-tile text-text-muted">Uncategorized</option>
                 {activeCategories.map(cat => (
-                  <option key={cat.id} value={cat.id} className="bg-surface-tile text-white">
+                  <option key={cat.id} value={cat.id} className="bg-surface-tile text-text-primary">
                     {cat.icon ? `${cat.icon} ${cat.name}` : cat.name}
                   </option>
                 ))}
@@ -121,17 +121,17 @@ export function GroceryItemTile({
             {/* Quantity Controls */}
             <div className="flex items-center gap-2 shrink-0">
               <span className="text-xs font-medium text-text-muted">Qty: {item.quantity}</span>
-              <div className="flex items-center gap-1 bg-black/40 rounded-lg p-0.5 border border-neutral-800">
+              <div className="flex items-center gap-1 bg-inset rounded-lg p-0.5 border border-line">
                 <button 
                   onClick={() => onUpdateQuantity(item.id, false)}
-                  className="p-1 text-text-muted hover:text-white hover:bg-surface-tile rounded-md active:scale-95 cursor-pointer"
+                  className="p-1 text-text-muted hover:text-text-primary hover:bg-surface-tile rounded-md active:scale-95 cursor-pointer"
                   aria-label="Decrease quantity"
                 >
                   <Minus className="w-3.5 h-3.5" />
                 </button>
                 <button 
                   onClick={() => onUpdateQuantity(item.id, true)}
-                  className="p-1 text-text-muted hover:text-white hover:bg-surface-tile rounded-md active:scale-95 cursor-pointer"
+                  className="p-1 text-text-muted hover:text-text-primary hover:bg-surface-tile rounded-md active:scale-95 cursor-pointer"
                   aria-label="Increase quantity"
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -141,11 +141,11 @@ export function GroceryItemTile({
           </div>
 
           {/* Row 3: Store Selector */}
-          <div className="flex items-center gap-1.5 pt-2 border-t border-neutral-800/60 overflow-x-auto scrollbar-none">
+          <div className="flex items-center gap-1.5 pt-2 border-t border-line/60 overflow-x-auto scrollbar-none">
             <span className="text-[10px] uppercase font-bold text-text-muted shrink-0">Stores:</span>
             <div className="flex gap-1.5 overflow-x-auto pb-0.5">
               {activeStores.length === 0 ? (
-                <span className="text-[10px] text-neutral-500 italic">No stores configured</span>
+                <span className="text-[10px] text-text-subtle italic">No stores configured</span>
               ) : (
                 activeStores.map(store => {
                   const isSelected = itemStoreInfos.some(
@@ -159,7 +159,7 @@ export function GroceryItemTile({
                         "px-2 py-0.5 rounded-full text-[10px] font-semibold border transition-all cursor-pointer whitespace-nowrap",
                         isSelected
                           ? "bg-primary/20 text-primary border-primary/40 hover:bg-primary/30"
-                          : "bg-black/40 text-text-muted border-neutral-800 hover:border-neutral-700 hover:text-white"
+                          : "bg-inset text-text-muted border-line hover:border-line-strong hover:text-text-primary"
                       )}
                     >
                       {store.name}

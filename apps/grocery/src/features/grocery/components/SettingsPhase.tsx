@@ -12,7 +12,8 @@ import {
   MapPin,
   Tag,
   Smartphone,
-  HelpCircle
+  HelpCircle,
+  Palette
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { storage } from '@/utils/storage'
@@ -23,6 +24,7 @@ import { StoreConfigPanel } from './StoreConfigPanel'
 import { CategoryConfigPanel } from './CategoryConfigPanel'
 import { ConnectionConfigPanel } from './ConnectionConfigPanel'
 import { InstallCard } from '@/features/pwa/components/InstallCard'
+import { ThemeCard } from '@/features/theme/components/ThemeCard'
 
 export function SettingsPhase() {
   const { 
@@ -127,8 +129,8 @@ export function SettingsPhase() {
     return (
       <>
         {successMessage && (
-          <div className="fixed top-20 left-1/2 -translate-x-1/2 bg-neutral-900/90 backdrop-blur-md border border-emerald-500/30 text-emerald-400 text-xs px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 z-50 animate-in fade-in slide-in-from-top-4 duration-300">
-            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+          <div className="fixed top-20 left-1/2 -translate-x-1/2 bg-surface-raised/90 backdrop-blur-md border border-success/30 text-success-strong text-xs px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 z-50 animate-in fade-in slide-in-from-top-4 duration-300">
+            <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
             <span className="font-semibold">{successMessage}</span>
           </div>
         )}
@@ -147,8 +149,8 @@ export function SettingsPhase() {
     return (
       <>
         {successMessage && (
-          <div className="fixed top-20 left-1/2 -translate-x-1/2 bg-neutral-900/90 backdrop-blur-md border border-emerald-500/30 text-emerald-400 text-xs px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 z-50 animate-in fade-in slide-in-from-top-4 duration-300">
-            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+          <div className="fixed top-20 left-1/2 -translate-x-1/2 bg-surface-raised/90 backdrop-blur-md border border-success/30 text-success-strong text-xs px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 z-50 animate-in fade-in slide-in-from-top-4 duration-300">
+            <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
             <span className="font-semibold">{successMessage}</span>
           </div>
         )}
@@ -173,8 +175,8 @@ export function SettingsPhase() {
       
       {/* Premium Success Toast */}
       {successMessage && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 bg-neutral-900/90 backdrop-blur-md border border-emerald-500/30 text-emerald-400 text-xs px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 z-50 animate-in fade-in slide-in-from-top-4 duration-300">
-          <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 bg-surface-raised/90 backdrop-blur-md border border-success/30 text-success-strong text-xs px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 z-50 animate-in fade-in slide-in-from-top-4 duration-300">
+          <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
           <span className="font-semibold">{successMessage}</span>
         </div>
       )}
@@ -188,21 +190,21 @@ export function SettingsPhase() {
           </h4>
         </div>
 
-        <div className="bg-surface-tile border border-neutral-900 rounded-xl p-4 space-y-4">
+        <div className="bg-surface-tile border border-line-faint rounded-xl p-4 space-y-4">
           <div className="flex items-center gap-3">
             {user?.picture ? (
               <img 
                 src={user.picture} 
                 alt={user.name || 'User avatar'} 
-                className="w-10 h-10 rounded-full border border-neutral-800 object-cover" 
+                className="w-10 h-10 rounded-full border border-line object-cover" 
               />
             ) : (
-              <div className="w-10 h-10 rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center text-primary font-bold">
+              <div className="w-10 h-10 rounded-full bg-surface-raised border border-line flex items-center justify-center text-primary font-bold">
                 {user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || '?'}
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <h5 className="font-semibold text-sm text-white truncate">
+              <h5 className="font-semibold text-sm text-text-primary truncate">
                 {user?.name || 'Authenticated User'}
               </h5>
               <p className="text-xs text-text-muted truncate">
@@ -214,7 +216,7 @@ export function SettingsPhase() {
           <button
             onClick={handleLogout}
             disabled={loggingOut}
-            className="w-full bg-neutral-900 hover:bg-neutral-855 text-white border border-neutral-800 py-2.5 rounded-lg text-xs font-bold transition-all active:scale-[0.99] flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-55"
+            className="w-full bg-surface-raised hover:bg-surface-hover text-text-primary border border-line py-2.5 rounded-lg text-xs font-bold transition-all active:scale-[0.99] flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-55"
           >
             <LogOut className="w-3.5 h-3.5" />
             {loggingOut ? 'Signing out...' : 'Sign Out'}
@@ -234,6 +236,18 @@ export function SettingsPhase() {
         <InstallCard />
       </div>
 
+      {/* Appearance */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 px-1">
+          <Palette className="w-4 h-4 text-primary" />
+          <h4 className="text-xs font-bold tracking-widest text-text-muted uppercase">
+            Appearance
+          </h4>
+        </div>
+
+        <ThemeCard />
+      </div>
+
       {/* Grocery Configurations Section */}
       <div className="space-y-3">
         <div className="flex items-center gap-2 px-1">
@@ -243,27 +257,27 @@ export function SettingsPhase() {
           </h4>
         </div>
 
-        <div className="bg-surface-tile border border-neutral-900 rounded-xl p-4 space-y-3">
+        <div className="bg-surface-tile border border-line-faint rounded-xl p-4 space-y-3">
           <button
             onClick={() => setActiveSubView('stores')}
-            className="w-full bg-neutral-900 hover:bg-neutral-850 text-white border border-neutral-800 py-3 px-4 rounded-lg text-sm font-semibold transition-all active:scale-[0.99] flex items-center justify-between cursor-pointer group"
+            className="w-full bg-surface-raised hover:bg-surface-hover text-text-primary border border-line py-3 px-4 rounded-lg text-sm font-semibold transition-all active:scale-[0.99] flex items-center justify-between cursor-pointer group"
           >
             <div className="flex items-center gap-2.5">
               <MapPin className="w-4 h-4 text-primary shrink-0" />
               <span>Manage Stores</span>
             </div>
-            <ChevronRight className="w-4 h-4 text-text-muted group-hover:text-white transition-colors" />
+            <ChevronRight className="w-4 h-4 text-text-muted group-hover:text-text-primary transition-colors" />
           </button>
 
           <button
             onClick={() => setActiveSubView('categories')}
-            className="w-full bg-neutral-900 hover:bg-neutral-855 text-white border border-neutral-800 py-3 px-4 rounded-lg text-sm font-semibold transition-all active:scale-[0.99] flex items-center justify-between cursor-pointer group"
+            className="w-full bg-surface-raised hover:bg-surface-hover text-text-primary border border-line py-3 px-4 rounded-lg text-sm font-semibold transition-all active:scale-[0.99] flex items-center justify-between cursor-pointer group"
           >
             <div className="flex items-center gap-2.5">
               <Tag className="w-4 h-4 text-primary shrink-0" />
               <span>Manage Categories</span>
             </div>
-            <ChevronRight className="w-4 h-4 text-text-muted group-hover:text-white transition-colors" />
+            <ChevronRight className="w-4 h-4 text-text-muted group-hover:text-text-primary transition-colors" />
           </button>
 
           {/* The gestures this app uses are invisible until somebody explains them, and
@@ -271,13 +285,13 @@ export function SettingsPhase() {
               expect. See /help. */}
           <Link
             to="/help"
-            className="w-full bg-neutral-900 hover:bg-neutral-850 text-white border border-neutral-800 py-3 px-4 rounded-lg text-sm font-semibold transition-all active:scale-[0.99] flex items-center justify-between cursor-pointer group no-underline"
+            className="w-full bg-surface-raised hover:bg-surface-hover text-text-primary border border-line py-3 px-4 rounded-lg text-sm font-semibold transition-all active:scale-[0.99] flex items-center justify-between cursor-pointer group no-underline"
           >
             <div className="flex items-center gap-2.5">
               <HelpCircle className="w-4 h-4 text-primary shrink-0" />
               <span>How this works</span>
             </div>
-            <ChevronRight className="w-4 h-4 text-text-muted group-hover:text-white transition-colors" />
+            <ChevronRight className="w-4 h-4 text-text-muted group-hover:text-text-primary transition-colors" />
           </Link>
         </div>
       </div>
@@ -307,18 +321,18 @@ export function SettingsPhase() {
           </h4>
         </div>
 
-        <div className="bg-surface-tile border border-neutral-900 rounded-xl p-4 divide-y divide-neutral-900 text-sm">
+        <div className="bg-surface-tile border border-line-faint rounded-xl p-4 divide-y divide-line-faint text-sm">
           <div className="flex justify-between py-2.5">
             <span className="text-text-muted">Database Framework</span>
-            <span className="font-semibold text-white">IndexedDB (LocalForage)</span>
+            <span className="font-semibold text-text-primary">IndexedDB (LocalForage)</span>
           </div>
           <div className="flex justify-between py-2.5">
             <span className="text-text-muted">Database Version</span>
-            <span className="font-semibold text-white">v1.0 (Schema Sync Enabled)</span>
+            <span className="font-semibold text-text-primary">v1.0 (Schema Sync Enabled)</span>
           </div>
           <div className="flex justify-between py-2.5">
             <span className="text-text-muted">Total Cached Items</span>
-            <span className="font-semibold text-white">{totalCached} records</span>
+            <span className="font-semibold text-text-primary">{totalCached} records</span>
           </div>
         </div>
       </div>
@@ -326,17 +340,17 @@ export function SettingsPhase() {
       {/* Danger Zone */}
       <div className="space-y-3">
         <div className="flex items-center gap-2 px-1">
-          <ShieldAlert className="w-4 h-4 text-red-400" />
-          <h4 className="text-xs font-bold tracking-widest text-red-400 uppercase">
+          <ShieldAlert className="w-4 h-4 text-danger" />
+          <h4 className="text-xs font-bold tracking-widest text-danger uppercase">
             Danger Zone
           </h4>
         </div>
 
-        <div className="bg-surface-tile border border-red-950/40 rounded-xl p-4 space-y-4">
+        <div className="bg-surface-tile border border-danger/25 rounded-xl p-4 space-y-4">
           <div className="flex items-start gap-3">
-            <HardDrive className="w-8 h-8 text-neutral-500 shrink-0" />
+            <HardDrive className="w-8 h-8 text-text-subtle shrink-0" />
             <div>
-              <h5 className="font-semibold text-sm text-white">Clear Caching Tables</h5>
+              <h5 className="font-semibold text-sm text-text-primary">Clear Caching Tables</h5>
               <p className="text-[11px] text-text-muted mt-0.5">
                 Resets the local cache. Any changes that are not synced to the remote server will be permanently deleted.
               </p>
@@ -346,7 +360,7 @@ export function SettingsPhase() {
           <button
             onClick={handleClearLocal}
             disabled={clearing}
-            className="w-full bg-red-650/10 hover:bg-red-650/20 text-red-400 border border-red-500/20 py-2.5 rounded-lg text-xs font-bold transition-all active:scale-[0.99] flex items-center justify-center gap-1.5 cursor-pointer"
+            className="w-full bg-danger/10 hover:bg-danger/20 text-danger border border-danger/20 py-2.5 rounded-lg text-xs font-bold transition-all active:scale-[0.99] flex items-center justify-center gap-1.5 cursor-pointer"
           >
             <Trash2 className="w-3.5 h-3.5" />
             {clearing ? 'Clearing Storage...' : 'Clear Local Cache'}

@@ -15,6 +15,9 @@
        for the same thing, and still needs it even though it now also honours the
        manifest for some properties. -->
   <link rel="manifest" href="/manifest.webmanifest" />
+  <!-- Both of these are rewritten by the inline script below before first paint,
+       and again by features/theme whenever the scheme changes. The values here
+       are the dark scheme, which is what a browser that runs no script gets. -->
   <meta name="theme-color" content="#000000" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -30,6 +33,38 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+  <!-- The scheme, decided before the first paint.
+
+       React cannot do this job: the browser paints the body background from CSS
+       as soon as the stylesheet lands, which is well before any module runs, so
+       a light-mode phone would flash a black screen on every launch. Hence a
+       blocking inline script, and hence the duplication -- this is
+       src/features/theme/theme.ts applyTheme() in the smallest form that can run
+       with nothing loaded. A test asserts the colours here match the stylesheet.
+
+       Dark is the fallback for anything that throws: private-mode localStorage,
+       a browser with no matchMedia. This app was dark for its whole life. -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('grocery_theme');
+        var resolved =
+          stored === 'light' || stored === 'dark'
+            ? stored
+            : window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
+              ? 'light'
+              : 'dark';
+        document.documentElement.setAttribute('data-theme', resolved);
+        var themeColor = document.querySelector('meta[name="theme-color"]');
+        if (themeColor) themeColor.setAttribute('content', resolved === 'light' ? '#F7F2FA' : '#000000');
+        var statusBar = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+        if (statusBar) statusBar.setAttribute('content', resolved === 'light' ? 'default' : 'black-translucent');
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    })();
+  </script>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Source+Code+Pro:ital,wght@0,200..900;1,200..900&display=swap" rel="stylesheet">
@@ -43,6 +78,15 @@
     }
 
     @supports not (color: oklch(0% 0 0)) {
+
+      /* The notice writes light text, so it cannot inherit a scheme: the theme
+         script above may well have set the light one, and the stylesheet's
+         custom properties resolve fine on these browsers even though its
+         colours do not. Paint the page black and be done. */
+      body {
+        background: #000000;
+      }
+
       #root {
         display: none;
       }

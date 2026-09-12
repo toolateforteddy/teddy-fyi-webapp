@@ -40,7 +40,7 @@ export function UpdateBanner() {
             applyUpdate()
           }}
           disabled={reloading}
-          className="shrink-0 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-black transition-opacity disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+          className="shrink-0 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-on-primary transition-opacity disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
         >
           {reloading ? 'Reloading...' : 'Reload'}
         </button>
@@ -49,7 +49,7 @@ export function UpdateBanner() {
           type="button"
           onClick={() => setDismissed(true)}
           aria-label="Dismiss until the next launch"
-          className="shrink-0 rounded-lg p-1.5 text-text-muted transition-colors hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+          className="shrink-0 rounded-lg p-1.5 text-text-muted transition-colors hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
         >
           <X className="w-3.5 h-3.5" aria-hidden="true" />
         </button>

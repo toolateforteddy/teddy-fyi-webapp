@@ -150,12 +150,12 @@ export function JoinPage() {
   }, [code, authLoading, isAuthenticated])
 
   return (
-    <div className="min-h-dvh bg-black text-white flex flex-col items-center font-sans antialiased selection:bg-primary selection:text-black">
-      <div className="app-frame min-h-dvh bg-black flex flex-col border-x border-[#1a1a1a] shadow-[0_0_50px_0_rgba(208,188,255,0.05)] px-6 py-[max(2rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] justify-center">
+    <div className="min-h-dvh bg-canvas text-text-primary flex flex-col items-center font-sans antialiased selection:bg-primary selection:text-on-primary">
+      <div className="app-frame min-h-dvh bg-canvas flex flex-col border-x border-line-faint shadow-[var(--shadow-frame)] px-6 py-[max(2rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] justify-center">
         <main className="flex flex-col items-center text-center space-y-7 animate-in fade-in slide-in-from-bottom-4 duration-300">
-          <div className="p-4 rounded-2xl bg-neutral-900 border border-neutral-850/60 shadow-[0_0_30px_rgba(208,188,255,0.1)] text-primary">
+          <div className="p-4 rounded-2xl bg-surface-raised border border-line/60 shadow-[var(--shadow-halo)] text-primary">
             {stage === 'joined' ? (
-              <Check className="w-9 h-9 text-emerald-500" />
+              <Check className="w-9 h-9 text-success" />
             ) : code ? (
               <Users className="w-9 h-9" />
             ) : (
@@ -182,7 +182,7 @@ export function JoinPage() {
                 </p>
               </div>
 
-              <div className="w-full bg-black/40 border border-neutral-800 rounded-xl py-3.5 flex items-center justify-center">
+              <div className="w-full bg-inset border border-line rounded-xl py-3.5 flex items-center justify-center">
                 <span className="text-xl font-mono font-bold tracking-widest text-primary">
                   {code}
                 </span>
@@ -198,7 +198,7 @@ export function JoinPage() {
                   type="button"
                   onClick={redeem}
                   disabled={stage === 'joining'}
-                  className="w-full max-w-[300px] flex items-center justify-center gap-2 py-3 px-4 bg-primary hover:bg-[#c0a9f5] text-black font-semibold rounded-lg text-sm active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full max-w-[300px] flex items-center justify-center gap-2 py-3 px-4 bg-primary hover:bg-primary-hover text-on-primary font-semibold rounded-lg text-sm active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {stage === 'joining' ? (
                     <>
@@ -231,13 +231,13 @@ export function JoinPage() {
               )}
 
               {(error || signInError) && (
-                <p className="text-xs text-red-400 max-w-[300px]">{error || signInError}</p>
+                <p className="text-xs text-danger max-w-[300px]">{error || signInError}</p>
               )}
             </>
           )}
 
-          <div className="flex items-center gap-1.5 text-[10px] text-neutral-500 font-medium bg-neutral-950/40 border border-neutral-900/60 px-3 py-1.5 rounded-full">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+          <div className="flex items-center gap-1.5 text-[10px] text-text-subtle font-medium bg-inset/40 border border-line-faint/60 px-3 py-1.5 rounded-full">
+            <ShieldCheck className="w-3.5 h-3.5 text-success" />
             <span>Invites are single use and expire</span>
           </div>
         </main>

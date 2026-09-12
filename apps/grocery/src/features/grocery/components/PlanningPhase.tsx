@@ -134,8 +134,8 @@ export function PlanningPhase() {
             className={cn(
               "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all whitespace-nowrap cursor-pointer",
               selectedStoreId === null
-                ? "bg-primary text-black border-primary"
-                : "bg-surface-tile text-text-muted border-neutral-800 hover:border-neutral-700"
+                ? "bg-primary text-on-primary border-primary"
+                : "bg-surface-tile text-text-muted border-line hover:border-line-strong"
             )}
           >
             All Stores
@@ -148,8 +148,8 @@ export function PlanningPhase() {
               className={cn(
                 "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all whitespace-nowrap cursor-pointer",
                 selectedStoreId === store.id
-                  ? "bg-primary text-black border-primary"
-                  : "bg-surface-tile text-text-muted border-neutral-800 hover:border-neutral-700"
+                  ? "bg-primary text-on-primary border-primary"
+                  : "bg-surface-tile text-text-muted border-line hover:border-line-strong"
               )}
             >
               <MapPin className="w-3 h-3" />
@@ -175,15 +175,15 @@ export function PlanningPhase() {
                 Smart Recommendations
               </h4>
             </div>
-            <span className="text-[10px] text-neutral-500">Based on historical purchases</span>
+            <span className="text-[10px] text-text-subtle">Based on historical purchases</span>
           </div>
 
           {/* The recommendation grid's 140px is deliberately below the item tiles'
               160px: it is still two columns on a phone, and two rather than one in
               the narrower of the two panes on a tablet. */}
           {filteredRecs.length === 0 ? (
-            <div className="bg-surface-tile border border-neutral-900 rounded-xl p-6 text-center">
-              <AlertCircle className="w-5 h-5 text-neutral-500 mx-auto mb-2" />
+            <div className="bg-surface-tile border border-line-faint rounded-xl p-6 text-center">
+              <AlertCircle className="w-5 h-5 text-text-subtle mx-auto mb-2" />
               <p className="text-sm text-text-muted">No recommendations for this store yet.</p>
             </div>
           ) : (
@@ -199,20 +199,20 @@ export function PlanningPhase() {
                     className={cn(
                       "flex flex-col justify-between items-start text-left p-3 h-12 rounded-lg border transition-all cursor-pointer",
                       isAdded
-                        ? "bg-emerald-950/20 border-emerald-800 text-emerald-400"
-                        : "bg-surface-tile border-neutral-950 hover:border-neutral-800 hover:bg-neutral-900/50"
+                        ? "bg-success/10 border-success/40 text-success-strong"
+                        : "bg-surface-tile border-line-faint hover:border-line hover:bg-surface-raised/50"
                     )}
                   >
                     <div className="w-full flex items-start justify-between">
                       <span className={cn(
                         "text-xs font-semibold line-clamp-2 pr-2",
-                        isAdded ? "text-emerald-400" : "text-white"
+                        isAdded ? "text-success-strong" : "text-text-primary"
                       )}>
                         {rec.name}
                       </span>
                       <div className={cn(
                         "w-5 h-5 rounded-full flex items-center justify-center transition-all",
-                        isAdded ? "bg-emerald-500 text-black" : "bg-neutral-800 text-text-muted hover:bg-neutral-700"
+                        isAdded ? "bg-success text-on-success" : "bg-surface-hover text-text-muted hover:bg-surface-hover-strong"
                       )}>
                         {isAdded ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
                       </div>
@@ -230,11 +230,11 @@ export function PlanningPhase() {
             Planned Items on active trip
           </h4>
 
-          <div className="bg-surface-tile border border-neutral-900 rounded-xl divide-y divide-neutral-900 overflow-hidden">
+          <div className="bg-surface-tile border border-line-faint rounded-xl divide-y divide-line-faint overflow-hidden">
             {plannedItems.map((itemName, index) => (
               <div key={index} className="flex items-center justify-between p-3.5 text-sm">
-                <span className="font-medium text-white">{itemName}</span>
-                <span className="text-[10px] text-text-muted bg-black/40 px-2 py-0.5 rounded border border-neutral-800">
+                <span className="font-medium text-text-primary">{itemName}</span>
+                <span className="text-[10px] text-text-muted bg-inset px-2 py-0.5 rounded border border-line">
                   Active in Need List
                 </span>
               </div>

@@ -274,11 +274,11 @@ export function ShoppingPhase() {
                 className={cn(
                   "flex items-center gap-1.5 px-3.5 py-2 rounded-full border text-xs font-semibold transition-all duration-200 active:scale-95 cursor-pointer",
                   isSelected
-                    ? "bg-primary text-black border-primary shadow-[0_0_12px_rgba(208,188,255,0.35)]"
-                    : "bg-surface-tile border-neutral-900 hover:border-neutral-800 text-text-muted hover:text-white"
+                    ? "bg-primary text-on-primary border-primary shadow-[var(--shadow-primary-glow)]"
+                    : "bg-surface-tile border-line-faint hover:border-line text-text-muted hover:text-text-primary"
                 )}
               >
-                <MapPin className={cn("w-3.5 h-3.5", isSelected ? "text-black" : "text-primary")} />
+                <MapPin className={cn("w-3.5 h-3.5", isSelected ? "text-on-primary" : "text-primary")} />
                 {store.name}
               </button>
             )
@@ -289,22 +289,22 @@ export function ShoppingPhase() {
       {/* Main Shopping Layout */}
       {!selectedStoreId ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center p-8 mt-12 animate-in fade-in duration-200">
-          <div className="w-16 h-16 rounded-full bg-surface-tile border border-neutral-800 flex items-center justify-center text-neutral-600 mb-4">
+          <div className="w-16 h-16 rounded-full bg-surface-tile border border-line flex items-center justify-center text-text-faint mb-4">
             <ClipboardList className="w-8 h-8" />
           </div>
-          <h3 className="text-lg font-semibold text-neutral-300 mb-1">High-Velocity Mode</h3>
+          <h3 className="text-lg font-semibold text-text-secondary mb-1">High-Velocity Mode</h3>
           <p className="text-sm text-text-muted max-w-[240px]">Select which store you are physically at above to filter items and begin checkout.</p>
         </div>
       ) : (
         <div className="space-y-6 flex-1 flex flex-col min-h-0">
           
           {/* Progress Bar */}
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-3.5 space-y-2 shrink-0">
+          <div className="bg-surface-raised border border-line rounded-xl p-3.5 space-y-2 shrink-0">
             <div className="flex justify-between items-center text-xs">
               <span className="font-semibold text-text-muted">Trip Progress</span>
               <span className="font-bold text-primary">{inCartItems.length} of {activeItems.length} items ({progressPercent}%)</span>
             </div>
-            <div className="w-full bg-black/40 h-2 rounded-full overflow-hidden border border-neutral-800">
+            <div className="w-full bg-inset h-2 rounded-full overflow-hidden border border-line">
               <div 
                 className="bg-primary h-full transition-all duration-300 ease-out" 
                 style={{ width: `${progressPercent}%` }}
@@ -316,8 +316,8 @@ export function ShoppingPhase() {
           <div className="space-y-4 flex-1 overflow-y-auto overscroll-contain">
             {toBuyItems.length === 0 ? (
               <div className="text-center py-8">
-                <Check className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
-                <h4 className="font-semibold text-white">All items captured!</h4>
+                <Check className="w-10 h-10 text-success mx-auto mb-2" />
+                <h4 className="font-semibold text-text-primary">All items captured!</h4>
                 <p className="text-xs text-text-muted">Nice work. Proceed to complete your trip.</p>
               </div>
             ) : (
@@ -334,13 +334,13 @@ export function ShoppingPhase() {
                       <button
                         key={item.id}
                         onClick={() => toggleBought(item.id)}
-                        className="flex items-center justify-between p-3 h-12 rounded-lg bg-surface-tile border border-neutral-950 active:scale-95 transition-all text-left cursor-pointer group"
+                        className="flex items-center justify-between p-3 h-12 rounded-lg bg-surface-tile border border-line-faint active:scale-95 transition-all text-left cursor-pointer group"
                       >
-                        <span className="text-sm font-semibold truncate text-white pr-2 group-hover:text-primary">
+                        <span className="text-sm font-semibold truncate text-text-primary pr-2 group-hover:text-primary">
                           {item.name}
                         </span>
                         <div className="flex items-center gap-1.5 shrink-0">
-                          <span className="text-[10px] text-text-muted bg-black/40 px-1.5 py-0.5 rounded border border-neutral-800">
+                          <span className="text-[10px] text-text-muted bg-inset px-1.5 py-0.5 rounded border border-line">
                             {item.quantity}
                           </span>
                           <Square className="w-4 h-4 text-text-muted" />
@@ -356,13 +356,13 @@ export function ShoppingPhase() {
                 point of store isolation is a short list, and this is the escape
                 hatch from it, not a second list. */}
             {offMappingItems.length > 0 && (
-              <div className="space-y-2 pt-4 border-t border-[#1a1a1a]">
+              <div className="space-y-2 pt-4 border-t border-line-faint">
                 <button
                   onClick={() => setIsOffMappingOpen(open => !open)}
                   aria-expanded={isOffMappingOpen}
                   className="w-full flex items-center justify-between px-1 cursor-pointer group"
                 >
-                  <h5 className="text-[10px] font-bold tracking-widest text-text-muted uppercase flex items-center gap-1.5 group-hover:text-neutral-300">
+                  <h5 className="text-[10px] font-bold tracking-widest text-text-muted uppercase flex items-center gap-1.5 group-hover:text-text-secondary">
                     <MapPinOff className="w-3 h-3" />
                     Not usually here ({offMappingItems.length})
                   </h5>
@@ -376,7 +376,7 @@ export function ShoppingPhase() {
 
                 {isOffMappingOpen && (
                   <div className="space-y-2 animate-in fade-in duration-200">
-                    <p className="text-[10px] text-neutral-500 px-1">
+                    <p className="text-[10px] text-text-subtle px-1">
                       Tap to buy one here anyway. Your mapping stays as it is unless you say otherwise when you complete the trip.
                     </p>
                     <div className="tile-grid gap-2">
@@ -384,14 +384,14 @@ export function ShoppingPhase() {
                         <button
                           key={item.id}
                           onClick={() => toggleBought(item.id)}
-                          className="flex items-center justify-between p-3 h-12 rounded-lg bg-surface-tile border border-dashed border-neutral-800 active:scale-95 transition-all text-left cursor-pointer group/item"
+                          className="flex items-center justify-between p-3 h-12 rounded-lg bg-surface-tile border border-dashed border-line active:scale-95 transition-all text-left cursor-pointer group/item"
                         >
                           <span className="min-w-0 pr-2">
-                            <span className="block text-sm font-semibold truncate text-neutral-300 group-hover/item:text-primary">
+                            <span className="block text-sm font-semibold truncate text-text-secondary group-hover/item:text-primary">
                               {item.name}
                             </span>
                             {storeNames.length > 0 && (
-                              <span className="block text-[10px] text-neutral-500 truncate">
+                              <span className="block text-[10px] text-text-subtle truncate">
                                 Usually {storeNames.join(', ')}
                               </span>
                             )}
@@ -407,9 +407,9 @@ export function ShoppingPhase() {
 
             {/* Collapsible/Faded "In Cart" Section */}
             {inCartItems.length > 0 && (
-              <div className="space-y-2 pt-4 border-t border-[#1a1a1a]">
+              <div className="space-y-2 pt-4 border-t border-line-faint">
                 <div className="flex items-center justify-between px-1">
-                  <h5 className="text-[10px] font-bold tracking-widest text-emerald-500 uppercase">
+                  <h5 className="text-[10px] font-bold tracking-widest text-success uppercase">
                     In Cart ({inCartItems.length})
                   </h5>
                 </div>
@@ -419,16 +419,16 @@ export function ShoppingPhase() {
                     <button
                       key={item.id}
                       onClick={() => toggleBought(item.id)}
-                      className="flex items-center justify-between p-3 h-12 rounded-lg bg-surface-tile border border-emerald-950 text-left line-through cursor-pointer"
+                      className="flex items-center justify-between p-3 h-12 rounded-lg bg-surface-tile border border-success/25 text-left line-through cursor-pointer"
                     >
-                      <span className="text-sm font-medium truncate text-neutral-400">
+                      <span className="text-sm font-medium truncate text-text-muted">
                         {item.name}
                       </span>
                       <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="text-[10px] text-neutral-500 bg-black/40 px-1.5 py-0.5 rounded border border-neutral-800">
+                        <span className="text-[10px] text-text-subtle bg-inset px-1.5 py-0.5 rounded border border-line">
                           {item.quantity}
                         </span>
-                        <CheckSquare className="w-4 h-4 text-emerald-500" />
+                        <CheckSquare className="w-4 h-4 text-success" />
                       </div>
                     </button>
                   ))}
@@ -439,10 +439,10 @@ export function ShoppingPhase() {
 
           {/* Complete Trip Action Bar */}
           {inCartItems.length > 0 && (
-            <div className="sticky bottom-0 bg-black pt-2 pb-1 z-30">
+            <div className="sticky bottom-0 bg-canvas pt-2 pb-1 z-30">
               <button
                 onClick={openConfirmTrip}
-                className="w-full bg-emerald-500 hover:bg-emerald-600 text-black font-bold py-3 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 text-sm shadow-[0_0_20px_rgba(16,185,129,0.2)]"
+                className="w-full bg-success hover:bg-success-hover text-on-success font-bold py-3 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 text-sm shadow-[var(--shadow-success-glow)]"
               >
                 <Check className="w-5 h-5 stroke-[2.5]" />
                 Complete Shopping Trip
@@ -456,15 +456,15 @@ export function ShoppingPhase() {
       <dialog
         ref={confirmDialogRef}
         onClose={() => setIsConfirmTripOpen(false)}
-        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-32px)] max-w-sm bg-surface-tile border border-neutral-800 p-6 rounded-2xl z-50 shadow-2xl backdrop:bg-black/75 backdrop:backdrop-blur-sm animate-in scale-in duration-200 focus:outline-none"
+        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-32px)] max-w-sm bg-surface-tile border border-line p-6 rounded-2xl z-50 shadow-2xl backdrop:bg-scrim/75 backdrop:backdrop-blur-sm animate-in scale-in duration-200 focus:outline-none"
       >
-        <h3 className="text-base font-bold text-white mb-2">Complete Grocery Trip?</h3>
+        <h3 className="text-base font-bold text-text-primary mb-2">Complete Grocery Trip?</h3>
         <p className={cn("text-xs text-text-muted", offMappingInCart.length > 0 ? "mb-4" : "mb-6")}>
           This will archive and clear all {inCartItems.length} checked items from the current shopping cart. Unchecked items will remain on your list.
         </p>
 
         {offMappingInCart.length > 0 && (
-          <div className="mb-6 space-y-2.5 rounded-xl border border-neutral-800 bg-black/30 p-3">
+          <div className="mb-6 space-y-2.5 rounded-xl border border-line bg-inset p-3">
             <div className="flex items-start gap-1.5">
               <MapPinOff className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
               <p className="text-[11px] leading-relaxed text-text-muted">
@@ -478,7 +478,7 @@ export function ShoppingPhase() {
               {offMappingInCart.map(item => (
                 <label
                   key={item.id}
-                  className="flex items-center gap-2.5 rounded-lg border border-neutral-900 bg-surface-tile px-3 py-2 cursor-pointer hover:border-neutral-800"
+                  className="flex items-center gap-2.5 rounded-lg border border-line-faint bg-surface-tile px-3 py-2 cursor-pointer hover:border-line"
                 >
                   <input
                     type="checkbox"
@@ -487,10 +487,10 @@ export function ShoppingPhase() {
                       const { checked } = e.target
                       setMappingOptIns(prev => ({ ...prev, [item.id]: checked }))
                     }}
-                    className="w-4 h-4 shrink-0 accent-emerald-500 cursor-pointer"
+                    className="w-4 h-4 shrink-0 accent-success cursor-pointer"
                   />
-                  <span className="text-xs font-semibold text-white truncate">{item.name}</span>
-                  <span className="ml-auto text-[10px] text-neutral-500 shrink-0">
+                  <span className="text-xs font-semibold text-text-primary truncate">{item.name}</span>
+                  <span className="ml-auto text-[10px] text-text-subtle shrink-0">
                     {selectedStore ? `Add ${selectedStore.name}` : 'Add this store'}
                   </span>
                 </label>
@@ -501,13 +501,13 @@ export function ShoppingPhase() {
         <div className="grid grid-cols-2 gap-3">
           <button
             onClick={() => setIsConfirmTripOpen(false)}
-            className="bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 text-white text-xs font-semibold py-2.5 rounded-lg transition-colors cursor-pointer"
+            className="bg-surface-raised border border-line hover:bg-surface-hover text-text-primary text-xs font-semibold py-2.5 rounded-lg transition-colors cursor-pointer"
           >
             Keep Shopping
           </button>
           <button
             onClick={handleCompleteTrip}
-            className="bg-emerald-500 hover:bg-emerald-600 text-black text-xs font-bold py-2.5 rounded-lg transition-colors cursor-pointer"
+            className="bg-success hover:bg-success-hover text-on-success text-xs font-bold py-2.5 rounded-lg transition-colors cursor-pointer"
           >
             Yes, Archive Trip
           </button>

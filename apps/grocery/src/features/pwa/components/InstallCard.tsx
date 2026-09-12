@@ -25,10 +25,10 @@ export function InstallCard() {
 
   if (standalone) {
     return (
-      <div className="bg-surface-tile border border-neutral-900 rounded-xl p-4 flex items-start gap-3">
-        <CheckCircle2 className="w-8 h-8 text-emerald-500 shrink-0" />
+      <div className="bg-surface-tile border border-line-faint rounded-xl p-4 flex items-start gap-3">
+        <CheckCircle2 className="w-8 h-8 text-success shrink-0" />
         <div>
-          <h5 className="font-semibold text-sm text-white">Running as an installed app</h5>
+          <h5 className="font-semibold text-sm text-text-primary">Running as an installed app</h5>
           <p className="text-[11px] text-text-muted mt-0.5">
             Your lists open without a browser and load with no signal.
           </p>
@@ -39,10 +39,10 @@ export function InstallCard() {
 
   if (kind === 'none') {
     return (
-      <div className="bg-surface-tile border border-neutral-900 rounded-xl p-4 flex items-start gap-3">
-        <Smartphone className="w-8 h-8 text-neutral-500 shrink-0" />
+      <div className="bg-surface-tile border border-line-faint rounded-xl p-4 flex items-start gap-3">
+        <Smartphone className="w-8 h-8 text-text-subtle shrink-0" />
         <div>
-          <h5 className="font-semibold text-sm text-white">Install from your browser</h5>
+          <h5 className="font-semibold text-sm text-text-primary">Install from your browser</h5>
           <p className="text-[11px] text-text-muted mt-0.5">
             This browser has not offered an install for Grocery. Most browsers keep the
             option in their own menu, usually as "Install app" or "Add to Home screen".
@@ -53,11 +53,11 @@ export function InstallCard() {
   }
 
   return (
-    <div className="bg-surface-tile border border-neutral-900 rounded-xl p-4 space-y-4">
+    <div className="bg-surface-tile border border-line-faint rounded-xl p-4 space-y-4">
       <div className="flex items-start gap-3">
         <Download className="w-8 h-8 text-primary shrink-0" />
         <div>
-          <h5 className="font-semibold text-sm text-white">
+          <h5 className="font-semibold text-sm text-text-primary">
             {handheld ? 'Add Grocery to your home screen' : 'Install Grocery on this computer'}
           </h5>
           <p className="text-[11px] text-text-muted mt-0.5">
@@ -73,7 +73,7 @@ export function InstallCard() {
           onClick={() => {
             promptInstall().catch(() => {})
           }}
-          className="w-full bg-neutral-900 hover:bg-neutral-855 text-white border border-neutral-800 py-2.5 rounded-lg text-xs font-bold transition-all active:scale-[0.99] flex items-center justify-center gap-1.5 cursor-pointer"
+          className="w-full bg-surface-raised hover:bg-surface-hover text-text-primary border border-line py-2.5 rounded-lg text-xs font-bold transition-all active:scale-[0.99] flex items-center justify-center gap-1.5 cursor-pointer"
         >
           <Download className="w-3.5 h-3.5" />
           Install

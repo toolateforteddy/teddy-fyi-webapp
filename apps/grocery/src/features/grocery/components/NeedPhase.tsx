@@ -244,10 +244,10 @@ export function NeedPhase() {
     <div className="flex-1 min-w-0 space-y-4">
       {activeItems.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center p-8 mt-12 animate-in fade-in duration-300">
-          <div className="w-16 h-16 rounded-full bg-surface-tile border border-neutral-800 flex items-center justify-center text-neutral-600 mb-4">
+          <div className="w-16 h-16 rounded-full bg-surface-tile border border-line flex items-center justify-center text-text-faint mb-4">
             <ShoppingBag className="w-8 h-8" />
           </div>
-          <h3 className="text-lg font-semibold text-neutral-300 mb-1">Your list is empty</h3>
+          <h3 className="text-lg font-semibold text-text-secondary mb-1">Your list is empty</h3>
           <p className="text-sm text-text-muted max-w-[240px]">
             {dockAddPane
               ? 'Use the form beside this list to add items you need.'
@@ -268,7 +268,7 @@ export function NeedPhase() {
                   {category.icon && <span className="text-sm normal-case">{category.icon}</span>}
                   <span>{category.name}</span>
                 </h4>
-                <span className="text-[10px] text-neutral-600 bg-neutral-900 px-1.5 py-0.5 rounded-full font-medium">
+                <span className="text-[10px] text-text-faint bg-surface-raised px-1.5 py-0.5 rounded-full font-medium">
                   {categoryItems.length}
                 </span>
               </div>
@@ -333,7 +333,7 @@ export function NeedPhase() {
           // --app-nav-height is 0 when the nav has moved to a side rail. Both are
           // inherited from .app-frame, which works even though this is fixed.
           "fixed z-30 right-[calc(var(--app-frame-gutter)+1rem)] bottom-[calc(var(--app-nav-height)+env(safe-area-inset-bottom)+1rem)]",
-          "w-14 h-14 rounded-full bg-primary text-black flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-all cursor-pointer duration-200",
+          "w-14 h-14 rounded-full bg-primary text-on-primary flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-all cursor-pointer duration-200",
           expandedItemId !== null ? "opacity-0 scale-75 pointer-events-none" : "opacity-100 scale-100"
         )}
         aria-label="Add grocery item"

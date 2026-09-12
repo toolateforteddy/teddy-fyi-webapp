@@ -87,7 +87,7 @@ function AddNeededItemForm({
             aria-autocomplete="list"
             aria-expanded={filteredSuggestions.length > 0}
             aria-controls={filteredSuggestions.length > 0 ? "suggestions-listbox" : undefined}
-            className="w-full bg-black/40 border border-neutral-800 rounded-lg py-2.5 px-3.5 text-sm focus:outline-none focus:border-primary transition-colors text-white placeholder-neutral-600"
+            className="w-full bg-inset border border-line rounded-lg py-2.5 px-3.5 text-sm focus:outline-none focus:border-primary transition-colors text-text-primary placeholder:text-text-faint"
           />
         </div>
 
@@ -106,7 +106,7 @@ function AddNeededItemForm({
                 role="option"
                 aria-selected="false"
                 onClick={() => setNewItemName(suggestion)}
-                className="text-xs bg-neutral-900 border border-neutral-800 hover:border-primary text-text-muted hover:text-primary rounded-full px-3 py-1 transition-all cursor-pointer"
+                className="text-xs bg-surface-raised border border-line hover:border-primary text-text-muted hover:text-primary rounded-full px-3 py-1 transition-all cursor-pointer"
               >
                 {suggestion}
               </button>
@@ -124,7 +124,7 @@ function AddNeededItemForm({
               type="text"
               value={newItemQuantity}
               onChange={(e) => setNewItemQuantity(e.target.value)}
-              className="w-full bg-black/40 border border-neutral-800 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-primary text-white"
+              className="w-full bg-inset border border-line rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-primary text-text-primary"
             />
           </div>
 
@@ -135,13 +135,13 @@ function AddNeededItemForm({
             <select
               value={newItemCategory ?? ''}
               onChange={(e) => setNewItemCategory(e.target.value ? e.target.value : undefined)}
-              className="w-full bg-black/40 border border-neutral-800 rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-primary text-white cursor-pointer"
+              className="w-full bg-inset border border-line rounded-lg py-2 px-3 text-sm focus:outline-none focus:border-primary text-text-primary cursor-pointer"
             >
-              <option value="" className="bg-surface-tile text-white">
+              <option value="" className="bg-surface-tile text-text-primary">
                 Uncategorized
               </option>
               {activeCategories.map(cat => (
-                <option key={cat.id} value={cat.id} className="bg-surface-tile text-white">
+                <option key={cat.id} value={cat.id} className="bg-surface-tile text-text-primary">
                   {cat.icon ? `${cat.icon} ${cat.name}` : cat.name}
                 </option>
               ))}
@@ -152,7 +152,7 @@ function AddNeededItemForm({
         {/* Submit Button */}
         <button
           type="submit"
-          className="w-full bg-primary hover:bg-[#c0a9f5] text-black font-semibold rounded-lg py-2.5 mt-2 active:scale-[0.99] transition-all cursor-pointer flex items-center justify-center gap-1.5 text-sm"
+          className="w-full bg-primary hover:bg-primary-hover text-on-primary font-semibold rounded-lg py-2.5 mt-2 active:scale-[0.99] transition-all cursor-pointer flex items-center justify-center gap-1.5 text-sm"
         >
           <Plus className="w-4 h-4 stroke-[2.5]" />
           Add Item
@@ -186,16 +186,16 @@ export function AddNeededItemSheet({ isOpen, onClose, activeCategories, onAddIte
     <dialog
       ref={dialogRef}
       onClose={onClose}
-      className="app-frame fixed top-auto bottom-0 left-1/2 -translate-x-1/2 max-h-[85dvh] overflow-y-auto overscroll-contain bg-surface-tile border-t border-neutral-800 rounded-t-2xl z-50 px-4 pt-4 pb-[calc(2rem+env(safe-area-inset-bottom))] shadow-2xl backdrop:bg-black/60 backdrop:backdrop-blur-sm animate-in slide-in-from-bottom duration-250 ease-out focus:outline-none"
+      className="app-frame fixed top-auto bottom-0 left-1/2 -translate-x-1/2 max-h-[85dvh] overflow-y-auto overscroll-contain bg-surface-tile border-t border-line rounded-t-2xl z-50 px-4 pt-4 pb-[calc(2rem+env(safe-area-inset-bottom))] shadow-2xl backdrop:bg-scrim/60 backdrop:backdrop-blur-sm animate-in slide-in-from-bottom duration-250 ease-out focus:outline-none"
     >
-      <div className="flex items-center justify-between mb-4 border-b border-neutral-800 pb-3">
+      <div className="flex items-center justify-between mb-4 border-b border-line pb-3">
         <div className="flex items-center gap-1.5">
           <Sparkles className="w-4 h-4 text-primary" />
-          <h3 className="font-semibold text-white">Add Needed Item</h3>
+          <h3 className="font-semibold text-text-primary">Add Needed Item</h3>
         </div>
         <button 
           onClick={onClose}
-          className="p-1 text-text-muted hover:text-white rounded-md cursor-pointer"
+          className="p-1 text-text-muted hover:text-text-primary rounded-md cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
@@ -228,10 +228,10 @@ interface AddNeededItemPaneProps {
  */
 export function AddNeededItemPane({ activeCategories, onAddItem, initialName }: AddNeededItemPaneProps) {
   return (
-    <aside className="w-80 shrink-0 self-start sticky top-0 bg-surface-tile border border-neutral-900 rounded-xl p-4">
-      <div className="flex items-center gap-1.5 mb-4 border-b border-neutral-800 pb-3">
+    <aside className="w-80 shrink-0 self-start sticky top-0 bg-surface-tile border border-line-faint rounded-xl p-4">
+      <div className="flex items-center gap-1.5 mb-4 border-b border-line pb-3">
         <Sparkles className="w-4 h-4 text-primary" />
-        <h3 className="font-semibold text-white">Add Needed Item</h3>
+        <h3 className="font-semibold text-text-primary">Add Needed Item</h3>
       </div>
 
       <AddNeededItemForm

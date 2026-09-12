@@ -143,20 +143,20 @@ export function DeviceLinkPage() {
   }
 
   return (
-    <div className="min-h-dvh bg-black text-white flex flex-col items-center font-sans antialiased selection:bg-primary selection:text-black">
-      <div className="app-frame min-h-dvh bg-black flex flex-col border-x border-[#1a1a1a] shadow-[0_0_50px_0_rgba(208,188,255,0.05)] px-6 py-[max(2rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] gap-8">
+    <div className="min-h-dvh bg-canvas text-text-primary flex flex-col items-center font-sans antialiased selection:bg-primary selection:text-on-primary">
+      <div className="app-frame min-h-dvh bg-canvas flex flex-col border-x border-line-faint shadow-[var(--shadow-frame)] px-6 py-[max(2rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] gap-8">
 
         <header className="flex items-center justify-between">
           {/* teddy.fyi is a different origin now, so this is an anchor rather
               than a <Link> -- react-router cannot route across origins. */}
           <a
             href="https://teddy.fyi"
-            className="flex items-center gap-1 text-text-muted hover:text-white transition-colors text-xs font-semibold"
+            className="flex items-center gap-1 text-text-muted hover:text-text-primary transition-colors text-xs font-semibold"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Back</span>
           </a>
-          <div className="flex items-center gap-1.5 font-mono text-[10px] tracking-wider text-neutral-600 font-semibold">
+          <div className="flex items-center gap-1.5 font-mono text-[10px] tracking-wider text-text-faint font-semibold">
             <Terminal className="w-3 h-3" />
             <span>teddy.fyi</span>
           </div>
@@ -164,11 +164,11 @@ export function DeviceLinkPage() {
 
         <main className="flex-1 space-y-8">
           <div className="space-y-4">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-neutral-900 border border-neutral-800 text-[10px] font-mono tracking-wider text-primary">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-raised border border-line text-[10px] font-mono tracking-wider text-primary">
               <Tablet className="w-3.5 h-3.5" />
               <span>Tablet sign-in</span>
             </div>
-            <h1 className="text-2xl font-black tracking-tight text-white">Link a tablet</h1>
+            <h1 className="text-2xl font-black tracking-tight text-text-primary">Link a tablet</h1>
             <p className="text-xs text-text-muted leading-relaxed">
               Fire tablets have no Google sign-in of their own, so the grocery app cannot ask for an
               account on the tablet itself. This page does that half for it: sign in here, type the
@@ -184,7 +184,7 @@ export function DeviceLinkPage() {
                     key={step}
                     className="flex gap-3 items-start text-xs text-text-muted leading-relaxed"
                   >
-                    <span className="shrink-0 w-6 h-6 rounded-full bg-neutral-950 border border-neutral-800 text-[10px] font-mono text-primary grid place-items-center">
+                    <span className="shrink-0 w-6 h-6 rounded-full bg-inset border border-line text-[10px] font-mono text-primary grid place-items-center">
                       {i + 1}
                     </span>
                     <span>{step}</span>
@@ -192,14 +192,14 @@ export function DeviceLinkPage() {
                 ))}
               </ol>
 
-              <div className="w-full bg-[#1A1A1A] border border-neutral-900 rounded-2xl p-6 flex flex-col items-center gap-3">
+              <div className="w-full bg-surface-tile border border-line-faint rounded-2xl p-6 flex flex-col items-center gap-3">
                 <div ref={buttonRef} className="min-h-[48px] flex items-center justify-center" />
                 {signInError && (
-                  <p className="text-xs text-red-400 leading-relaxed text-center">
+                  <p className="text-xs text-danger leading-relaxed text-center">
                     {signInError}. Reload the page to try again.
                   </p>
                 )}
-                <p className="text-[10px] text-neutral-500 leading-relaxed text-center">
+                <p className="text-[10px] text-text-subtle leading-relaxed text-center">
                   Signing in here only tells us which account the tablet belongs to. The lists
                   themselves are untouched.
                 </p>
@@ -210,16 +210,16 @@ export function DeviceLinkPage() {
           {stage === 'code-entry' && (
             <section className="space-y-5">
               <div className="space-y-1">
-                <h2 className="text-lg font-extrabold text-white tracking-tight">
+                <h2 className="text-lg font-extrabold text-text-primary tracking-tight">
                   Type the code on the tablet
                 </h2>
-                {email && <p className="text-[10px] font-mono text-neutral-500">Signed in as {email}</p>}
+                {email && <p className="text-[10px] font-mono text-text-subtle">Signed in as {email}</p>}
               </div>
 
               <form onSubmit={claim} className="space-y-4">
                 <label htmlFor="user-code" className="block text-xs text-text-muted leading-relaxed">
                   Eight characters, shown on the tablet as something like{' '}
-                  <span className="font-mono text-white">H4KP-9TQR</span>. Upper or lower case, with
+                  <span className="font-mono text-text-primary">H4KP-9TQR</span>. Upper or lower case, with
                   or without the hyphen — paste it if you like.
                 </label>
 
@@ -245,18 +245,18 @@ export function DeviceLinkPage() {
                   }}
                   placeholder="H4KP-9TQR"
                   className={cn(
-                    'w-full rounded-2xl bg-neutral-950 border px-5 py-4 font-mono text-2xl',
-                    'tracking-[0.25em] uppercase text-white placeholder:text-neutral-700',
+                    'w-full rounded-2xl bg-inset border px-5 py-4 font-mono text-2xl',
+                    'tracking-[0.25em] uppercase text-text-primary placeholder:text-text-faint',
                     'outline-none focus:border-primary transition-colors disabled:opacity-50',
                     normalized.invalidChars.length > 0 || error
-                      ? 'border-red-500/60'
-                      : 'border-neutral-800',
+                      ? 'border-danger/60'
+                      : 'border-line',
                   )}
                 />
 
                 <div className="min-h-[2.5rem] space-y-2">
                   {normalized.invalidChars.length > 0 && (
-                    <p className="text-xs text-red-400 leading-relaxed">
+                    <p className="text-xs text-danger leading-relaxed">
                       Codes never contain{' '}
                       <span className="font-mono">{normalized.invalidChars.join(' ')}</span>. If the
                       tablet looks like it is showing an <span className="font-mono">O</span> or an{' '}
@@ -265,9 +265,9 @@ export function DeviceLinkPage() {
                       either. Have another look.
                     </p>
                   )}
-                  {error && <p className="text-xs text-red-400 leading-relaxed">{error}</p>}
+                  {error && <p className="text-xs text-danger leading-relaxed">{error}</p>}
                   {!error && normalized.invalidChars.length === 0 && normalized.code.length > 0 && (
-                    <p className="text-[10px] font-mono text-neutral-500">
+                    <p className="text-[10px] font-mono text-text-subtle">
                       {formatDeviceCode(normalized.code)}
                       {!normalized.isComplete && ` · ${CODE_LENGTH - normalized.code.length} to go`}
                     </p>
@@ -277,7 +277,7 @@ export function DeviceLinkPage() {
                 <button
                   type="submit"
                   disabled={!canSubmit}
-                  className="inline-flex items-center justify-center gap-2 w-full px-6 py-3 rounded-xl bg-primary text-black text-sm font-bold tracking-tight disabled:opacity-40 disabled:cursor-not-allowed hover:brightness-110 active:scale-[0.98] transition"
+                  className="inline-flex items-center justify-center gap-2 w-full px-6 py-3 rounded-xl bg-primary text-on-primary text-sm font-bold tracking-tight disabled:opacity-40 disabled:cursor-not-allowed hover:brightness-110 active:scale-[0.98] transition"
                 >
                   {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
                   <span>{submitting ? 'Linking…' : 'Link this tablet'}</span>
@@ -288,16 +288,16 @@ export function DeviceLinkPage() {
 
           {stage === 'done' && (
             <section className="space-y-4">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-neutral-900 border border-neutral-800 text-[10px] font-mono tracking-wider text-emerald-400">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-raised border border-line text-[10px] font-mono tracking-wider text-success-strong">
                 <Check className="w-3.5 h-3.5" />
                 <span>Tablet linked</span>
               </div>
-              <h2 className="text-lg font-extrabold text-white tracking-tight">
+              <h2 className="text-lg font-extrabold text-text-primary tracking-tight">
                 That is it — you can put this device down.
               </h2>
               <p className="text-xs text-text-muted leading-relaxed">
                 The tablet checks in every few seconds, so it should show the account
-                {email ? <span className="font-mono text-white"> {email}</span> : ''} within about
+                {email ? <span className="font-mono text-text-primary"> {email}</span> : ''} within about
                 ten seconds. If it is still waiting after a minute, make sure the tablet is on
                 Wi-Fi and start again on the tablet for a fresh code.
               </p>
@@ -305,15 +305,15 @@ export function DeviceLinkPage() {
                 The lists sync from the tablet from now on, and signing out there ends it. Nothing
                 needs this page again unless you add another tablet.
               </p>
-              <div className="flex items-center gap-1.5 text-[10px] text-neutral-500 font-medium bg-neutral-950/40 border border-neutral-900/60 px-3 py-1.5 rounded-full w-fit">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+              <div className="flex items-center gap-1.5 text-[10px] text-text-subtle font-medium bg-inset/40 border border-line-faint/60 px-3 py-1.5 rounded-full w-fit">
+                <ShieldCheck className="w-3.5 h-3.5 text-success" />
                 <span>Codes are single-use and expire in ten minutes</span>
               </div>
             </section>
           )}
         </main>
 
-        <footer className="text-center text-[10px] text-neutral-600 font-mono pt-4">
+        <footer className="text-center text-[10px] text-text-faint font-mono pt-4">
           &copy; {new Date().getFullYear()} teddy.fyi. All rights reserved.
         </footer>
       </div>

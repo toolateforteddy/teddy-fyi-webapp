@@ -76,6 +76,24 @@ does, what the Ingress in `teddyfyi` owns that this repo must not, how an
 installed home-screen app picks up a new build, and the cross-origin coupling
 (CORS, cookies, OAuth origins) that the two-origin split introduced.
 
+## Colour
+
+`packages/shared/theme.css` declares the whole palette twice -- once on `:root`
+as the dark scheme, once under `:root[data-theme='light']` -- as `--palette-*`
+properties, and binds them to Tailwind through `@theme inline` so a utility
+resolves its colour at the element rather than once at the root. Nothing else
+may name a colour: `bg-black`, `text-neutral-400` and `bg-[#1a1a1a]` all render
+the same under both schemes, and one of the two is then wrong. Use the tokens
+(`canvas`, `surface-tile`, `line`, `text-muted`, `primary`, `danger`, ...);
+`apps/grocery/tests/colorTokens.test.ts` fails on anything else and lists the
+vocabulary.
+
+Only the grocery app switches. It stamps `data-theme` on `<html>` from an inline
+script in its `index.html` before the first paint, and again from
+`src/features/theme` as the preference or the OS setting changes; the setting
+itself lives in Settings → Appearance. The personal site never sets the
+attribute, so it gets the dark values and is unchanged.
+
 ## Browser support
 
 Pinned to Safari/iOS 16.4+ in both apps' `vite.config.ts`, because Tailwind v4
