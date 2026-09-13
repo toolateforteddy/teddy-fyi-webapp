@@ -20,26 +20,42 @@ want different drawings:
 | --- | --- | --- |
 | `any` | Uses the image as-is. The fallback everywhere the others are not understood. | `mark-colour.png` |
 | `maskable` | Crops it to a shape the launcher picks — circle, squircle, rounded square, teardrop — and treats the image as edge-to-edge. | `mark-colour.png` |
-| `monochrome` | Throws the colour away, keeps the alpha as a stencil, and repaints it in the user's theme colours. This is Android 13's "themed icons". | `mark-stencil.png` |
+| `monochrome` | Throws the colour away, keeps the alpha as a stencil, and repaints it in one solid colour. | `mark-stencil.png` |
 
-`monochrome` is the web spelling of the `<monochrome>` layer in an Android
-adaptive icon, and it carries the same constraint: it is an **alpha mask**, so
-the brown of the bag and the green of the tick both become one colour. That is
-the format rather than a shortcut — there is no way to keep two colours in a
-themed icon on either platform.
+`monochrome` is an **alpha mask**: the spec says the user agent must not display
+the red, green or blue component of a pixel, only its alpha. So the brown of the
+bag and the green of the tick both become one colour, and the file is authored as
+a black silhouette on transparent — which is what the spec recommends, and what
+Chrome expects, since it refills the RGB with the manifest's `theme_color`.
+
+**It is not a route to an Android themed launcher icon, despite being the obvious
+analogue of one.** Chromium's WebAPK proto has the monochrome purpose reserved
+and commented out (`components/webapk/webapk.proto`), and
+[crbug.com/40277264](https://issues.chromium.org/issues/40277264), open since
+2023, is the request to wire it up. What the entry does buy today: the home-tab
+icon for a tabbed-display PWA on desktop Chrome, ChromeOS notification icons, and
+Firefox-for-Android's site-controls notification. It is one 25 KiB file that is
+already outside the precache, so it is worth having ready for the day Chrome
+honours it — but nobody should expect a themed home screen from it.
 
 A manifest icon may name several purposes at once (`"purpose": "any maskable"`),
 and this one deliberately does not. A user agent that does not recognise *any* of
 the values listed on an entry must ignore that entry entirely, so one entry per
 purpose is what degrades cleanly: an old browser drops the two it does not know
-and still finds the `any` pair.
+and still finds the `any` pair. The cost of splitting them is Safari, which reads
+manifest icons only when the purpose is `any` or absent — but that costs us
+nothing here, because Safari also ignores the manifest list entirely whenever an
+`apple-touch-icon` is present, and index.html has one.
 
 ## The geometry, and why it is computed
 
-`maskable` has a safe zone: the only region guaranteed to survive every mask a
-launcher might apply is a centred circle of 80% of the canvas. Anything outside
-it may be cropped, and *which* part is cropped depends on the launcher, so it
-cannot be checked by looking at one device.
+`maskable` has a safe zone, and the spec is exact about it: a centred circle of
+radius 2/5 of the icon's smaller side, so 80% of the canvas across, leaving about
+10% margin on each edge. A user agent must not make any pixel inside it
+transparent and may crop anything outside. *Which* part gets cropped depends on
+the launcher, so it cannot be checked by looking at one device. (Chrome does the
+rest of the arithmetic itself: building a WebAPK it pads the icon by ~15.5% a
+side, which lands the 80% circle on Android's own 66-of-108dp keyline.)
 
 The script therefore does not scale the mark by its bounding box. It finds the
 smallest circle containing every inked pixel and scales that circle to the safe
@@ -61,13 +77,17 @@ black.
 `monochrome` is the exception and must be transparent: the transparency is the
 stencil.
 
-## What iOS and the browsers actually do with these
+## What each platform actually does with these
 
-- **Android / Chrome**: reads `maskable` for the launcher icon and falls back to
-  `any`. Whether it also reads `monochrome` for a themed icon depends on the
-  Chrome version; the entry is harmless where it is ignored.
+- **Android / Chrome**: uses `maskable` for the launcher icon (since Chrome 79)
+  and falls back to `any`, which it shims onto a white background instead. It
+  ignores `monochrome` — see above.
 - **iOS / Safari**: home-screen icons come from `<link rel="apple-touch-icon">`
-  in `index.html`, not from the manifest. It has no themed-icon equivalent, so
-  `apple-touch-icon.png` is the full-colour mark and there is nothing else to
-  ship.
-- **Desktop Chrome / Edge**: uses `any` for the window and taskbar icon.
+  in `index.html`, not from the manifest, and the manifest list is skipped
+  entirely while that tag is present. WebKit parses `purpose` and then does
+  nothing with it. There is no web equivalent of iOS's tinted or dark app icons —
+  no manifest member, no `media` attribute — so the full-colour mark is all there
+  is to ship.
+- **Desktop Chrome / Edge**: `any` for the window and taskbar icon on Windows and
+  Linux; macOS and ChromeOS prefer `maskable` instead, but only at 256px and
+  above, which is why the 512 is there and not only the 192.
