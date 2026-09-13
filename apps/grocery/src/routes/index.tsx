@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom'
 import { LoginPage } from './LoginPage'
 import { DeviceLinkPage } from './DeviceLinkPage'
 import { JoinPage } from './JoinPage'
+import { InvitePage } from './InvitePage'
 import { HelpPage } from './HelpPage'
 import { NotFoundPage } from './NotFoundPage'
 import { ShareTargetPage } from './ShareTargetPage'
@@ -36,6 +37,16 @@ export function AppRoutes() {
       {/* A link whose code got cut off still lands somewhere that explains itself,
           rather than on the generic 404. */}
       <Route path="/join" element={<JoinPage />} />
+
+      {/* Redeeming an account invite. Public for a stronger version of the reason /join is:
+          the recipient has no account at all, so there is nothing for AuthenticatedRoute to
+          bounce them to that would not be a dead end. The page signs them in with the code
+          on the same request, which is what creates the account. */}
+      <Route path="/invite/:code" element={<InvitePage />} />
+
+      {/* Same fallback as /join, and likelier to be hit: the code on the end of an account
+          invite is a JWT, so there is far more of it for a link rewriter to truncate. */}
+      <Route path="/invite" element={<InvitePage />} />
 
       {/* Web Share Target. Public for the same reason /link is: the share can
           arrive before the browser has a session, and bouncing it to /login
