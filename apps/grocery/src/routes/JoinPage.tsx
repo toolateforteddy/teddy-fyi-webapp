@@ -32,6 +32,10 @@ type Stage = 'idle' | 'joining' | 'joined'
 /**
  * Where a successful join lands. The list is the root of this origin, and the sync the
  * dashboard runs on mount is what pulls the newly shared list down.
+ *
+ * Which leaves a gap: the id written below names a list this device does not have yet. The
+ * dashboard waits for it rather than falling back to a list the recipient was already on —
+ * see `awaitedList` in `GroceryContext`, which is where this used to go wrong.
  */
 const AFTER_JOIN_ROUTE = '/'
 
@@ -56,7 +60,8 @@ export function JoinPage() {
    * short-circuits when `/api/sync/status` says nothing has changed, and a list that arrived
    * through a membership row somebody else wrote is exactly the change that check can miss.
    * The active list is written straight to storage rather than through `GroceryContext`,
-   * which is not mounted out here — it reads this key when it initialises, one route later.
+   * which is not mounted out here — it reads this key when it initialises, one route later,
+   * and holds it until the sync above delivers the list it names.
    */
   const redeem = useCallback(async () => {
     if (!code) return

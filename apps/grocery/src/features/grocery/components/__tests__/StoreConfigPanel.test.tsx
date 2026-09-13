@@ -27,6 +27,8 @@ describe('StoreConfigPanel Component', () => {
     vi.mocked(useGrocery).mockReturnValue({
       activeListId: 'list-1',
       setActiveListId: vi.fn(),
+      activeList: undefined,
+      isAwaitingJoinedList: false,
       items: [],
       setItems: vi.fn(),
       lists: [],
