@@ -27,6 +27,8 @@ const mockRetry = vi.fn()
 const contextWith = (over: Record<string, unknown>) => ({
   activeListId: '',
   setActiveListId: vi.fn(),
+  activeList: undefined,
+  isAwaitingJoinedList: false,
   items: [],
   setItems: vi.fn(),
   lists: [],
@@ -92,6 +94,22 @@ describe('the shell with no list to show', () => {
 
     expect(screen.queryByText(/Initializing your lists/)).not.toBeInTheDocument()
     expect(screen.getByText('Your lists did not load')).toBeInTheDocument()
+  })
+
+  /**
+   * A list joined a moment ago has no row here yet, and that is not the bootstrap
+   * failing. Saying so is what this screen is for: the alternative it replaced was to
+   * quietly show the list the recipient was already on.
+   */
+  it('says the shared list is opening while it is still on its way', () => {
+    vi.mocked(useGrocery).mockReturnValue(
+      contextWith({ bootstrapState: 'ready', isAwaitingJoinedList: true }) as any
+    )
+
+    renderShell()
+
+    expect(screen.getByText(/Opening the shared list/)).toBeInTheDocument()
+    expect(screen.queryByText('Your lists did not load')).not.toBeInTheDocument()
   })
 
   it('retries the bootstrap when the button is pressed', () => {

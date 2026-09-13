@@ -46,6 +46,8 @@ describe('NeedPhase Component', () => {
     vi.mocked(useGrocery).mockReturnValue({
       activeListId: 'list-1',
       setActiveListId: vi.fn(),
+      activeList: undefined,
+      isAwaitingJoinedList: false,
       items: mockItems,
       setItems: mockSetItems,
       lists: [{ id: 'list-1', name: 'My List', is_deleted: false, version: 1, sync_state: 'SYNCED', createdAt: 0 }],
@@ -73,6 +75,8 @@ describe('NeedPhase Component', () => {
     vi.mocked(useGrocery).mockReturnValueOnce({
       activeListId: 'list-1',
       setActiveListId: vi.fn(),
+      activeList: undefined,
+      isAwaitingJoinedList: false,
       items: [],
       setItems: mockSetItems,
       lists: [],

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react'
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react'
 import { useAuth } from '@/features/auth/hooks/useAuth'
 import { rowUserId, legacyRowUserId } from '@/features/auth/utils/identity'
 import { useGrocerySync } from '@/features/sync/hooks/useGrocerySync'
@@ -65,9 +65,29 @@ export type BootstrapState = 'loading' | 'ready' | 'failed'
  */
 export const BOOTSTRAP_TIMEOUT_MS = 15000
 
+/**
+ * How long a list the app has been told to show is waited for before it is treated as stale.
+ *
+ * `POST /api/lists/join` answers with a list id and nothing else -- the list row itself comes
+ * down on the next sync -- so for a moment after joining, the id the app has been told to show
+ * matches nothing in `lists`. See `awaitedList`. Longer than the 10s Axios timeout in
+ * `lib/axios`, so the sync that carries the list has run out of ways to answer before this
+ * fires.
+ */
+export const AWAITED_LIST_TIMEOUT_MS = 20000
+
 interface GroceryContextType {
   activeListId: string
   setActiveListId: (id: string) => void
+  /**
+   * The list `activeListId` names, or `undefined` while there is none to name -- either
+   * because the account has no lists yet or because the active one has not arrived (see
+   * `isAwaitingJoinedList`). Resolved once, here, because a second copy of the fallback
+   * elsewhere is a second answer to "which list am I on", and the two disagreed.
+   */
+  activeList: GroceryList | undefined
+  /** Whether `activeListId` names a list that is expected to arrive on the next sync. */
+  isAwaitingJoinedList: boolean
   items: GroceryItem[]
   setItems: React.Dispatch<React.SetStateAction<GroceryItem[]>>
   lists: GroceryList[]
@@ -177,9 +197,45 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
   }, [items, lists, listMembers, stores, categories, itemStoreInfos])
 
   // Active list ID management
-  const [activeListId, setActiveListId] = useState<string>(() => {
+  const [activeListId, setActiveListIdState] = useState<string>(() => {
     return storage.getItem<string>(STORAGE_KEYS.ACTIVE_LIST_ID, '') || ''
   })
+
+  /**
+   * An active list that is not on this device yet, and the moment the app gives up on it.
+   *
+   * Joining answers with a list id and nothing else: the list row arrives on the next sync.
+   * Between those two the active id matches nothing in `lists`, and the fallback below used
+   * to read that as a stale id and re-home the selection onto whatever list was already
+   * there. That is exactly what the recipient of an invite link saw -- they joined, landed
+   * back on their own list, and had to go find the new one behind the switcher -- so an id
+   * that cannot be resolved *yet* is waited for rather than discarded.
+   *
+   * The deadline is what stops that wait from wedging the app. An id can be unresolvable for
+   * reasons no sync will ever fix: a list left or deleted on another device, a key left
+   * behind by another account. Without a bound the fallback would never run again for them.
+   */
+  const [awaitedList, setAwaitedList] = useState<{ id: string; until: number } | null>(() => {
+    const stored = storage.getItem<string>(STORAGE_KEYS.ACTIVE_LIST_ID, '') || ''
+    if (!stored || lists.some(l => l.id === stored && !l.is_deleted)) return null
+    return { id: stored, until: Date.now() + AWAITED_LIST_TIMEOUT_MS }
+  })
+
+  /**
+   * Selects a list, including one that is not here yet.
+   *
+   * Every caller is answering the same question -- which list should the app be on -- and a
+   * caller that has just joined one cannot tell that its id is unresolvable from a caller
+   * whose stored id has gone stale. So the distinction is drawn here, once, against `lists`.
+   */
+  const setActiveListId = useCallback((id: string) => {
+    setActiveListIdState(id)
+    setAwaitedList(
+      id && !listsRef.current.some(l => l.id === id && !l.is_deleted)
+        ? { id, until: Date.now() + AWAITED_LIST_TIMEOUT_MS }
+        : null
+    )
+  }, [])
 
   const isExternalActiveListRef = useRef(false)
 
@@ -202,7 +258,7 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
     return () => {
       window.removeEventListener('storage', handleStorageChange)
     }
-  }, [])
+  }, [setActiveListId])
 
   // Sync state tracking
   const [lastSyncedAt, setLastSyncedAt] = useState<string>(() => {
@@ -595,18 +651,51 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
         : 'offline'
 
   // Resolve list defaults on mount / state adjustments
-  const activeList = lists.find(l => l.id === activeListId && !l.is_deleted) || lists.find(l => !l.is_deleted) || lists[0]
+  const isAwaitingJoinedList =
+    awaitedList !== null && !lists.some(l => l.id === awaitedList.id && !l.is_deleted)
+
+  // While a list is still expected, nothing else is offered in its place: falling back to
+  // another list here is the bug `awaitedList` exists to stop, and doing it only in this
+  // file would leave the header and the screens rendering the list the user did not join.
+  const activeList = isAwaitingJoinedList
+    ? undefined
+    : lists.find(l => l.id === activeListId && !l.is_deleted)
+      || lists.find(l => !l.is_deleted)
+      || lists[0]
+
   useEffect(() => {
-    if (activeList && activeList.id !== activeListId) {
+    if (isAwaitingJoinedList) return
+    // The list arrived, or the wait ran out. Either way `awaitedList` has nothing left to
+    // say, and `activeList` is the answer again.
+    if (awaitedList) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setActiveListId(activeList.id)
+      setAwaitedList(null)
     }
-  }, [activeList, activeListId])
+    if (activeList && activeList.id !== activeListId) {
+      setActiveListIdState(activeList.id)
+    }
+  }, [activeList, activeListId, awaitedList, isAwaitingJoinedList])
+
+  // The deadline on `awaitedList`, which is what bounds the wait above. Clearing the state
+  // is enough: the effect above re-homes the selection on the render that follows.
+  useEffect(() => {
+    if (!isAwaitingJoinedList || !awaitedList) return
+    const remaining = awaitedList.until - Date.now()
+    if (remaining <= 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setAwaitedList(null)
+      return
+    }
+    const timer = setTimeout(() => setAwaitedList(null), remaining)
+    return () => clearTimeout(timer)
+  }, [awaitedList, isAwaitingJoinedList])
 
   return (
     <GroceryContext.Provider value={{
       activeListId,
       setActiveListId,
+      activeList,
+      isAwaitingJoinedList,
       items,
       setItems,
       lists,

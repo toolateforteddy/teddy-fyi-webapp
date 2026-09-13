@@ -104,6 +104,8 @@ function DashboardContent() {
   const {
     activeListId,
     setActiveListId,
+    activeList,
+    isAwaitingJoinedList,
     items,
     setItems,
     lists,
@@ -131,14 +133,26 @@ function DashboardContent() {
 
   const sync = describeSync(syncStatus, pendingCount)
 
-  const activeList = lists.find(l => l.id === activeListId && !l.is_deleted) || lists.find(l => !l.is_deleted) || lists[0]
-
-  // No list to render. Which of the two screens that is, is the whole of what
-  // `bootstrapState` decides -- and it leaves `loading` within BOOTSTRAP_TIMEOUT_MS
-  // whatever happens, so the spinner below is bounded by construction. Gating the
-  // spinner on `!activeList` alone is what used to make it permanent: every way the
-  // first sync could end without a list ended here, with nothing scheduled to clear it.
+  // No list to render. Which of the three screens that is, is the whole of what
+  // `bootstrapState` and `isAwaitingJoinedList` decide -- and both are bounded by a
+  // timeout, so the spinners below are bounded by construction. Gating the spinner on
+  // `!activeList` alone is what used to make it permanent: every way the first sync
+  // could end without a list ended here, with nothing scheduled to clear it.
   if (!activeList) {
+    // A list joined moments ago, on its way down. Saying so beats the alternative this
+    // replaced, which was to quietly show the list the user was already on.
+    if (isAwaitingJoinedList) {
+      return (
+        <div className="h-dvh bg-canvas text-text-primary flex justify-center items-center font-sans antialiased">
+          <div className="app-frame app-shell h-dvh bg-canvas flex flex-col items-center justify-center border-x border-line-faint shadow-[var(--shadow-frame)] space-y-4">
+            <Loader2 className="w-8 h-8 text-primary animate-spin" />
+            <span className="text-xs text-text-muted font-medium tracking-wide animate-pulse">
+              Opening the shared list...
+            </span>
+          </div>
+        </div>
+      )
+    }
     if (bootstrapState !== 'loading') {
       return <BootstrapFailure onRetry={retryBootstrap} />
     }
