@@ -24,11 +24,17 @@
  *      whose cached app is otherwise unreachable. See DEPLOYMENT.md.
  *
  * Update policy: a new worker installs and then *waits*. It never calls
- * `skipWaiting` on its own, so a running session is never swapped underneath itself
- * -- which matters here because a swap mid-session would throw away whatever is
- * half-typed in the add-item sheet. Taking the update over is the user's choice,
- * offered by `UpdateBanner` through `subscribeToUpdates` and `applyUpdate` below,
- * and it still happens on its own at the next cold launch if they ignore it.
+ * `skipWaiting` on its own while anybody is looking, so a session on screen is never
+ * swapped underneath itself -- which matters here because a swap mid-session would
+ * throw away whatever is half-typed in the add-item sheet. On screen, taking the
+ * update is the user's choice, offered by `UpdateBanner` through `subscribeToUpdates`
+ * and `applyUpdate` below.
+ *
+ * Off screen it is nobody's choice, because there is nothing to lose: a tab that has
+ * been hidden for `AUTO_APPLY_AFTER_HIDDEN_MS` takes the update and reloads while
+ * hidden, so the next time the app is opened it is already the new version. That is
+ * the difference between a deploy arriving and a deploy needing every window closed
+ * by hand, and it is the whole reason the section below is more than a banner.
  */
 
 import { storage } from '@/utils/storage'
@@ -126,17 +132,73 @@ export async function registerServiceWorker(): Promise<void> {
 // worker also passes through `installed`, and announcing an update to someone who
 // just arrived is nonsense -- they are already on the newest thing there is.
 // `navigator.serviceWorker.controller` is what tells the two apart.
+//
+// Taking the update, in the three ways it can happen:
+//
+//   1. **The user presses Reload.** `applyUpdate` below, from `UpdateBanner`.
+//   2. **The app is put away.** A tab that has been hidden for a while has nobody
+//      looking at it and nothing on screen to throw away, so it takes the update by
+//      itself and reloads while hidden -- and the next time it is opened it is
+//      simply the new version, with nothing to press. This is what stops a deploy
+//      from needing every session closed by hand. See `AUTO_APPLY_AFTER_HIDDEN_MS`.
+//   3. **The next cold launch**, as before, if neither of the above happened first.
+//
+// A visible tab is still never swapped underneath itself: nothing here reloads a
+// page somebody is looking at unless they asked for it.
 // --------------------------------------------------------------------------------
+
+/**
+ * How long a tab has to stay hidden before it takes a waiting update on its own.
+ *
+ * The trade-off is entirely about what a reload throws away: the lists are in
+ * localStorage and the route is in the URL, so all that is lost is on-screen state --
+ * an open add-item sheet, and whatever is half-typed in it. Twenty seconds is long
+ * enough that a glance at a notification and a look at a recipe come back untouched,
+ * and short enough to land before the browser freezes a backgrounded tab (Chrome
+ * throttles timers in hidden tabs after a second and can freeze them after five
+ * minutes). If it does not fire, nothing is broken -- the update is still waiting,
+ * and the cold launch still takes it.
+ */
+const AUTO_APPLY_AFTER_HIDDEN_MS = 20 * 1000
+
+/**
+ * How long to wait for the new worker to take control after asking it to.
+ *
+ * `controllerchange` is the right signal and it normally arrives in milliseconds, but
+ * a button that says "Reloading..." forever is a worse failure than a reload that
+ * serves one stale bundle and gets it right on the next pass. Reload anyway.
+ */
+const ACTIVATION_TIMEOUT_MS = 5 * 1000
 
 type UpdateListener = (updateReady: boolean) => void
 
 const listeners = new Set<UpdateListener>()
 
-/** The installed-and-waiting worker, once there is one. */
+/** The installed worker we have announced, once there is one. */
 let waiting: ServiceWorker | null = null
 
 /** Set the moment we ask a worker to take over, so the reload below happens once. */
 let activating = false
+
+/**
+ * Set when a new worker took control of this page without this page asking -- which
+ * means another tab, or another window of the installed app, pressed Reload. This page
+ * is then old code being served by a new worker, and the only thing left to do about
+ * it is reload. Notably there is nothing left to *ask* for: the waiting worker we were
+ * tracking is the active one now, and `SKIP_WAITING` to an active worker does nothing
+ * at all, which is what used to leave the second tab's button spinning until it was
+ * closed.
+ */
+let takenOver = false
+
+/** Reload exactly once, however many paths reach for it. */
+let reloading = false
+
+function reloadOnce(): void {
+  if (reloading) return
+  reloading = true
+  window.location.reload()
+}
 
 function announce(worker: ServiceWorker | null) {
   waiting = worker
@@ -164,20 +226,43 @@ export function subscribeToUpdates(listener: UpdateListener): () => void {
  * driven by `controllerchange` rather than fired straight after the message, because
  * the new worker has to be in control *before* the page asks for the new bundle;
  * reloading too early just re-serves the old one from the old worker.
+ *
+ * Two cases that are not that: when another tab has already activated this version
+ * there is nobody left to ask and the reload is immediate, and when the worker never
+ * answers the watchdog reloads regardless.
  */
 export function applyUpdate(): void {
-  if (!waiting || activating) return
+  if (activating) return
+
+  if (takenOver) {
+    activating = true
+    reloadOnce()
+    return
+  }
+
+  if (!waiting) return
   activating = true
   waiting.postMessage({ type: 'SKIP_WAITING' })
+  window.setTimeout(reloadOnce, ACTIVATION_TIMEOUT_MS)
 }
 
 function watchForUpdates(registration: ServiceWorkerRegistration): void {
-  // Reload exactly once, however many times controllerchange fires.
-  let reloading = false
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!activating || reloading) return
-    reloading = true
-    window.location.reload()
+    if (activating) {
+      reloadOnce()
+      return
+    }
+
+    // Control changed and we did not ask. If we were not tracking an update, this is
+    // not ours to react to -- the self-destroying build of the kill switch claims
+    // clients exactly like this, and it navigates them itself.
+    if (!waiting) return
+
+    // Another tab took the update we were already showing. Hidden, nothing is lost by
+    // catching up now; visible, leave it to the banner, whose button now reloads
+    // directly rather than talking to a worker that has already activated.
+    takenOver = true
+    if (document.visibilityState === 'hidden') applyUpdate()
   })
 
   // Already waiting when we registered: the update landed during a previous visit
@@ -195,6 +280,9 @@ function watchForUpdates(registration: ServiceWorkerRegistration): void {
       // The controller check: an update, or just this device's first install?
       if (navigator.serviceWorker.controller) {
         announce(installing)
+        // Installed while the app was already put away -- the case the hidden timer
+        // below started too early to cover, because there was nothing to apply yet.
+        if (document.visibilityState === 'hidden') scheduleHiddenApply()
       }
     })
   })
@@ -207,12 +295,47 @@ function watchForUpdates(registration: ServiceWorkerRegistration): void {
 
   window.setInterval(checkForUpdate, UPDATE_POLL_MS)
 
-  // The one that matters on a phone. An installed app spends most of its life
-  // backgrounded, and coming back to it is the moment a deploy from yesterday
-  // should be found -- long before the interval above would next fire.
+  // Back on a network after a launch with none: the check that failed at startup is
+  // worth one retry at the moment it can succeed.
+  window.addEventListener('online', checkForUpdate)
+
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') checkForUpdate()
+    if (document.visibilityState === 'visible') {
+      cancelHiddenApply()
+      // The one that matters on a phone. An installed app spends most of its life
+      // backgrounded, and coming back to it is the moment a deploy from yesterday
+      // should be found -- long before the interval above would next fire.
+      checkForUpdate()
+      return
+    }
+
+    // Put away. Ask now as well as on the way back in: finding the update here is
+    // what lets the timer below apply it before the app is next opened, rather than
+    // one visit later.
+    checkForUpdate()
+    scheduleHiddenApply()
   })
+}
+
+/** The pending auto-apply, while the app is in the background. */
+let hiddenTimer: number | undefined
+
+function scheduleHiddenApply(): void {
+  cancelHiddenApply()
+  hiddenTimer = window.setTimeout(() => {
+    hiddenTimer = undefined
+    // Re-checked rather than assumed: the timer is throttled while hidden and can
+    // land after the user has come back, and reloading then is the one thing this
+    // whole file is careful not to do.
+    if (document.visibilityState !== 'hidden') return
+    applyUpdate()
+  }, AUTO_APPLY_AFTER_HIDDEN_MS)
+}
+
+function cancelHiddenApply(): void {
+  if (hiddenTimer === undefined) return
+  window.clearTimeout(hiddenTimer)
+  hiddenTimer = undefined
 }
 
 /** Test seam: forget any waiting worker and every listener. */
@@ -220,4 +343,7 @@ export function resetUpdateStateForTests(): void {
   listeners.clear()
   waiting = null
   activating = false
+  takenOver = false
+  reloading = false
+  cancelHiddenApply()
 }
