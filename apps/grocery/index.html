@@ -31,7 +31,14 @@
        white on launch. The 180px PNG is the one iOS actually wants. -->
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <!-- Tab icons. The mark is a drawing with real detail in it rather than a
+       glyph, so it is scaled once per size by icons/build-icons.py instead of
+       being left to the browser -- a 512px icon squeezed into a 16px tab is the
+       one place the resampling is visibly worse than a purpose-made file. There
+       is no SVG here for the same reason: the mark only exists as raster. -->
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
   <!-- The scheme, decided before the first paint.
 

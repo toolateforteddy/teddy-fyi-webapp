@@ -34,8 +34,11 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'],
         // The manifest's screenshots are read by the browser's install dialog and
         // never by the app, so precaching them would spend ~170 KiB of a phone's
-        // offline budget on images no user will ever see in the app.
-        globIgnores: ['**/screenshot-*.png'],
+        // offline budget on images no user will ever see in the app. The large
+        // launcher icons are the same bargain: the browser reads them once, when
+        // the app is installed, and the OS owns the result from then on -- so the
+        // only icons worth carrying offline are the ones index.html asks for.
+        globIgnores: ['**/screenshot-*.png', '**/icon-512.png', '**/icon-maskable-*.png', '**/icon-monochrome-*.png'],
         // Every SPA route is served from index.html (see nginx.conf's try_files), and
         // offline the worker has to do the same job.
         navigateFallback: '/index.html',
