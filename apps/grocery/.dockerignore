@@ -1,8 +1,13 @@
-# The image is nginx plus the built bundle. Everything used to *produce* that
-# bundle is context the build does not need and should not have to upload.
+# The image is nginx, its configuration and the fetch script. The app itself is no
+# longer built into it at all -- it is a release asset the init container pulls at
+# startup -- so `dist` is listed here to keep a local build out of the context rather
+# than because a COPY might pick it up.
 node_modules
+dist
 src
 public
+icons
+tests
 k8s
 *.json
 *.ts

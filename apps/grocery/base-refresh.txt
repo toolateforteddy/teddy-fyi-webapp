@@ -1,0 +1,14 @@
+2026-09-13
+
+# Touch this file to rebuild the container image against a fresh base.
+#
+# `FROM nginxinc/nginx-unprivileged:alpine` in the Dockerfile is a moving tag, and the
+# deploy workflow tags the image by the hash of the files that compose it -- this one
+# included. That is what makes the image stop being rebuilt on every merge, which is
+# the saving; the cost is that it also stops picking up Alpine and nginx patches as a
+# side effect of shipping the app, which it used to do five times a day by accident.
+#
+# So this is the knob that says "same configuration, newer base". Changing the date
+# above changes the image's hash, so the next deploy builds and pushes a new image and
+# pays exactly one scan for it. `.github/workflows/refresh-base-image.yml` opens a pull
+# request doing that every Monday; doing it by hand is a one-line edit.

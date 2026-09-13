@@ -1,0 +1,111 @@
+name: Refresh Base Image
+
+# Opens a pull request that bumps the date in apps/grocery/base-refresh.txt, which is
+# how the grocery container image is asked to rebuild against a newer base.
+#
+# This exists because of a trade the deploy workflow makes. That workflow tags the
+# image with the hash of the files it is built from and skips the build entirely when
+# that tag is already in the registry -- which is what stops an app-only merge paying
+# for a container vulnerability scan it does not need. The thing it gives up is that
+# the image used to be rebuilt several times a day as a side effect of shipping the
+# app, and `FROM nginxinc/nginx-unprivileged:alpine` is a moving tag, so those rebuilds
+# were also free Alpine and nginx patches. Skip the rebuild and the running nginx
+# quietly freezes at whenever nginx.conf last changed.
+#
+# So the refresh becomes deliberate and scheduled instead of accidental and
+# merge-driven. base-refresh.txt is in the image's hash and in no build step: changing
+# it changes the tag, the deploy builds with `pull: true`, and production gets a
+# current base for exactly one scan. A quiet month now patches nginx where before it
+# patched nothing.
+#
+# A pull request rather than a push straight to main, because that is how everything
+# else lands here and the diff is worth seeing. Note that a pull request opened with
+# GITHUB_TOKEN does not itself trigger other workflows, so this one arrives without
+# check runs; merging it triggers the deploy normally, because the merge is yours.
+
+on:
+  schedule:
+    # Monday morning, and not on the hour: GitHub queues :00 crons from the whole
+    # platform at once and drops them under load.
+    - cron: '17 7 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: 'read'
+
+concurrency:
+  group: refresh-base-image
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Open the refresh pull request
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: 'write'
+      pull-requests: 'write'
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Bump the date and open a pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          file=apps/grocery/base-refresh.txt
+          today="$(date -u +%F)"
+          current="$(head -1 "$file")"
+
+          if [ "$current" = "$today" ]; then
+            echo "$file already reads $today; nothing to do."
+            exit 0
+          fi
+
+          # One fixed branch, force-pushed: an unmerged refresh from last week is
+          # superseded by this one rather than accumulating a pull request a week.
+          branch=automation/base-refresh
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+
+          # Only the first line is the date; everything below it is the explanation of
+          # what this file is for and must survive.
+          printf '%s\n' "$today" > "$file.new"
+          tail -n +2 "$file" >> "$file.new"
+          mv "$file.new" "$file"
+
+          git add "$file"
+          git commit --file=- <<COMMIT
+          Rebuild the grocery image against a fresh base
+
+          apps/grocery/base-refresh.txt is in the image's content hash and in no
+          build step, so moving the date is how a rebuild against a current
+          nginxinc/nginx-unprivileged:alpine is requested. Merging this makes the
+          next deploy build and push one image, and pay one scan, instead of
+          serving whatever base was current when nginx.conf last changed.
+
+          Opened by .github/workflows/refresh-base-image.yml.
+          COMMIT
+          git push --force origin "$branch"
+
+          # An existing open pull request already points at this branch and has just
+          # been updated by the push, so creating a second one would fail.
+          open_prs="$(gh pr list --head "$branch" --state open --json number --jq 'length')"
+          if [ "$open_prs" != "0" ]; then
+            echo "The refresh pull request is already open and now carries $today."
+            exit 0
+          fi
+
+          gh pr create \
+            --head "$branch" \
+            --base main \
+            --title "Rebuild the grocery image against a fresh base ($today)" \
+            --body "$(printf '%s\n' \
+              "Bumps \`apps/grocery/base-refresh.txt\` from \`$current\` to \`$today\`." \
+              "" \
+              "Before: the grocery image in production was built when its own files last changed, so the Alpine and nginx inside it are as old as that build." \
+              "" \
+              "After: the file is part of the image's content hash, so this changes the hash, and the next deploy rebuilds with \`pull: true\` against a current \`nginxinc/nginx-unprivileged:alpine\` and pushes one new image." \
+              "" \
+              "How: opened weekly by \`.github/workflows/refresh-base-image.yml\`. Nothing in the app changes and no bundle is republished -- see DEPLOYMENT.md." )"

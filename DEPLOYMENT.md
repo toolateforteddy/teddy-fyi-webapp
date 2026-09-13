@@ -9,9 +9,10 @@ different ways**, on purpose:
 | Pages | `/`, `/articles`, `/cracked` | the grocery app, at the root |
 | Deployed by | a human, from a laptop | GitHub Actions, on merge |
 | Trigger | `cd ../teddyfyi && . cmd && dn` | push to `main` touching `apps/grocery/**` |
-| Image tag | `:latest` | the commit SHA |
+| Ships as | a new container image | a release asset, into an unchanged image |
+| Image tag | `:latest` | the hash of the image's own files |
 | Rollback | rebuild an older checkout | `kubectl rollout undo`, or revert and merge |
-| Changes | a few times a year | weekly |
+| Changes | a few times a year | several times a day |
 
 That asymmetry is the point. The grocery app replaced an iOS app and needs to
 ship often, so it got a pipeline. The personal site is three pages that change
@@ -24,25 +25,81 @@ resume PDFs in the `teddyfyi` repo — automating it would buy very little.
 
 **Merging to `main` deploys it.** `.github/workflows/deploy-grocery.yml`:
 
-1. Runs the whole of CI as a gate — lint, the 66 tests, both app builds.
-2. In parallel, builds `apps/grocery`, then builds and pushes the nginx image to
-   `gcr.io/melodic-sunbeam-164916/teddy-fyi-grocery:<commit-sha>`.
-3. Once both are green, substitutes the SHA for `IMAGE_TAG_PLACEHOLDER` in
-   `apps/grocery/k8s/grocery.yaml`, applies it, and waits on the rollout.
+1. Runs the whole of CI as a gate — lint, the tests, both app builds.
+2. In parallel, builds `apps/grocery` and publishes `dist/` as `grocery.tar.gz` on
+   a GitHub release tagged `grocery-<run>-<short-sha>`.
+3. Also in parallel, computes the container image's tag from the hash of the files
+   it is built from, and builds and pushes it **only if that tag is not already in
+   the registry**. Most deploys skip this entirely.
+4. Once all three are green, writes the image tag, the release tag and the
+   bundle's sha256 into `apps/grocery/k8s/grocery.yaml`, applies it, and waits on
+   the rollout.
 
-Building the image in parallel with the gate is only safe because the tag is a
-SHA: an image built for a revision whose tests then fail is an unreferenced blob
-nobody can pull. Never add a moving tag like `:latest` to that workflow.
+### The app is not in the image
 
-There is no `kubectl rollout restart`. With the image pinned to the SHA, the spec
-change *is* the new image, so `apply` starts the rollout on its own. The trade:
-re-running the workflow on an unchanged commit is a no-op rather than a restart,
-so a config changed outside git needs a deliberate
-`kubectl rollout restart deployment/grocery-dep`.
+This is the part that is unusual, and it is there for one reason: **a container
+image push is charged a vulnerability scan at a flat rate, however small the
+change.** The image's own inputs — `Dockerfile`, `nginx.conf`, `.dockerignore`,
+`scripts/fetch-bundle.sh`, `base-refresh.txt` — changed twice in this repo's first
+93 commits. The app deployed 22 times in four days. Baking `dist/` into the image
+meant paying a full scan of an unchanged Alpine and nginx every time someone
+adjusted a CSS rule.
 
-**Rollback** is `kubectl rollout undo deployment/grocery-dep` for something
-immediate, or revert the commit and let the workflow deploy — both work, because
-every image is addressable by the commit that produced it.
+So the image is nginx and its configuration, and the app is a release asset that
+an init container fetches at pod startup, verifies against a sha256 in the pod
+spec, and unpacks into an `emptyDir` that the app container mounts read-only over
+`/usr/share/nginx/html`. The idea is lifted from the ScribbleRoute `website` repo,
+which serves five bundles built in other repositories the same way — but this is a
+much smaller version of it, because **this repo is public**. A release asset on a
+public repo is an ordinary redirect to storage, so there is no GCS mirror, no
+bucket, no service-account IAM and no token anywhere in the path. The init
+container is `curl`, `sha256sum` and `tar`.
+
+Every failure in that fetch is fatal, unlike the website's, which is best-effort.
+There a bundle that will not download costs one path out of a whole site; here the
+bundle *is* the site. That is also why the Deployment runs `replicas: 2` with
+`maxUnavailable: 0`: a bad pin or an unreachable GitHub stalls the rollout while
+the existing pods keep serving, instead of taking the app down.
+
+### Why the image tag is a content hash
+
+`gcr.io/melodic-sunbeam-164916/teddy-fyi-grocery:img-<16 hex>`, where the hex is
+`sha256sum` over the five files listed above. Not the commit SHA, because the image
+no longer changes per commit; not a hand-maintained version, because that fails
+silently in the dangerous direction — an `nginx.conf` change that forgets to bump
+it would deploy the old configuration and look completely fine. With the tag
+derived from the content, a change to any of those files cannot fail to produce a
+new image, and a change to none of them cannot produce a redundant one. Tags stay
+immutable, which is why the manifest can use `imagePullPolicy: IfNotPresent`.
+
+### Keeping the base image fresh
+
+The trade for all of the above: `FROM nginxinc/nginx-unprivileged:alpine` is a
+moving tag, and rebuilding the image on every merge used to pick up Alpine and
+nginx patches several times a day as a side effect. Skipping the rebuild means the
+running nginx freezes at whenever the image's files last changed.
+
+`apps/grocery/base-refresh.txt` is the fix. It is in the image's content hash and
+in no build step, so changing the date on its first line changes the tag and the
+next deploy rebuilds with `pull: true` against a current base — one image, one
+scan. `.github/workflows/refresh-base-image.yml` opens that pull request every
+Monday; doing it by hand is a one-line edit. A quiet month now patches nginx,
+where the old flow patched nothing at all.
+
+### Rollback
+
+`kubectl rollout undo deployment/grocery-dep`, or revert the commit and let the
+workflow deploy. Both still work, and that is not automatic given the app left the
+image — it holds because **the bundle pin lives in the pod template**, as
+environment variables on the init container rather than in a ConfigMap. A new
+release is therefore a spec change, so `apply` starts its own rollout, the
+Deployment's history has one revision per release, and undoing puts back a pod
+whose init container refetches the previous bundle.
+
+For the same reason there is no `kubectl rollout restart` in the workflow: the
+spec change *is* the release. Unlike before, re-running the workflow on an
+unchanged commit is **not** a no-op — the release tag carries the run number, so a
+re-run publishes a new bundle and produces a real rollout.
 
 ### What the workflow needs configured
 
@@ -116,6 +173,10 @@ gcloud storage buckets add-iam-policy-binding \
   gs://artifacts.melodic-sunbeam-164916.appspot.com \
   --member="serviceAccount:${DEPLOY_SA}" --role=roles/storage.objectAdmin
 ```
+
+Either role also covers the *read* the workflow now does — `gcloud container
+images describe`, to find out whether this commit's image has already been built —
+so nothing new is needed for that.
 
 **No key, ever.** `gcloud iam service-accounts keys create` is not part of this
 and never should be: a key file is the long-lived credential WIF exists to avoid,
@@ -263,6 +324,16 @@ new build. `apps/grocery/nginx.conf` is what makes that work:
 
 Practically: a launch revalidates `index.html` (a 304 when nothing shipped) and
 picks up a new bundle on the next launch or reload, never on its own mid-session.
+
+**The one window where that can misfire** is the rollout itself. Two pods behind
+one load balancer can briefly be serving two different bundles, so a client that
+fetches the new `index.html` from a new pod and then a content-hashed asset from an
+old one gets a 404 and a blank load; a reload a moment later is fine. This is not
+new — the old single-replica Deployment surged to two pods mid-roll for the same
+reason — but `replicas: 2` with `minReadySeconds: 10` makes the window longer,
+roughly half a minute rather than a few seconds. It is the accepted price of the
+guarantee the replica count is there for: with the bundle fetch fail-hard, two
+replicas are what turn a bad pin into a stalled deploy instead of an outage.
 
 What a client can now do is *offer* the update mid-session.
 `apps/grocery/src/pwa.ts` watches for a worker that has installed and is waiting,

@@ -8,10 +8,22 @@
 # certificate below has to be named in that Ingress's
 # `networking.gke.io/managed-certificates` annotation or it is never issued.
 #
-# The image tag is written by .github/workflows/deploy.yml, which substitutes the
-# commit SHA for IMAGE_TAG_PLACEHOLDER before applying. Do not put a moving tag
-# here: `:latest` is what cost teddy.fyi its rollback story and any record of
-# which commit is live.
+# Three placeholders are written by .github/workflows/deploy-grocery.yml before this
+# is applied: IMAGE_TAG_PLACEHOLDER, BUNDLE_TAG_PLACEHOLDER and
+# BUNDLE_SHA256_PLACEHOLDER. Do not put a moving tag in any of them: `:latest` is what
+# cost teddy.fyi its rollback story and any record of what is live.
+#
+# The app is no longer in the image. The image is nginx plus nginx.conf, tagged with
+# the hash of the files that compose it, so it is pushed only when one of them moves --
+# an image push costs a flat vulnerability scan, and this app deploys several times a
+# day against a container whose inputs change about twice a quarter. The app itself is
+# a release asset that the init container below fetches and verifies at startup.
+#
+# The bundle tag lives in the pod template, as an environment variable rather than an
+# annotation, and that is what keeps the rollback story intact: a new release changes
+# the pod spec, so `kubectl apply` starts its own rollout, the Deployment's history has
+# one revision per release, and `kubectl rollout undo` puts back a pod whose init
+# container refetches the previous bundle.
 apiVersion: v1
 kind: Service
 metadata:
@@ -37,7 +49,25 @@ kind: Deployment
 metadata:
   name: grocery-dep
 spec:
-  replicas: 1
+  # Two, where every other front end on this cluster runs one, and the init container
+  # is the reason. The bundle fetch is deliberately fail-hard -- an empty docroot is
+  # not one broken path here, it is the whole app -- so a bad pin or an unreachable
+  # GitHub is a pod that never becomes ready. At one replica that is an outage. At two,
+  # with maxUnavailable: 0 below, the existing pods keep serving and the deploy simply
+  # stalls, which is what a failed deploy should look like. It also covers the case the
+  # fetch really exists for: a node drain at 3am, when nothing is watching.
+  replicas: 2
+  # Spelled out rather than left to the percentage defaults, which at two replicas
+  # round to one unavailable -- i.e. they would drop half the serving capacity mid-roll
+  # and hand the guarantee above straight back.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  # A pod counts as available only once it has been Ready this long: the readiness
+  # probe says nginx answered once, this says it kept answering.
+  minReadySeconds: 10
   selector:
     matchLabels:
       app: grocery
@@ -64,9 +94,66 @@ spec:
       # this is the only writable path in the container.
       - name: tmp
         emptyDir: {}
+      # The unpacked app -- about a megabyte across twenty-odd files. On the node's
+      # disk rather than in memory (`medium: Memory` would count against the
+      # container's 128Mi limit). Its lifetime is the pod's, which is what makes the
+      # fetch below run on every pod rather than once: a rescheduled pod rebuilds its
+      # docroot from the release rather than inheriting anything.
+      - name: bundle
+        emptyDir: {}
+      # Fetches the built app and verifies it against the hash the deploy pinned. This
+      # is the same image as the container below -- there is no second image to keep
+      # patched -- and it needs no credential of any kind, because this repo is public
+      # and a release asset on a public repo is an ordinary redirect to storage.
+      #
+      # Every failure in here is fatal; see the comment on `replicas` above for why
+      # that is safe and what it buys.
+      initContainers:
+      - name: fetch-bundle
+        image: gcr.io/melodic-sunbeam-164916/teddy-fyi-grocery:IMAGE_TAG_PLACEHOLDER
+        imagePullPolicy: IfNotPresent
+        command: ["/usr/local/bin/fetch-bundle.sh"]
+        env:
+        # The release the deploy workflow published for this revision. This being in
+        # the pod spec rather than in a ConfigMap is deliberate -- it is what makes a
+        # new bundle a spec change, and therefore a real rollout with real history.
+        - name: BUNDLE_URL
+          value: https://github.com/toolateforteddy/teddy-fyi-webapp/releases/download/BUNDLE_TAG_PLACEHOLDER/grocery.tar.gz
+        # Checked here even though the workflow that built the archive is the same one
+        # that wrote this line: a release asset can be replaced in place without its
+        # tag moving, and this unpacks into the document root of an origin that holds
+        # a Google sign-in.
+        - name: BUNDLE_SHA256
+          value: BUNDLE_SHA256_PLACEHOLDER
+        - name: BUNDLE_ROOT
+          value: /bundle
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: bundle
+          mountPath: /bundle
+        # mktemp writes the archive here before it is verified, so this has to be the
+        # writable volume rather than the read-only root filesystem.
+        - name: tmp
+          mountPath: /tmp
+        resources:
+          requests:
+            cpu: 50m
+            memory: 32Mi
+          limits:
+            # About the gunzip, not the download: the archive streams to disk.
+            cpu: 500m
+            memory: 128Mi
       containers:
       - name: grocery
         image: gcr.io/melodic-sunbeam-164916/teddy-fyi-grocery:IMAGE_TAG_PLACEHOLDER
+        # The tag is the hash of the files the image is built from, so it can never
+        # change meaning and there is nothing for `Always` to re-check.
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8080
         securityContext:
@@ -78,6 +165,12 @@ spec:
         volumeMounts:
         - name: tmp
           mountPath: /tmp
+        # The docroot, out of the volume the init container filled. Read-only: nothing
+        # nginx does should write to the app, and the init container finished before
+        # this one started.
+        - name: bundle
+          mountPath: /usr/share/nginx/html
+          readOnly: true
         resources:
           requests:
             cpu: 50m
