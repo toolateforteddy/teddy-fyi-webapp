@@ -456,13 +456,15 @@ paper over:
 
 `apps/grocery/public/.well-known/assetlinks.json` is served at
 `https://grocery.teddy.fyi/.well-known/assetlinks.json`. It exists so a phone with
-the Android app installed opens an invite link (`/join/<code>`) in the app rather
-than the browser. Nothing about it is optional to get right and nothing about it
-breaks loudly when it is wrong.
+the Android app installed opens an invite link in the app rather than the browser.
+Two routes are claimed and the file covers both, since it is per-host rather than
+per-path: `/join/<code>`, a shared grocery list, and `/invite/<code>`, an account
+invite. Nothing about it is optional to get right and nothing about it breaks
+loudly when it is wrong.
 
 - **Failure is silent and harmless.** Android fetches the file at install time.
-  A match makes the app the default handler for `/join/*` with no disambiguation
-  dialog; a mismatch — wrong fingerprint, unreachable file, wrong content type —
+  A match makes the app the default handler for `/join/*` and `/invite/*` with no
+  disambiguation dialog; a mismatch — wrong fingerprint, unreachable file, wrong content type —
   just leaves the link opening in the browser, where the web app redeems it
   anyway. So a broken file looks exactly like no file, and the only way to know
   is `adb shell pm get-app-links fyi.teddy.android.grocery`.
