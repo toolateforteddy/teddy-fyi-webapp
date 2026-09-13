@@ -4,6 +4,16 @@ name: Deploy Grocery
 # the grocery app ships weekly and should not need a laptop with Docker, a gcloud
 # login and a kubectl context to do it.
 #
+# **The app is not in the container image any more.** It is published here as a
+# release asset and fetched at pod startup by an init container; the image is nginx
+# and nginx.conf, tagged with the hash of the files that compose it. The reason is
+# the vulnerability scan: it is charged per image pushed, at a flat rate, however
+# trivial the change. The image's inputs moved twice in this repo's first 93 commits
+# while the app deployed 22 times in four days, so almost every one of those scans
+# re-examined a base image that had not moved. Now an app-only merge pushes no image
+# and pays no scan, and the image is rebuilt when its own files change -- or when
+# apps/grocery/base-refresh.txt does, which is how a fresh base is asked for.
+#
 # The personal site is deliberately NOT deployed from here. It still ships the old
 # way -- `. cmd && dn` in the teddyfyi repo, which rsyncs apps/personal/dist into
 # that repo's docroot -- because it changes a few times a year and its docroot is
@@ -12,9 +22,9 @@ name: Deploy Grocery
 on:
   push:
     branches: [main]
-    # A change that cannot alter the bundle should not rebuild it or roll
+    # A change that cannot alter what is deployed should not rebuild it or roll
     # production. The personal app and the repo's documentation are both common
-    # edits here and neither is in this image.
+    # edits here and neither reaches this app.
     paths:
       - 'apps/grocery/**'
       - 'packages/shared/**'
@@ -36,8 +46,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # The gate: the whole of CI -- lint, the 66 tests, both app builds -- rather
-  # than a weaker copy of it inline here.
+  # The gate: the whole of CI -- lint, the tests, both app builds -- rather than a
+  # weaker copy of it inline here.
   ci:
     name: CI
     uses: ./.github/workflows/ci.yml
@@ -89,20 +99,27 @@ jobs:
           fi
           exit $missing
 
-  # Built in parallel with the gate, because the image is tagged with the commit
-  # SHA only. An image built for a revision whose tests then fail is an
-  # unreferenced blob in the registry that the deploy job below never reaches,
-  # which is what makes starting it early safe. It would not be safe if this
-  # pushed a moving tag like :latest, which someone could still pull.
-  image:
-    name: Build and Push Image
+  # What used to be most of the image job. It builds the app and publishes it as a
+  # release asset instead of baking it into a container.
+  #
+  # Built in parallel with the gate, on the same reasoning as the image build it
+  # replaces: the release is named after the commit, so a bundle published for a
+  # revision whose tests then fail is an unreferenced tarball that the deploy job
+  # below never reaches. It would not be safe if this moved a pointer anything reads
+  # by itself -- which is why `--latest=false` is on the release, and why the pin
+  # that actually selects it is written into the pod spec by the deploy job.
+  bundle:
+    name: Build and Publish Bundle
     # Nothing expensive should run before we know the deploy can authenticate.
     needs: [preflight]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
-      contents: 'read'
-      id-token: 'write'
+      # To create the release. Note this job never touches Google Cloud at all.
+      contents: 'write'
+    outputs:
+      tag: ${{ steps.publish.outputs.tag }}
+      sha256: ${{ steps.publish.outputs.sha256 }}
     steps:
       - uses: actions/checkout@v7
 
@@ -117,12 +134,6 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # The Dockerfile copies apps/grocery/dist rather than building inside the
-      # image: the build needs the workspace root (the lockfile, packages/shared),
-      # and a Docker context that wide would ship the whole monorepo into the
-      # build. Building here and copying the output keeps the image context to
-      # one directory.
-      #
       # Vite inlines VITE_* at build time, so this has to be present HERE, in the
       # job that builds -- not at deploy, and not in the cluster. A public OAuth
       # client id is not a secret (it is served in the page to every visitor), so
@@ -162,11 +173,85 @@ jobs:
           VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
         run: |
           if ! grep -rqF "$VITE_GOOGLE_CLIENT_ID" apps/grocery/dist/assets/; then
-            echo "::error::VITE_GOOGLE_CLIENT_ID is not present in the built bundle, so the app fell back to env.ts's dummy client id and Google sign-in would be broken. Refusing to push this image."
+            echo "::error::VITE_GOOGLE_CLIENT_ID is not present in the built bundle, so the app fell back to env.ts's dummy client id and Google sign-in would be broken. Refusing to publish this bundle."
             exit 1
           fi
           echo "Google client id compiled into the bundle."
 
+      # Packed from inside dist/ so the archive has no top-level directory: the init
+      # container unpacks it straight into the volume that becomes the docroot, and a
+      # wrapping directory would put the whole app one level too deep.
+      #
+      # The hash is computed here, from the file that is about to be uploaded, and
+      # travels to the pod in the pod spec. It is checked again there rather than
+      # trusted, because a release asset can be replaced in place without its tag
+      # moving and this unpacks into the origin that holds a Google sign-in.
+      - name: Publish the bundle as a release
+        id: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="grocery-${{ github.run_number }}-$(git rev-parse --short "$GITHUB_SHA")"
+          tar -czf grocery.tar.gz -C apps/grocery/dist .
+          sha256="$(sha256sum grocery.tar.gz | cut -d' ' -f1)"
+
+          # --latest=false: this repo publishes a release per deploy, several a day.
+          # Letting them churn the repository's "Latest release" badge would make it a
+          # meaningless timestamp, and nothing resolves a bundle by "latest" -- the
+          # deploy job writes this exact tag into the pod spec.
+          gh release create "$tag" grocery.tar.gz \
+            --title "grocery $tag" \
+            --latest=false \
+            --notes "The grocery app built from ${GITHUB_SHA}.
+
+          Fetched at pod startup by the init container in \`apps/grocery/k8s/grocery.yaml\`; see DEPLOYMENT.md.
+
+          \`grocery.tar.gz\` sha256: \`${sha256}\`"
+
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "sha256=$sha256" >> "$GITHUB_OUTPUT"
+          echo "Published $tag ($sha256)"
+
+  # The image, which is nginx and its configuration and nothing else. Tagged by the
+  # hash of the files it is built from rather than by the commit, which is what makes
+  # "has this image already been built?" a question with an answer: an app-only merge
+  # computes the tag that is already in the registry and pushes nothing.
+  #
+  # Content-addressing rather than a hand-maintained version, because the failure mode
+  # of a hand-maintained one is silent in the dangerous direction -- an nginx.conf
+  # change that forgets to bump it deploys the old configuration and looks fine.
+  image:
+    name: Build Image If Needed
+    needs: [preflight]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # Every file that ends up in the image, plus base-refresh.txt, which ends up in
+      # no build step at all and exists only to be the knob that forces a rebuild
+      # against a newer `nginxinc/nginx-unprivileged:alpine`. Listed explicitly rather
+      # than globbed: a glob would silently start including a file somebody added
+      # next to these, and change the tag of an image whose content did not move.
+      - name: Compute the image tag from its inputs
+        id: tag
+        run: |
+          set -euo pipefail
+          hash="$(sha256sum \
+            apps/grocery/Dockerfile \
+            apps/grocery/.dockerignore \
+            apps/grocery/nginx.conf \
+            apps/grocery/base-refresh.txt \
+            apps/grocery/scripts/fetch-bundle.sh \
+            | sha256sum | cut -c1-16)"
+          echo "tag=img-$hash" >> "$GITHUB_OUTPUT"
+          echo "Image tag for these inputs: img-$hash"
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
@@ -174,27 +259,49 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_DEPLOY_SA }}
 
+      # The whole point. A tag that is already there describes an image built from
+      # exactly these files, so there is nothing to build and -- the part that costs
+      # real money -- nothing to scan.
+      - name: Is that image already in the registry?
+        id: exists
+        env:
+          IMAGE: gcr.io/melodic-sunbeam-164916/teddy-fyi-grocery:${{ steps.tag.outputs.tag }}
+        run: |
+          if gcloud container images describe "$IMAGE" >/dev/null 2>&1; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+            echo "$IMAGE is already built; skipping the build, the push and its scan."
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "$IMAGE is not in the registry; building it."
+          fi
+
       - uses: docker/setup-buildx-action@v4
+        if: steps.exists.outputs.present == 'false'
 
       - name: Configure Docker
+        if: steps.exists.outputs.present == 'false'
         run: gcloud auth configure-docker gcr.io --quiet
 
+      # `pull: true` so a rebuild genuinely re-resolves the moving `:alpine` base
+      # rather than reusing a cached one. This job runs rarely now, and when it does
+      # the reason is usually that somebody asked for a fresh base -- getting a stale
+      # one from the layer cache would defeat the entire exercise.
       - name: Build and Push Docker Image
+        if: steps.exists.outputs.present == 'false'
         uses: docker/build-push-action@v7
         with:
           context: ./apps/grocery
           push: true
-          tags: gcr.io/melodic-sunbeam-164916/teddy-fyi-grocery:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          pull: true
+          tags: gcr.io/melodic-sunbeam-164916/teddy-fyi-grocery:${{ steps.tag.outputs.tag }}
 
   deploy:
     name: Deploy to GKE
     runs-on: ubuntu-latest
-    # Both, and in this order of importance: nothing reaches the cluster until the
-    # gate is green, and there is no point applying a manifest naming an image
-    # that has not been pushed.
-    needs: [ci, image]
+    # All three, and in this order of importance: nothing reaches the cluster until
+    # the gate is green, and there is no point applying a manifest that names an image
+    # or a bundle that does not exist yet.
+    needs: [ci, bundle, image]
     timeout-minutes: 15
     permissions:
       contents: 'read'
@@ -215,30 +322,49 @@ jobs:
           location: us-central1-a
           project_id: melodic-sunbeam-164916
 
-      # The manifest names :IMAGE_TAG_PLACEHOLDER rather than a tag that moves, so
-      # the revision being deployed is written into it here, in the workspace,
-      # before anything is applied.
+      # The manifest names placeholders rather than tags that move, so what is being
+      # deployed is written into it here, in the workspace, before anything is
+      # applied.
       #
-      # The check afterwards is the part that matters: a manifest reaching the
-      # cluster with the placeholder still in it fails to pull, and it should fail
-      # here instead -- loudly, before apply, with the file named. Both the
-      # substitution and the check are restricted to `image:` lines, because the
-      # manifest also *mentions* the placeholder in the comment explaining it.
+      # The check afterwards is the part that matters: a manifest reaching the cluster
+      # with a placeholder still in it fails to pull, or fetches a bundle from a URL
+      # with the literal word PLACEHOLDER in it, and it should fail here instead --
+      # loudly, before apply. Both the substitution and the check are restricted to
+      # `image:` and `value:` lines, because the manifest also *mentions* the
+      # placeholders in the comments explaining them.
       - name: Pin the manifest to this revision
+        env:
+          IMAGE_TAG: ${{ needs.image.outputs.tag }}
+          BUNDLE_TAG: ${{ needs.bundle.outputs.tag }}
+          BUNDLE_SHA256: ${{ needs.bundle.outputs.sha256 }}
         run: |
-          sed -i "/^[[:space:]]*image:/s|IMAGE_TAG_PLACEHOLDER|${{ github.sha }}|g" apps/grocery/k8s/*.yaml
-          if grep -rnE '^[[:space:]]*image:.*IMAGE_TAG_PLACEHOLDER' apps/grocery/k8s/; then
-            echo "::error::an image: line still carries IMAGE_TAG_PLACEHOLDER after substitution"
+          set -euo pipefail
+          for v in IMAGE_TAG BUNDLE_TAG BUNDLE_SHA256; do
+            eval "value=\${$v:-}"
+            if [ -z "$value" ]; then
+              echo "::error::$v came through empty; the job that produces it did not report an output."
+              exit 1
+            fi
+          done
+          sed -i "/^[[:space:]]*image:/s|IMAGE_TAG_PLACEHOLDER|$IMAGE_TAG|g" apps/grocery/k8s/*.yaml
+          sed -i "/^[[:space:]]*value:/s|BUNDLE_TAG_PLACEHOLDER|$BUNDLE_TAG|g" apps/grocery/k8s/*.yaml
+          sed -i "/^[[:space:]]*value:/s|BUNDLE_SHA256_PLACEHOLDER|$BUNDLE_SHA256|g" apps/grocery/k8s/*.yaml
+          if grep -rnE '^[[:space:]]*(image|value):.*_PLACEHOLDER' apps/grocery/k8s/; then
+            echo "::error::a line still carries a placeholder after substitution"
             exit 1
           fi
-          grep -rnE '^[[:space:]]*image:' apps/grocery/k8s/
+          grep -rnE '^[[:space:]]*(image|value):' apps/grocery/k8s/
 
-      # Note what is not here: `kubectl rollout restart`. With the image pinned to
-      # the SHA, the spec change *is* the new image, so apply starts the rollout by
-      # itself and a restart would only add a second, redundant one. The trade is
-      # that re-running this on an unchanged commit is a no-op rather than a
-      # rolling restart -- which is right, but means a config changed outside git
-      # needs a deliberate `kubectl rollout restart deployment/grocery-dep`.
+      # Note what is not here: `kubectl rollout restart`. The image tag and the bundle
+      # pin are both in the pod template, so a release of either *is* a spec change and
+      # apply starts the rollout by itself; a restart would only add a second,
+      # redundant one. The trade is that re-running this on an unchanged commit is a
+      # no-op -- which is right, but means a config changed outside git needs a
+      # deliberate `kubectl rollout restart deployment/grocery-dep`.
+      #
+      # Not quite true of the bundle, and worth knowing: the pin is the release tag,
+      # which carries the run number, so even a rebuild of the identical commit
+      # produces a new tag and therefore a real rollout.
       #
       # This does not apply the Ingress: that is teddyfyi's, and a resource applied
       # from two repos flaps between whatever each one last said.
@@ -247,7 +373,20 @@ jobs:
 
       - name: Wait for the rollout
         # Without this the job is green the moment the change is *accepted*, so a
-        # crash-looping image reports a successful deploy. `rollout status` blocks
-        # until the new ReplicaSet is actually available and exits non-zero if it
-        # never gets there.
+        # crash-looping image -- or an init container that cannot fetch its bundle --
+        # reports a successful deploy. `rollout status` blocks until the new ReplicaSet
+        # is actually available and exits non-zero if it never gets there.
         run: kubectl rollout status deployment/grocery-dep --timeout=5m
+
+      # The init container is where a bad pin surfaces, and `rollout status` failing is
+      # a timeout message that does not say why. This turns it into the actual reason.
+      - name: Explain a stalled rollout
+        if: failure()
+        run: |
+          echo "The rollout did not complete. The init container's log usually says why:"
+          kubectl get pods -l app=grocery \
+            --sort-by=.metadata.creationTimestamp -o name | while read -r pod; do
+            echo "--- $pod ---"
+            kubectl logs "$pod" -c fetch-bundle --tail=-1 2>&1 || true
+          done
+          kubectl describe deployment/grocery-dep | tail -20
