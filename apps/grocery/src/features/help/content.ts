@@ -336,11 +336,15 @@ export const HELP_SECTIONS: HelpSection[] = [
         gesture: 'tap',
         verb: 'Tap Reload on the update banner',
         what: '"A new version is ready" appears just above the + button',
-        then: 'Dismissing it only hides it. The new version still takes over at the next cold launch, so "not now" costs nothing.',
+        then: 'Dismissing it only hides it. Nothing is lost by ignoring it.',
       },
       {
         kind: 'text',
-        body: 'The app checks for a new version once an hour, and every time you bring it back to the foreground.',
+        body: 'Ignoring it is fine: a new version installs itself once you put the app away for a while, so the next time you open it you are simply on the new one. There is nothing you have to close.',
+      },
+      {
+        kind: 'text',
+        body: 'The app checks for a new version once an hour, every time you bring it back to the foreground, and again as you leave it.',
       },
       {
         kind: 'note',

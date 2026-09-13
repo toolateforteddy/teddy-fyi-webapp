@@ -305,10 +305,10 @@ The data was already surviving offline in `localStorage` (see
 `apps/grocery/src/config/storageKeys.ts`); what was missing was anything to serve
 the app that reads it.
 
-Updates still work exactly as they did, on purpose. The worker installs, **waits**,
-and takes over on the next cold launch — no `skipWaiting` — so a running session is
-never swapped underneath itself, and HTTP caching remains what actually delivers a
-new build. `apps/grocery/nginx.conf` is what makes that work:
+A new worker installs and then **waits** rather than calling `skipWaiting` on its
+own while somebody is looking, so a session on screen is never swapped underneath
+itself, and HTTP caching remains what actually delivers a new build.
+`apps/grocery/nginx.conf` is what makes that work:
 
 - `/assets/*` — content-hashed by Vite, `immutable`, cached forever.
 - `/index.html` — `no-cache`, i.e. revalidate every time. Load-bearing: it is the
@@ -335,16 +335,30 @@ roughly half a minute rather than a few seconds. It is the accepted price of the
 guarantee the replica count is there for: with the bundle fetch fail-hard, two
 replicas are what turn a bad pin into a stalled deploy instead of an outage.
 
-What a client can now do is *offer* the update mid-session.
-`apps/grocery/src/pwa.ts` watches for a worker that has installed and is waiting,
-and `UpdateBanner` puts "A new version is ready" above the bottom nav with a Reload
-button. Pressing it posts `SKIP_WAITING` to the waiting worker and reloads once that
-worker is in control — not before, because reloading first just re-serves the old
-bundle from the old worker. Dismissing the banner only hides it: the worker stays
-waiting and still takes over at the next cold launch, so ignoring the prompt costs
-nothing.
+A waiting worker is taken in one of three ways, and only the first needs a person.
 
-Two details worth not re-deriving:
+1. **The banner.** `apps/grocery/src/pwa.ts` watches for a worker that has installed
+   and is waiting, and `UpdateBanner` puts "A new version is ready" above the bottom
+   nav with a Reload button. Pressing it posts `SKIP_WAITING` to the waiting worker
+   and reloads once that worker is in control — not before, because reloading first
+   just re-serves the old bundle from the old worker. It also reloads after five
+   seconds regardless, so the button cannot sit on "Reloading..." forever.
+2. **Being put away.** A tab hidden for a continuous twenty seconds
+   (`AUTO_APPLY_AFTER_HIDDEN_MS`) applies the update and reloads *while hidden*, so
+   the next time the app is opened it is already the new version with nothing to
+   press. This is the one that stops a deploy needing every window closed by hand,
+   and it is why `registration.update()` is now called on the way out as well as on
+   the way in: finding the update as the app is backgrounded is what lets the same
+   background take it. Dismissing the banner therefore costs nothing at all.
+3. **The next cold launch**, as before, if neither of the above happened first.
+
+The twenty seconds is the whole of the trade-off. A reload loses only on-screen
+state — the lists are in `localStorage` and the route is in the URL — so what is
+being protected is an open add-item sheet with something half-typed in it. Long
+enough for a glance at a notification or a recipe; short enough to land before a
+browser freezes a backgrounded tab.
+
+Three details worth not re-deriving:
 
 - **A first install is not an update.** The very first worker on a device also
   passes through `installed`, so the check is whether
@@ -352,12 +366,18 @@ Two details worth not re-deriving:
   running a worker yet, and there is nothing to announce.
 - **How a deploy gets noticed at all.** An installed app is launched rather than
   loaded and can sit backgrounded for days without the browser re-fetching `sw.js`.
-  So `pwa.ts` calls `registration.update()` hourly and on every
-  `visibilitychange` back to visible — the latter is what actually catches most
-  deploys, since this app is opened rather than left open.
+  So `pwa.ts` calls `registration.update()` hourly, on every `visibilitychange` in
+  either direction, and when a device that launched with no network gets one.
+- **More than one window.** `skipWaiting` activates the new worker for *every*
+  client in scope, so the tab that pressed Reload is not the only one affected: the
+  others get a `controllerchange` and are then old code being served by a new
+  worker. A hidden one reloads itself on the spot. A visible one keeps its banner,
+  whose button now reloads directly — posting `SKIP_WAITING` to a worker that has
+  already activated does nothing at all, which is what used to leave a second tab's
+  button spinning until it was closed.
 
-There is still no way to *force* a client forward; the fleet kill switch below is
-the only thing that reaches a device whose user never presses Reload.
+There is still no way to *force* a client forward from the server; the fleet kill
+switch below is the only thing that reaches a device on demand.
 
 ### Turning the service worker off
 

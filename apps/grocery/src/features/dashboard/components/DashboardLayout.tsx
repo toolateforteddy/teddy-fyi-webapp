@@ -139,8 +139,12 @@ function DashboardContent() {
   // `!activeList` alone is what used to make it permanent: every way the first sync
   // could end without a list ended here, with nothing scheduled to clear it.
   if (!activeList) {
-    // A list joined moments ago, on its way down. Saying so beats the alternative this
-    // replaced, which was to quietly show the list the user was already on.
+    // The update notice rides along on all three of these. A device that cannot get
+    // past this screen is the device most likely to be stuck on a bundle a deploy has
+    // already fixed, and it was the one place in the app that could not be told so --
+    // the banner lived only past this return. There is no nav here to clear, so it
+    // floats a nav's height higher than it does on the list; on a screen holding one
+    // centred spinner that costs nothing.
     if (isAwaitingJoinedList) {
       return (
         <div className="h-dvh bg-canvas text-text-primary flex justify-center items-center font-sans antialiased">
@@ -150,11 +154,17 @@ function DashboardContent() {
               Opening the shared list...
             </span>
           </div>
+          <UpdateBanner />
         </div>
       )
     }
     if (bootstrapState !== 'loading') {
-      return <BootstrapFailure onRetry={retryBootstrap} />
+      return (
+        <>
+          <BootstrapFailure onRetry={retryBootstrap} />
+          <UpdateBanner />
+        </>
+      )
     }
     return (
       <div className="h-dvh bg-canvas text-text-primary flex justify-center items-center font-sans antialiased">
@@ -164,6 +174,7 @@ function DashboardContent() {
             Initializing your lists...
           </span>
         </div>
+        <UpdateBanner />
       </div>
     )
   }

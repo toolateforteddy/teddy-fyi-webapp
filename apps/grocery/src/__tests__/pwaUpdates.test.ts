@@ -94,11 +94,22 @@ function installMocks({ controlled }: { controlled: boolean }) {
 
 const fireControllerChange = () => (swListeners['controllerchange'] || []).forEach(cb => cb())
 
+/**
+ * Put the document in or out of view. `visibilityState` is a getter on the real
+ * document, so it has to be redefined rather than assigned -- and it has to be put
+ * back in `beforeEach`, or one backgrounded case leaves every case after it hidden.
+ */
+function setVisibility(state: 'visible' | 'hidden') {
+  Object.defineProperty(document, 'visibilityState', { value: state, configurable: true })
+  document.dispatchEvent(new Event('visibilitychange'))
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   vi.useFakeTimers()
   resetUpdateStateForTests()
   installMocks({ controlled: true })
+  Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true })
   window.history.replaceState(null, '', '/')
 })
 
@@ -212,12 +223,24 @@ describe('applying an update', () => {
     expect(reload).toHaveBeenCalledTimes(1)
   })
 
-  // A worker can take control for reasons we did not ask for -- notably the
-  // self-destroying build of the kill switch. Reloading then would be a surprise.
-  it('does not reload on a control change nobody asked for', async () => {
+  // Another tab pressed Reload. This one is on screen, so it is told rather than
+  // yanked -- the banner is already up and its button is what reloads it.
+  it('does not reload a visible page when another tab applies the update', async () => {
     await registerServiceWorker()
     harness.fireUpdateFound()
 
+    fireControllerChange()
+
+    expect(reload).not.toHaveBeenCalled()
+  })
+
+  // A worker can take control with no update of ours in play -- notably the
+  // self-destroying build of the kill switch, which claims clients and navigates them
+  // itself. Not ours to react to.
+  it('does not reload on a control change with no update tracked', async () => {
+    await registerServiceWorker()
+
+    setVisibility('hidden')
     fireControllerChange()
 
     expect(reload).not.toHaveBeenCalled()
@@ -240,6 +263,116 @@ describe('applying an update', () => {
     applyUpdate()
 
     expect(pending.postMessage).toHaveBeenCalledTimes(1)
+  })
+
+  // The reload is driven by controllerchange, and a worker that never answers used to
+  // leave the button saying "Reloading..." until the window was closed -- which is the
+  // very thing this is all trying to stop being the fix.
+  it('reloads anyway when the worker never takes control', async () => {
+    await registerServiceWorker()
+    harness.fireUpdateFound()
+
+    applyUpdate()
+    expect(reload).not.toHaveBeenCalled()
+
+    vi.advanceTimersByTime(5 * 1000)
+    expect(reload).toHaveBeenCalledTimes(1)
+  })
+
+  // The second-tab case. Another window activated this version, so the worker we were
+  // tracking is the active one now and SKIP_WAITING to it does nothing at all. All
+  // that is left is to reload onto the bundle already being served.
+  it('reloads straight away once another tab has activated the update', async () => {
+    await registerServiceWorker()
+    const pending = harness.fireUpdateFound()
+
+    fireControllerChange()
+    expect(reload).not.toHaveBeenCalled()
+
+    applyUpdate()
+
+    expect(reload).toHaveBeenCalledTimes(1)
+    expect(pending.postMessage).not.toHaveBeenCalled()
+  })
+})
+
+describe('taking an update while the app is put away', () => {
+  it('applies a waiting update once the app has been hidden long enough', async () => {
+    await registerServiceWorker()
+    const pending = harness.fireUpdateFound()
+
+    setVisibility('hidden')
+    expect(pending.postMessage).not.toHaveBeenCalled()
+
+    vi.advanceTimersByTime(20 * 1000)
+
+    expect(pending.postMessage).toHaveBeenCalledWith({ type: 'SKIP_WAITING' })
+    fireControllerChange()
+    expect(reload).toHaveBeenCalledTimes(1)
+  })
+
+  // The whole point of the delay. Looking something up and coming straight back is not
+  // putting the app away, and a reload there is exactly the mid-session swap the rest
+  // of this file is careful to avoid.
+  it('leaves a quick glance away alone', async () => {
+    await registerServiceWorker()
+    const pending = harness.fireUpdateFound()
+
+    setVisibility('hidden')
+    vi.advanceTimersByTime(5 * 1000)
+    setVisibility('visible')
+    vi.advanceTimersByTime(60 * 1000)
+
+    expect(pending.postMessage).not.toHaveBeenCalled()
+    expect(reload).not.toHaveBeenCalled()
+  })
+
+  // Timers are throttled while a tab is hidden, so the one scheduled on the way out
+  // can land after the user is back. What it does then is nothing.
+  it('does not apply if the timer lands after the app is back in view', async () => {
+    await registerServiceWorker()
+    const pending = harness.fireUpdateFound()
+
+    setVisibility('hidden')
+    // Back in view without the visibilitychange the real browser would fire: the
+    // cancellation on the way in is not what is under test here.
+    Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true })
+    vi.advanceTimersByTime(20 * 1000)
+
+    expect(pending.postMessage).not.toHaveBeenCalled()
+  })
+
+  it('does nothing while the app is put away with no update waiting', async () => {
+    await registerServiceWorker()
+
+    setVisibility('hidden')
+    vi.advanceTimersByTime(20 * 1000)
+
+    expect(reload).not.toHaveBeenCalled()
+  })
+
+  // The app was already in the background when the update finished installing, so the
+  // timer scheduled on the way out had nothing to apply when it was set.
+  it('applies an update that installs after the app is already hidden', async () => {
+    await registerServiceWorker()
+
+    setVisibility('hidden')
+    vi.advanceTimersByTime(20 * 1000)
+    const pending = harness.fireUpdateFound()
+    vi.advanceTimersByTime(20 * 1000)
+
+    expect(pending.postMessage).toHaveBeenCalledWith({ type: 'SKIP_WAITING' })
+  })
+
+  // Another window took the update while this one was in the background.
+  it('catches a hidden tab up when another tab applies the update', async () => {
+    await registerServiceWorker()
+    harness.fireUpdateFound()
+
+    setVisibility('hidden')
+    fireControllerChange()
+
+    expect(reload).toHaveBeenCalledTimes(1)
   })
 })
 
@@ -265,14 +398,25 @@ describe('checking for updates', () => {
     expect(harness.registration.update).toHaveBeenCalledTimes(1)
   })
 
-  it('does not check when the app is backgrounded', async () => {
+  // Being put away is the other half of the pair, and it is the more useful half:
+  // finding the update on the way out is what lets the hidden timer apply it before
+  // the app is next opened, rather than one visit later.
+  it('checks when the app is put away', async () => {
     await registerServiceWorker()
     harness.registration.update.mockClear()
 
-    Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true })
-    document.dispatchEvent(new Event('visibilitychange'))
+    setVisibility('hidden')
 
-    expect(harness.registration.update).not.toHaveBeenCalled()
+    expect(harness.registration.update).toHaveBeenCalledTimes(1)
+  })
+
+  it('checks again when a device that launched offline gets a network', async () => {
+    await registerServiceWorker()
+    harness.registration.update.mockClear()
+
+    window.dispatchEvent(new Event('online'))
+
+    expect(harness.registration.update).toHaveBeenCalledTimes(1)
   })
 
   it('survives a check that fails because the device is offline', async () => {
