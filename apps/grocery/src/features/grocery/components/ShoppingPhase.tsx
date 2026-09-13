@@ -8,6 +8,7 @@ import { DEFAULT_STORES, DEFAULT_CATEGORIES } from '../config/constants'
 import { storage } from '@/utils/storage'
 import { STORAGE_KEYS } from '@/config/storageKeys'
 import { mappedStoreIds, isOffMappingAtStore, addStoreMapping } from '../utils/storeMapping'
+import { useGroceryStream } from '@/features/sync/hooks/useGroceryStream'
 
 /**
  * Runs a state update inside a View Transition when the browser supports one.
@@ -35,7 +36,16 @@ function startTransitionSafely(update: () => void) {
 }
 
 export function ShoppingPhase() {
-  const { activeListId, items, setItems, stores, categories, itemStoreInfos, setItemStoreInfos } = useGrocery()
+  const {
+    activeListId,
+    items,
+    setItems,
+    stores,
+    categories,
+    itemStoreInfos,
+    setItemStoreInfos,
+    handleManualSync,
+  } = useGrocery()
 
   const [rawSelectedStoreId, setSelectedStoreId] = useState<string | null>(() => {
     return storage.getItem<string | null>(STORAGE_KEYS.SELECTED_STORE_ID, null)
@@ -90,6 +100,15 @@ export function ShoppingPhase() {
       storage.setItem(STORAGE_KEYS.SELECTED_STORE_ID, selectedStoreId)
     }
   }, [selectedStoreId])
+
+  // Real-time updates while actually shopping.
+  //
+  // This app has never polled, so until the stream existed a co-shopper's additions never
+  // arrived here at all -- the list you walked in with was the list you walked out with
+  // unless you happened to edit something yourself. Held open only for this page with a
+  // store picked, which is the one stretch where a stale list is wrong in a way you notice;
+  // the stream costs the server a slot per account.
+  useGroceryStream(selectedStoreId !== null, handleManualSync)
 
 
   // Memoize active categories
