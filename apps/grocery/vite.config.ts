@@ -3,16 +3,47 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
+import { readFile, writeFile } from 'node:fs/promises'
+import { applySocialCard, DEFAULT_CARD, ROUTE_CARDS } from './social-cards'
 
 // The fleet-wide service worker kill switch: build with this set and the generated
 // worker is replaced by one that unregisters itself and clears its caches on every
 // client that picks it up. See src/pwa.ts and DEPLOYMENT.md.
 const disableServiceWorker = process.env.VITE_DISABLE_SW === 'true'
 
+/**
+ * Stamps the link-preview tags into index.html, and stamps out one more copy of the
+ * built document per route in ROUTE_CARDS. social-cards.ts has the reasoning; the
+ * short version is that an unfurler runs no script, so a route only gets its own
+ * preview if it is served its own HTML.
+ *
+ * `writeBundle` rather than `generateBundle`: it runs once index.html has actually
+ * been written, so the variants are a copy of the finished document -- hashed
+ * bundle reference, theme script and all -- rather than something this plugin has
+ * to keep in step with Vite's own HTML output.
+ */
+function socialCards() {
+  return {
+    name: 'grocery-social-cards',
+    transformIndexHtml(html: string) {
+      return applySocialCard(html, DEFAULT_CARD)
+    },
+    async writeBundle(options: { dir?: string }) {
+      const dir = options.dir
+      if (!dir) return
+      const html = await readFile(path.join(dir, 'index.html'), 'utf8')
+      for (const card of ROUTE_CARDS) {
+        await writeFile(path.join(dir, card.file), applySocialCard(html, card))
+      }
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react(),
+    socialCards(),
     tailwindcss(),
     VitePWA({
       // Registration is hand-written in src/pwa.ts rather than injected, because the
@@ -32,13 +63,24 @@ export default defineConfig({
         // The app is a single bundle with no dynamic imports, so precaching the whole
         // build is both cheap and complete -- there is no chunk that can go missing.
         globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'],
-        // The manifest's screenshots are read by the browser's install dialog and
-        // never by the app, so precaching them would spend ~170 KiB of a phone's
-        // offline budget on images no user will ever see in the app. The large
-        // launcher icons are the same bargain: the browser reads them once, when
-        // the app is installed, and the OS owns the result from then on -- so the
-        // only icons worth carrying offline are the ones index.html asks for.
-        globIgnores: ['**/screenshot-*.png', '**/icon-512.png', '**/icon-maskable-*.png', '**/icon-monochrome-*.png'],
+        // The screenshots are read by the browser's install dialog and never by the
+        // app; og-image.png is only ever fetched by somebody else's link scraper.
+        // The large launcher icons are the same bargain: the browser reads them
+        // once, when the app is installed, and the OS owns the result from then on
+        // -- so the only icons worth carrying offline are the ones index.html asks
+        // for. join.html and invite.html are excluded for a different reason: they
+        // exist for crawlers, and navigateFallback below already answers every
+        // offline navigation with index.html, so a precached copy could never be
+        // served to anyone.
+        globIgnores: [
+          '**/screenshot-*.png',
+          '**/og-image.png',
+          '**/icon-512.png',
+          '**/icon-maskable-*.png',
+          '**/icon-monochrome-*.png',
+          '**/join.html',
+          '**/invite.html',
+        ],
         // Every SPA route is served from index.html (see nginx.conf's try_files), and
         // offline the worker has to do the same job.
         navigateFallback: '/index.html',

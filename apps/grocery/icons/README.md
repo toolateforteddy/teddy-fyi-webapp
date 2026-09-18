@@ -1,7 +1,8 @@
 # The launcher icons
 
 Everything in `../public` whose name starts with `icon-`, `favicon-` or
-`apple-touch-` is generated. Change the artwork in `source/`, run
+`apple-touch-` is generated, and so is `og-image.png`. Change the artwork in
+`source/`, run
 
 ```bash
 pip install Pillow
@@ -65,6 +66,24 @@ noticeably small inside every mask.
 
 `any` and `apple-touch-icon` are never cropped, so they get the plain 80%
 bounding-box fit instead, which fills the tile.
+
+## The link-preview card
+
+`og-image.png` is not a launcher icon, but it is the same mark on the same paper,
+so it comes out of the same script rather than a second source. 1200x630 is the
+size both Open Graph and Twitter's `summary_large_image` ask for, and the mark is
+fitted to the *maskable safe circle measured against the short side* — because a
+preview is cropped at least as hard as an icon is. A chat app showing a small
+square thumbnail takes the centre 630x630; one that wants a tighter ratio takes a
+band out of the middle. Both keep a centred circle of 80% of the height, so the
+whole drawing survives every crop anyone applies.
+
+There is deliberately no wordmark on it. Every unfurler renders `og:title` and
+`og:description` as real text beside or beneath the picture, so type baked into the
+image is a second and worse copy of a line already being drawn — and it would put a
+font on the critical path of a script whose output is committed, which is the one
+way to make these PNGs differ between the machine that generated them and the next
+one. `../social-cards.ts` holds the copy that goes with it.
 
 ## The background
 

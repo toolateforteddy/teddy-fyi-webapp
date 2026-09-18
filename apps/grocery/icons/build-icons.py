@@ -46,6 +46,11 @@ SAFE_CIRCLE = 0.80
 # mark touching the edge of the tile.
 FULL_BLEED = 0.80
 
+# The link-preview card, in the size every unfurler agrees on. 1200x630 is the
+# 1.91:1 Facebook/Open Graph recommendation and also what Twitter's
+# summary_large_image wants, so one file serves both.
+CARD = (1200, 630)
+
 
 def is_ink(r, g, b):
     """True for a stroke, false for the page.
@@ -176,6 +181,40 @@ def in_safe_circle(art, circle, size, background):
     return render(art, size, factor, (cx, cy), background)
 
 
+def card(art, circle, size, background):
+    """The 1200x630 link-preview image: the mark centred on the paper.
+
+    The geometry is the maskable icon's, measured against the *short* side. A
+    preview card is cropped at least as aggressively as a launcher icon is: a
+    chat app that shows a small square thumbnail takes the centre 630x630 out of
+    this, and one that wants a tighter ratio than 1.91:1 takes a band out of the
+    middle. Both of those keep a centred circle of 80% of the height, which is
+    the same circle SAFE_CIRCLE already describes -- so the mark is fitted to it
+    and every crop anyone applies still contains the whole drawing.
+
+    There is deliberately no wordmark on it. Every unfurler draws og:title and
+    og:description as real text beside or beneath the image, so type baked into
+    the picture is a second, worse copy of the line already being rendered -- and
+    it would put a font on the critical path of a script whose output is
+    committed, which is the one way to make these PNGs differ between the machine
+    that generated them and the next one.
+    """
+    width, height = size
+    cx, cy, radius = circle
+    factor = (height * SAFE_CIRCLE / 2) / radius
+    scaled = art.resize(
+        (max(1, round(art.width * factor)), max(1, round(art.height * factor))),
+        Image.LANCZOS,
+    )
+    canvas = Image.new("RGBA", size, background)
+    canvas.paste(
+        scaled,
+        (round(width / 2 - cx * factor), round(height / 2 - cy * factor)),
+        scaled if scaled.mode == "RGBA" else None,
+    )
+    return canvas
+
+
 def save(im, name, opaque):
     """Write the icon, in the smallest encoding that is still lossless enough.
 
@@ -246,6 +285,10 @@ def main():
             f"favicon-{size}.png",
             opaque=True,
         )
+
+    # The link preview. Not square, and not an icon -- but it is the same mark on
+    # the same paper, so it is generated here rather than from a second source.
+    save(card(colour, colour_circle, CARD, paper), "og-image.png", opaque=True)
 
 
 if __name__ == "__main__":

@@ -8,7 +8,17 @@
        pinch-zoom stays available, and the input auto-zoom is fixed by giving
        form controls a 16px font size (see index.css). -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Grocery</title>
+
+  <!-- Link previews: the title, description and card image a chat app, a search
+       engine or an unfurler reads. The tags between the markers are STAMPED IN AT
+       BUILD TIME from social-cards.ts -- by transformIndexHtml for this document,
+       and into two more copies of it, join.html and invite.html, for the two
+       routes people paste at each other. Edit the copy there, not here; the block
+       below is what a raw checkout shows and what `pnpm dev` replaces on the fly.
+       The build fails if these two markers go missing. -->
+  <!-- social-card:start -->
+  <title>Teddy Grocery</title>
+  <!-- social-card:end -->
 
   <!-- Installed-app metadata. `display: standalone` in the manifest is what
        drops the browser chrome on Android; iOS reads apple-mobile-web-app-capable
