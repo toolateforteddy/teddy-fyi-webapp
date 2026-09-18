@@ -317,6 +317,11 @@ itself, and HTTP caching remains what actually delivers a new build.
 - `/manifest.webmanifest` — `no-cache` too. It is neither content-hashed nor the
   entry document, so without this an installed app keeps an old name, icon or
   `start_url` after a deploy changes it.
+- `/join/*` and `/invite/*` — served `join.html` and `invite.html`, two copies of
+  the built `index.html` carrying their own Open Graph tags so a pasted invite
+  unfurls as an invitation rather than as the app's front page. Same `no-cache` as
+  `index.html`, for the same reason: they name the same bundle.
+  `apps/grocery/social-cards.ts` is the copy and the reasoning.
 - `/sw.js` — `no-cache`, and this one for a harder reason than the others: see the
   kill switch below.
 - `/workbox-<hash>.js` — content-hashed like `/assets/*`, but emitted at the root

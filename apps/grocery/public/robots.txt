@@ -1,0 +1,14 @@
+# grocery.teddy.fyi is one app and there is nothing here to steer a crawler around.
+# This file exists so that a request for /robots.txt gets a robots.txt: without it
+# nginx's try_files fallback answers with index.html, and a crawler is left parsing
+# an HTML document as a rules file.
+#
+# The two invite routes are deliberately NOT disallowed. They carry their own
+# `noindex` instead -- stamped into join.html and invite.html, see
+# apps/grocery/social-cards.ts -- because a Disallow is read by link unfurlers too,
+# and several of them will decline to fetch a disallowed URL at all. That would
+# trade "an invite link is not in Google" for "an invite link has no preview
+# anywhere", which is the wrong way round: noindex keeps them out of the index
+# while still letting the chat app the recipient is reading draw the card.
+User-agent: *
+Allow: /
