@@ -11,6 +11,8 @@ export const STORAGE_KEYS = {
   ACTIVE_LIST_ID: 'grocery_active_list_id',
   ITEM_STORE_INFOS: 'grocery_item_store_infos',
   LIST_MEMBERS: 'grocery_list_members',
+  // Ids of the lists this device has already offered the first-run setup sheet for.
+  LIST_SETUP_OFFERED: 'grocery_list_setup_offered',
   // 'system' | 'light' | 'dark'. Deliberately not cleared by "Clear Local
   // Cache" or by the fake-data purge in main.tsx: a display preference is not
   // list data, and resetting somebody's theme while fixing a sync problem is

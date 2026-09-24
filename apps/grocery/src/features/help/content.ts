@@ -369,7 +369,7 @@ export const HELP_SECTIONS: HelpSection[] = [
           {
             term: 'Manage Categories',
             detail:
-              'The same, plus an emoji each. Category order here sets the order of the headings on Need and Shopping.',
+              'The same, plus an emoji each. Category order here sets the order of the headings on Need and Shopping. A list with no categories offers a recommended set in one tap.',
           },
           { term: 'Pending Local Mutations', detail: 'Changes still queued for the server. Should return to 0 within a second or two.' },
           { term: 'Auto-Sync Frequency', detail: 'Has no effect today. Sync is always automatic, whatever this says.' },

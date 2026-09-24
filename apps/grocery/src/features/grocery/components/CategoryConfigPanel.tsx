@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { ChevronLeft, Plus, ChevronUp, ChevronDown, Edit2, Trash2 } from 'lucide-react'
+import { ChevronLeft, Plus, ChevronUp, ChevronDown, Edit2, Trash2, Sparkles } from 'lucide-react'
 import { useGrocery } from '@/features/grocery/context/GroceryContext'
 import { getCategoryColor } from '../config/constants'
 import { generateUuid } from '@/utils/uuid'
+import { STARTER_CATEGORIES, buildStarterCategories } from '../utils/listSetup'
 import type { Category } from '@/types/grocery'
 import { cn } from '@/utils/cn'
 
@@ -54,6 +55,14 @@ export function CategoryConfigPanel({ onBack, showToast }: CategoryConfigPanelPr
     setNewCategoryName('')
     setNewCategoryIcon('')
     showToast(`Category "${newCategory.name}" added locally.`)
+    triggerSync()
+  }
+
+  const handleAddStarterCategories = () => {
+    const starters = buildStarterCategories(activeListId, categories || [])
+    if (starters.length === 0) return
+    setCategories(prev => [...prev, ...starters])
+    showToast(`Added ${starters.length} recommended categories.`)
     triggerSync()
   }
 
@@ -209,8 +218,20 @@ export function CategoryConfigPanel({ onBack, showToast }: CategoryConfigPanelPr
         
         <div className="bg-surface-tile border border-line-faint rounded-xl divide-y divide-line-faint">
           {activeCategories.length === 0 ? (
-            <div className="p-8 text-center text-xs text-text-muted">
-              No categories configured. Add a category above to start.
+            <div className="p-6 text-center space-y-3">
+              <p className="text-xs text-text-muted">
+                No categories yet. Add your own above, or start with the recommended ones:
+              </p>
+              <p className="text-xs text-text-secondary">
+                {STARTER_CATEGORIES.map(c => `${c.icon} ${c.name}`).join('  ·  ')}
+              </p>
+              <button
+                type="button"
+                onClick={handleAddStarterCategories}
+                className="inline-flex items-center gap-1.5 bg-primary hover:bg-primary-hover text-on-primary font-semibold rounded-lg py-2.5 px-4 text-xs transition-all active:scale-[0.99] cursor-pointer"
+              >
+                <Sparkles className="w-4 h-4" /> Add recommended categories
+              </button>
             </div>
           ) : (
             activeCategories.map((category, idx) => {

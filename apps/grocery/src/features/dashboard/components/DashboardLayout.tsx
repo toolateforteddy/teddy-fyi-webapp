@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { 
   ShoppingBag, 
@@ -25,6 +25,21 @@ import { JoinListSheet } from './JoinListSheet'
 import { UpdateBanner } from '@/features/pwa/components/UpdateBanner'
 import { InstallBanner } from '@/features/pwa/components/InstallBanner'
 import { BootstrapFailure } from './BootstrapFailure'
+import { ListSetupSheet } from '@/features/grocery/components/ListSetupSheet'
+import { ListSetupContext } from '@/features/grocery/context/ListSetupContext'
+import {
+  hasOfferedListSetup,
+  listSetupNeeds,
+  markListSetupOffered,
+} from '@/features/grocery/utils/listSetup'
+
+/**
+ * How long the shell waits, with no sync running, before offering to set up a list
+ * that has no stores or no categories. A list opened from local storage is shown
+ * before the launch sync has even started; this is what keeps the sheet from
+ * asking about a list whose stores are on their way down.
+ */
+export const LIST_SETUP_SETTLE_MS = 1500
 
 /**
  * What the sync icon says, in each of the five states.
@@ -119,6 +134,7 @@ function DashboardContent() {
     itemStoreInfos,
     setItemStoreInfos,
     syncStatus,
+    isSyncing,
     pendingCount,
     lastSyncedAt,
     handleManualSync,
@@ -130,8 +146,27 @@ function DashboardContent() {
   const [isEditMode, setIsEditMode] = useState(false)
   const [isShareOpen, setIsShareOpen] = useState(false)
   const [isJoinOpen, setIsJoinOpen] = useState(false)
+  const [isSetupOpen, setIsSetupOpen] = useState(false)
+
+  // Offer setup once per list, when the list is settled and still missing stores or
+  // categories. Every input is in the deps so the timer restarts whenever a sync
+  // starts or rows arrive; only a quiet stretch with the list still empty opens it.
+  const activeListIdForSetup = activeList?.id
+  useEffect(() => {
+    if (!activeListIdForSetup || bootstrapState !== 'ready' || isAwaitingJoinedList || isSyncing) return
+    if (hasOfferedListSetup(activeListIdForSetup)) return
+    const { needsStores, needsCategories } = listSetupNeeds(activeListIdForSetup, stores, categories)
+    if (!needsStores && !needsCategories) return
+
+    const timer = setTimeout(() => {
+      markListSetupOffered(activeListIdForSetup)
+      setIsSetupOpen(true)
+    }, LIST_SETUP_SETTLE_MS)
+    return () => clearTimeout(timer)
+  }, [activeListIdForSetup, bootstrapState, isAwaitingJoinedList, isSyncing, stores, categories])
 
   const sync = describeSync(syncStatus, pendingCount)
+  const openListSetup = () => setIsSetupOpen(true)
 
   // No list to render. Which of the three screens that is, is the whole of what
   // `bootstrapState` and `isAwaitingJoinedList` decide -- and both are bounded by a
@@ -348,6 +383,7 @@ function DashboardContent() {
             wide ? 'px-6' : 'px-4'
           )}
         >
+          <ListSetupContext.Provider value={openListSetup}>
           <Outlet context={{ 
             activeListId: activeList.id, 
             setActiveListId, 
@@ -366,6 +402,7 @@ function DashboardContent() {
             itemStoreInfos, 
             setItemStoreInfos 
           }} />
+          </ListSetupContext.Provider>
         </main>
 
         </div>{/* /header + content column */}
@@ -393,6 +430,13 @@ function DashboardContent() {
       <JoinListSheet
         isOpen={isJoinOpen}
         onClose={() => setIsJoinOpen(false)}
+      />
+
+      <ListSetupSheet
+        isOpen={isSetupOpen}
+        onClose={() => setIsSetupOpen(false)}
+        listId={activeList.id}
+        listName={activeList.name}
       />
     </div>
   )
