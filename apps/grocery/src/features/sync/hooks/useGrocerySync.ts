@@ -45,15 +45,24 @@ function resolveModelConflictsGeneric<T extends HasSyncAndVersion>(
   normalize: (data: any) => T,
   sentIds?: Set<string>
 ): T[] {
-  let merged = [...localItems]
+  // Indexed by id rather than searched per change: a first sync pulls a
+  // household's whole history, and findIndex per row made that quadratic.
+  // A deleted row leaves a null hole so the indices of the rest stay valid.
+  const slots: (T | null)[] = [...localItems]
+  const indexById = new Map<string, number>()
+  slots.forEach((item, i) => {
+    const key = getId(item as T)
+    if (!indexById.has(key)) indexById.set(key, i)
+  })
 
   remoteChanges.forEach(change => {
     const changeIdStr = String(change.id)
-    const localIndex = merged.findIndex(item => getId(item) === changeIdStr)
+    const localIndex = indexById.get(changeIdStr) ?? -1
 
     if (change.type === 'DELETE') {
       if (localIndex !== -1) {
-        merged.splice(localIndex, 1)
+        slots[localIndex] = null
+        indexById.delete(changeIdStr)
       }
       return
     }
@@ -64,15 +73,16 @@ function resolveModelConflictsGeneric<T extends HasSyncAndVersion>(
     const remoteItem = normalize(remoteRaw)
 
     if (localIndex === -1) {
-      merged.push({
+      indexById.set(changeIdStr, slots.length)
+      slots.push({
         ...remoteItem,
         sync_state: 'SYNCED'
       })
     } else {
-      const localItem = merged[localIndex]
+      const localItem = slots[localIndex] as T
 
       if (change.version >= localItem.version) {
-        merged[localIndex] = {
+        slots[localIndex] = {
           ...remoteItem,
           sync_state: 'SYNCED'
         }
@@ -81,6 +91,8 @@ function resolveModelConflictsGeneric<T extends HasSyncAndVersion>(
       }
     }
   })
+
+  let merged = slots.filter((item): item is T => item !== null)
 
   merged = merged.filter(item => {
     if (item.sync_state === 'PENDING_DELETE' && item.is_deleted) {
