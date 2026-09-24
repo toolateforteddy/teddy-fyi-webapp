@@ -9,6 +9,7 @@ import { storage } from '@/utils/storage'
 import { STORAGE_KEYS } from '@/config/storageKeys'
 import { mappedStoreIds, isOffMappingAtStore, addStoreMapping } from '../utils/storeMapping'
 import { useGroceryStream } from '@/features/sync/hooks/useGroceryStream'
+import { useOpenListSetup } from '../context/ListSetupContext'
 
 /**
  * Runs a state update inside a View Transition when the browser supports one.
@@ -46,6 +47,7 @@ export function ShoppingPhase() {
     setItemStoreInfos,
     handleManualSync,
   } = useGrocery()
+  const openListSetup = useOpenListSetup()
 
   const [rawSelectedStoreId, setSelectedStoreId] = useState<string | null>(() => {
     return storage.getItem<string | null>(STORAGE_KEYS.SELECTED_STORE_ID, null)
@@ -279,6 +281,7 @@ export function ShoppingPhase() {
 
   return (
     <div className="space-y-5 flex-1 flex flex-col min-h-0 animate-in fade-in duration-200">
+      {activeStores.length > 0 && (
       <div className="space-y-2">
         <label className="text-[10px] uppercase tracking-wider font-bold text-text-muted px-1 block mb-1">
           Active Store Isolation
@@ -304,9 +307,29 @@ export function ShoppingPhase() {
           })}
         </div>
       </div>
+      )}
 
       {/* Main Shopping Layout */}
-      {!selectedStoreId ? (
+      {activeStores.length === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center text-center p-8 mt-12 animate-in fade-in duration-200">
+          <div className="w-16 h-16 rounded-full bg-surface-tile border border-line flex items-center justify-center text-text-faint mb-4">
+            <MapPin className="w-8 h-8" />
+          </div>
+          <h3 className="text-lg font-semibold text-text-secondary mb-1">No stores yet</h3>
+          <p className="text-sm text-text-muted max-w-[260px]">
+            Shopping works one store at a time. Add the store you usually shop at to start.
+          </p>
+          {openListSetup && (
+            <button
+              type="button"
+              onClick={openListSetup}
+              className="mt-4 bg-primary hover:bg-primary-hover text-on-primary font-semibold rounded-lg py-2.5 px-4 text-xs transition-all active:scale-95 cursor-pointer"
+            >
+              Add a store
+            </button>
+          )}
+        </div>
+      ) : !selectedStoreId ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center p-8 mt-12 animate-in fade-in duration-200">
           <div className="w-16 h-16 rounded-full bg-surface-tile border border-line flex items-center justify-center text-text-faint mb-4">
             <ClipboardList className="w-8 h-8" />

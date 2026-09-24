@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { ShoppingPhase } from '../ShoppingPhase'
 import { useGrocery } from '@/features/grocery/context/GroceryContext'
+import { ListSetupContext } from '@/features/grocery/context/ListSetupContext'
 import type { Store, Category, GroceryItem, GroceryItemStoreInfo } from '@/types/grocery'
 
 // Mock useGrocery
@@ -248,6 +249,31 @@ describe('ShoppingPhase Component', () => {
 
       expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
       expect(screen.getByText(/This will archive and clear all 1 checked items/)).toBeInTheDocument()
+    })
+  })
+
+  describe('with no stores on the list', () => {
+    it('says why there is nothing to pick, and offers the setup sheet', () => {
+      mockGroceryContext({ stores: [] })
+      const openSetup = vi.fn()
+      render(
+        <ListSetupContext.Provider value={openSetup}>
+          <ShoppingPhase />
+        </ListSetupContext.Provider>
+      )
+
+      expect(screen.getByText('No stores yet')).toBeInTheDocument()
+      expect(screen.queryByText(/Active Store Isolation/)).not.toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: 'Add a store' }))
+      expect(openSetup).toHaveBeenCalledTimes(1)
+    })
+
+    it('hides the button where no sheet can be opened', () => {
+      mockGroceryContext({ stores: [] })
+      render(<ShoppingPhase />)
+
+      expect(screen.getByText('No stores yet')).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Add a store' })).not.toBeInTheDocument()
     })
   })
 })
