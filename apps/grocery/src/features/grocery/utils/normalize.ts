@@ -10,6 +10,7 @@ export function normalizeItem(item: any): GroceryItem {
     isActive: remoteRaw.isActive !== undefined ? remoteRaw.isActive : remoteRaw.is_active,
     isBought: remoteRaw.isBought !== undefined ? remoteRaw.isBought : remoteRaw.is_bought,
     timesBought: remoteRaw.timesBought !== undefined ? remoteRaw.timesBought : remoteRaw.times_bought,
+    lastBoughtAt: remoteRaw.lastBoughtAt ?? remoteRaw.last_bought_at ?? undefined,
     userId: remoteRaw.userId || remoteRaw.user_id,
   }
 }
