@@ -4,6 +4,7 @@ import { Plus, Check, MapPin, Sparkles, AlertCircle } from 'lucide-react'
 import type { GroceryItem } from '@/types/grocery'
 import { cn } from '@/utils/cn'
 import { DEFAULT_STORES, DEFAULT_RECOMMENDATIONS } from '../config/constants'
+import { isRecentlyBought } from '../utils/recentPurchase'
 import { generateUuid } from '@/utils/uuid'
 
 // Custom hook to manage items temporarily marked as "added" with self-cleaning timeouts
@@ -32,6 +33,20 @@ function useTimeoutState<T extends string | number>(delay = 2000): [Record<T, bo
   return [state, trigger]
 }
 
+// How often Planning re-reads the clock, so an item bought 36 hours ago comes back to the
+// tray on a tab left open rather than only when something else changes.
+const RECENT_PURCHASE_REFRESH_MS = 10 * 60 * 1000
+
+// The current time, refreshed every `intervalMs`. Kept in state so rendering stays pure.
+function useNow(intervalMs: number): number {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), intervalMs)
+    return () => clearInterval(id)
+  }, [intervalMs])
+  return now
+}
+
 export function PlanningPhase() {
   const { activeListId, items, setItems, stores, setItemStoreInfos } = useGrocery()
 
@@ -53,17 +68,20 @@ export function PlanningPhase() {
       .map(item => item.name)
   }, [items, activeListId])
 
-  // Memoize historical bought items as recommendations source
+  // Memoize historical bought items as recommendations source. Anything a trip bought in the
+  // last 36 hours is left out.
+  const now = useNow(RECENT_PURCHASE_REFRESH_MS)
   const dynamicRecs = useMemo(() => {
     return items
       .filter(item => item.listId === activeListId && !item.isActive && !item.is_deleted && item.timesBought > 0)
+      .filter(item => !isRecentlyBought(item, now))
       .map(item => ({
         name: item.name,
         categoryId: item.categoryId || '1',
         storeId: selectedStoreId || '',
         timesBought: item.timesBought
       }))
-  }, [items, activeListId, selectedStoreId])
+  }, [items, activeListId, selectedStoreId, now])
 
   // Memoize recommendation merging & sorting operations
   const filteredRecs = useMemo(() => {

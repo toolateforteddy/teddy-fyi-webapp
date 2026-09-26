@@ -147,12 +147,14 @@ export function ShoppingPhase() {
     const optedIn = storeId === null ? [] : offMappingInCart.filter(item => mappingOptIns[item.id])
 
     const performArchive = () => {
+      const boughtAt = Date.now()
       setItems(prev => prev.map(item => {
         if (item.isBought) {
           return {
             ...item,
             isActive: false,
             timesBought: (item.timesBought || 0) + 1,
+            lastBoughtAt: boughtAt,
             sync_state: 'PENDING_UPDATE',
             version: item.version + 1
           }

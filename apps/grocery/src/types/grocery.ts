@@ -9,6 +9,12 @@ export interface GroceryItem {
   position: number;
   categoryId?: string;
   timesBought: number;
+  /**
+   * When an archived trip last bought this item, in epoch milliseconds. Absent until a trip
+   * buys it after the field arrived. Keeps a just-bought item out of the recommendations; see
+   * `features/grocery/utils/recentPurchase.ts`.
+   */
+  lastBoughtAt?: number;
   userId?: string;
   isActive: boolean;
   /** Nullable on the wire (`Option<String>` server-side); absent for an unfiled item. */

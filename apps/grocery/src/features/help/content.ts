@@ -205,7 +205,7 @@ export const HELP_SECTIONS: HelpSection[] = [
     blocks: [
       {
         kind: 'text',
-        body: "Planning's Smart Recommendations tray is built from items you have completed a trip with before, ranked by how often you have bought them, capped at ten.",
+        body: "Planning's Smart Recommendations tray is built from items you have completed a trip with before, ranked by how often you have bought them, capped at ten. Anything a trip bought in the last 36 hours stays out of it, so what you just brought home is not the first thing it suggests.",
       },
       {
         kind: 'gesture',

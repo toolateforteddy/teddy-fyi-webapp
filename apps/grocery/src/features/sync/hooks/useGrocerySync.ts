@@ -184,6 +184,7 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
               position: item.position,
               category_id: item.categoryId || null,
               times_bought: item.timesBought,
+              last_bought_at: item.lastBoughtAt ?? null,
               user_id: item.userId || null,
               is_active: item.isActive,
               list_id: item.listId ?? null,

@@ -141,6 +141,7 @@ describe('ShoppingPhase Component', () => {
 
     // Confirm archiving trip
     const archiveBtn = screen.getByRole('button', { name: /Yes, Archive Trip/ })
+    const before = Date.now()
     fireEvent.click(archiveBtn)
 
     expect(mockSetItems).toHaveBeenCalled()
@@ -152,11 +153,15 @@ describe('ShoppingPhase Component', () => {
     expect(bananasUpdated.isActive).toBe(false)
     expect(bananasUpdated.timesBought).toBe(3)
     expect(bananasUpdated.sync_state).toBe('PENDING_UPDATE')
+    // ...and stamped with when, which keeps them out of the recommendations for 36 hours
+    expect(bananasUpdated.lastBoughtAt).toBeGreaterThanOrEqual(before)
+    expect(bananasUpdated.lastBoughtAt).toBeLessThanOrEqual(Date.now())
 
     // Apples were not bought, so they remain unchanged
     const applesUpdated = updated.find((i: any) => i.id === 'item-1')
     expect(applesUpdated.isActive).toBe(true)
     expect(applesUpdated.isBought).toBe(false)
+    expect(applesUpdated.lastBoughtAt).toBeUndefined()
   })
 
   describe('buying something the store is not mapped for', () => {
