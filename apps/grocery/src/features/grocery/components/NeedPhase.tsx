@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useGrocery } from '@/features/grocery/context/GroceryContext'
-import { Plus, ShoppingBag } from 'lucide-react'
+import { ChevronDown, Plus, ShoppingBag } from 'lucide-react'
 import type { GroceryItem, GroceryItemStoreInfo } from '@/types/grocery'
 import { cn } from '@/utils/cn'
 import { generateUuid } from '@/utils/uuid'
@@ -23,6 +23,16 @@ export function NeedPhase() {
   } = useGrocery()
 
   const { dockAddPane } = useAppLayout()
+
+  // Aisles start open and fold for as long as this screen is up, as on Android.
+  const [collapsedCategoryIds, setCollapsedCategoryIds] = useState<ReadonlySet<string>>(() => new Set())
+  const toggleCategory = (categoryId: string) => {
+    setCollapsedCategoryIds(prev => {
+      const next = new Set(prev)
+      if (!next.delete(categoryId)) next.add(categoryId)
+      return next
+    })
+  }
 
   const [rawExpandedItemId, setExpandedItemId] = useState<string | null>(null)
   // An expanded item can be deleted remotely mid-sync, so treat a stale id as
@@ -255,25 +265,38 @@ export function NeedPhase() {
           </p>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {itemsByCategory.map(({ category, items: categoryItems }) => (
             <div key={category.id} className="space-y-2">
-              {/* Category Header */}
-              <div className="flex items-center gap-2 px-1">
-                <span 
-                  className="w-2 h-2 rounded-full" 
-                  style={{ backgroundColor: category.color }} 
-                />
-                <h4 className="text-xs font-bold tracking-widest text-text-muted uppercase flex items-center gap-1.5">
-                  {category.icon && <span className="text-sm normal-case">{category.icon}</span>}
-                  <span>{category.name}</span>
-                </h4>
-                <span className="text-[10px] text-text-faint bg-surface-raised px-1.5 py-0.5 rounded-full font-medium">
-                  {categoryItems.length}
-                </span>
-              </div>
+              {/* Category header: a full-width tinted sign, deliberately unlike the
+                  bordered tiles under it, that folds its aisle away on a tap. Same
+                  shape as Android's AisleHeader. */}
+              <h4>
+                <button
+                  type="button"
+                  onClick={() => toggleCategory(category.id)}
+                  aria-expanded={!collapsedCategoryIds.has(category.id)}
+                  className="w-full flex items-center gap-2 h-9 pr-3 rounded-md overflow-hidden text-left cursor-pointer"
+                  style={{ backgroundColor: `color-mix(in srgb, ${category.color} 22%, transparent)` }}
+                >
+                  <span className="self-stretch w-1 shrink-0" style={{ backgroundColor: category.color }} />
+                  {category.icon && <span className="text-sm">{category.icon}</span>}
+                  <span className="flex-1 min-w-0 truncate text-sm font-bold tracking-wider text-text-primary uppercase">
+                    {category.name}
+                  </span>
+                  <span aria-hidden="true" className="text-xs font-medium text-text-primary">{categoryItems.length}</span>
+                  <ChevronDown
+                    aria-hidden="true"
+                    className={cn(
+                      'w-4 h-4 text-text-primary transition-transform',
+                      collapsedCategoryIds.has(category.id) && '-rotate-90'
+                    )}
+                  />
+                </button>
+              </h4>
 
               {/* Fluid Responsive Grid */}
+              {!collapsedCategoryIds.has(category.id) && (
               <div className="tile-grid gap-2">
                 {categoryItems.map((item) => {
                   const isExpanded = expandedItemId === item.id
@@ -297,6 +320,7 @@ export function NeedPhase() {
                   )
                 })}
               </div>
+              )}
             </div>
           ))}
         </div>
