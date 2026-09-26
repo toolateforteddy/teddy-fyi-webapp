@@ -114,6 +114,22 @@ describe('NeedPhase Component', () => {
     expect(screen.getByText('Milk')).toBeInTheDocument()
   })
 
+  it('folds an aisle away when its header is tapped, and back again', () => {
+    renderNeedPhase()
+
+    const produce = screen.getByRole('button', { name: /Produce/ })
+    expect(produce).toHaveAttribute('aria-expanded', 'true')
+
+    fireEvent.click(produce)
+    expect(produce).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('Apples')).not.toBeInTheDocument()
+    // Only the tapped aisle folds.
+    expect(screen.getByText('Milk')).toBeInTheDocument()
+
+    fireEvent.click(produce)
+    expect(screen.getByText('Apples')).toBeInTheDocument()
+  })
+
   it('should expand item tile when clicked, revealing edit controls', () => {
     renderNeedPhase()
 
