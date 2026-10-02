@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useGrocery } from '@/features/grocery/context/GroceryContext'
 import { ChevronDown, Plus, ShoppingBag } from 'lucide-react'
@@ -11,6 +11,9 @@ import { AddNeededItemSheet, AddNeededItemPane } from './AddNeededItemSheet'
 import { useAppLayout } from '@/hooks/useAppLayout'
 import { peekSharedItem, clearSharedItem } from '../utils/sharedItem'
 import { addOrReuseItem } from '../utils/addItem'
+
+/** What a collapsed tile is given for store mappings: it shows none, so it needs none. */
+const NO_STORE_INFOS: GroceryItemStoreInfo[] = []
 
 export function NeedPhase() {
   const { 
@@ -137,8 +140,13 @@ export function NeedPhase() {
     return groups
   }, [activeCategories, activeItems])
 
-  // Handlers for item modifications
-  const toggleStoreForItem = (itemId: string, storeId: string) => {
+  // Handlers for item modifications. Each is a useCallback so the memoised tiles below see
+  // the same function on every render and a tap re-renders only the tile it landed on.
+  const toggleExpanded = useCallback((itemId: string) => {
+    setExpandedItemId(current => (current === itemId ? null : itemId))
+  }, [])
+
+  const toggleStoreForItem = useCallback((itemId: string, storeId: string) => {
     setItemStoreInfos(prev => {
       const existingIndex = prev.findIndex(info => info.groceryItemId === itemId && info.storeId === storeId)
       if (existingIndex !== -1) {
@@ -177,9 +185,9 @@ export function NeedPhase() {
         return [...prev, newInfo]
       }
     })
-  }
+  }, [setItemStoreInfos, activeListId])
 
-  const updateQuantity = (itemId: string, increment: boolean) => {
+  const updateQuantity = useCallback((itemId: string, increment: boolean) => {
     setItems(prev => prev.map(item => {
       if (item.id !== itemId) return item
       
@@ -201,9 +209,9 @@ export function NeedPhase() {
         version: item.version + 1
       }
     }))
-  }
+  }, [setItems])
 
-  const updateCategory = (itemId: string, newCategoryId: string | undefined) => {
+  const updateCategory = useCallback((itemId: string, newCategoryId: string | undefined) => {
     setItems(prev => prev.map(item => {
       if (item.id !== itemId) return item
       return {
@@ -213,9 +221,9 @@ export function NeedPhase() {
         version: item.version + 1
       }
     }))
-  }
+  }, [setItems])
 
-  const deleteItem = (itemId: string) => {
+  const deleteItem = useCallback((itemId: string) => {
     setItems(prev => prev.map(item => {
       if (item.id !== itemId) return item
       
@@ -229,7 +237,7 @@ export function NeedPhase() {
       }
     }))
     setExpandedItemId(null)
-  }
+  }, [setItems])
 
   // Adding a name the list already knows brings that row back rather than inserting a
   // second one, so its purchase history carries on. See addOrReuseItem.
@@ -315,8 +323,8 @@ export function NeedPhase() {
                       isPending={isPending}
                       activeCategories={activeCategories}
                       activeStores={activeStores}
-                      itemStoreInfos={itemStoreInfos}
-                      onToggleExpand={() => setExpandedItemId(isExpanded ? null : item.id)}
+                      itemStoreInfos={isExpanded ? itemStoreInfos : NO_STORE_INFOS}
+                      onToggleExpand={toggleExpanded}
                       onUpdateQuantity={updateQuantity}
                       onUpdateCategory={updateCategory}
                       onToggleStore={toggleStoreForItem}

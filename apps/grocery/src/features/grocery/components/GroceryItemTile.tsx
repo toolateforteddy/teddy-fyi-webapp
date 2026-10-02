@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Trash2, Check, Minus, Plus } from 'lucide-react'
 import type { GroceryItem, GroceryItemStoreInfo } from '@/types/grocery'
 import { cn } from '@/utils/cn'
@@ -8,15 +9,25 @@ interface GroceryItemTileProps {
   isPending: boolean
   activeCategories: Array<{ id: string | number; name: string; color: string; icon?: string }>
   activeStores: any[]
+  /** Read only while expanded; a collapsed tile is passed an empty list so a store toggle on another item leaves it alone. */
   itemStoreInfos: GroceryItemStoreInfo[]
-  onToggleExpand: () => void
+  onToggleExpand: (itemId: string) => void
   onUpdateQuantity: (itemId: string, increment: boolean) => void
   onUpdateCategory: (itemId: string, categoryId: string | undefined) => void
   onToggleStore: (itemId: string, storeId: string) => void
   onDeleteItem: (itemId: string) => void
 }
 
-export function GroceryItemTile({
+/**
+ * One item on the Need screen.
+ *
+ * Memoised, and every prop the screen passes is stable across a tap on another tile -- the
+ * handlers are `useCallback`s, the category and store lists are memoised, and an unchanged
+ * row keeps its identity through a sync -- so a tap re-renders the tile it landed on and
+ * not the whole list. Two-column layouts put twice as many of these on screen, which is
+ * what made the whole-list re-render worth avoiding.
+ */
+export const GroceryItemTile = memo(function GroceryItemTile({
   item,
   isExpanded,
   isPending,
@@ -42,7 +53,7 @@ export function GroceryItemTile({
         <div className="w-full h-full flex overflow-x-auto snap-x snap-mandatory scrollbar-none overscroll-x-contain">
           {/* Main Item Tile */}
           <div
-            onClick={onToggleExpand}
+            onClick={() => onToggleExpand(item.id)}
             className="w-full shrink-0 h-full px-3 flex items-center justify-between cursor-pointer active:bg-surface-hover/40 transition-all snap-start"
           >
             <div className="flex items-center gap-2 overflow-hidden mr-2">
@@ -87,7 +98,7 @@ export function GroceryItemTile({
                 <Trash2 className="w-4.5 h-4.5" />
               </button>
               <button 
-                onClick={onToggleExpand}
+                onClick={() => onToggleExpand(item.id)}
                 className="p-1.5 text-text-muted hover:text-text-primary rounded-md hover:bg-surface-hover active:scale-95 cursor-pointer"
                 aria-label="Close edit"
               >
@@ -173,4 +184,4 @@ export function GroceryItemTile({
       )}
     </div>
   )
-}
+})
