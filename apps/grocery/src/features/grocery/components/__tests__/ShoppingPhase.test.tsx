@@ -164,6 +164,26 @@ describe('ShoppingPhase Component', () => {
     expect(applesUpdated.lastBoughtAt).toBeUndefined()
   })
 
+  it('archives only this list\'s cart, and clears the cart flag on what it archives', () => {
+    // Before: every row with isBought set was archived again on every trip -- rows archived
+    // weeks ago, and another list's cart -- each one counted as bought once more.
+    const history: GroceryItem[] = [
+      ...mockItems,
+      { id: 'old', name: 'Eggs', quantity: '1', isBought: true, createdAt: 4, position: 4, categoryId: '101', timesBought: 5, isActive: false, listId: 'list-1', sync_state: 'SYNCED', version: 3, is_deleted: false },
+      { id: 'other-list', name: 'Rice', quantity: '1', isBought: true, createdAt: 5, position: 5, categoryId: '101', timesBought: 1, isActive: true, listId: 'list-2', sync_state: 'SYNCED', version: 1, is_deleted: false },
+    ]
+    render(<ShoppingPhase />)
+    fireEvent.click(screen.getByRole('button', { name: /Trader Joes/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Complete Shopping Trip/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Yes, Archive Trip/ }))
+
+    const updated: GroceryItem[] = mockSetItems.mock.calls[0][0](history)
+    const byId = (id: string) => updated.find(i => i.id === id)!
+    expect(byId('item-3')).toMatchObject({ isActive: false, isBought: false, timesBought: 3 })
+    expect(byId('old')).toBe(history.find(i => i.id === 'old'))
+    expect(byId('other-list')).toBe(history.find(i => i.id === 'other-list'))
+  })
+
   describe('buying something the store is not mapped for', () => {
     // Milk (item-2) is mapped to Costco, so Trader Joes hides it. This is the
     // Fage case: available here, just not where you normally buy it.
