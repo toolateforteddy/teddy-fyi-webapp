@@ -29,6 +29,16 @@ interface UseGrocerySyncOptions {
   onSyncError?: (error: Error) => void
 }
 
+/** What the caller of a sync knows that the sync itself cannot. */
+export interface SyncNowOptions {
+  /**
+   * The server has already said something changed -- a stream invalidation, or a stream that
+   * has just reconnected after a gap nobody was listening through -- so the status pre-check
+   * is skipped and the sync goes straight to `POST /api/sync`.
+   */
+  remoteChanged?: boolean
+}
+
 interface HasSyncAndVersion {
   version: number
   sync_state: string
@@ -134,7 +144,8 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
     localStores: Store[] = [],
     localCategories: Category[] = [],
     localItemStoreInfos: GroceryItemStoreInfo[] = [],
-    localListMembers: GroceryListMember[] = []
+    localListMembers: GroceryListMember[] = [],
+    syncOptions: SyncNowOptions = {}
   ): Promise<SyncResponse | null> => {
     setIsSyncing(true)
     setError(null)
@@ -142,28 +153,7 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
     try {
       const lastSyncedAt = storage.getItem<string>(STORAGE_KEYS.LAST_SYNCED, '') || new Date(0).toISOString()
 
-      // 1. Check KV status change flag to minimize payload size and query costs.
-      let hasRemoteChanges = true
-      try {
-        const checkRes = await api.get<{ needs_sync: boolean }>('/api/sync/status', {
-          params: {
-            client_id: clientId.current,
-            last_synced_at: lastSyncedAt,
-            scope: 'GROCERY'
-          }
-        })
-        hasRemoteChanges = checkRes.data.needs_sync
-      } catch (err: unknown) {
-        const errorResponse = (err as { response?: { status?: number } }).response
-        if (errorResponse?.status === 404) {
-          console.warn('[Sync] Status endpoint returned 404. Proceeding with full payload sync fallback.')
-        } else {
-          console.error('[Sync] Status check failed. Falling back to full sync.', err)
-        }
-        hasRemoteChanges = true
-      }
-
-      // 2. Identify and bundle local dirty mutations
+      // 1. Identify and bundle local dirty mutations
       const groceryChanges: ChangeDelta<GroceryItem>[] = localItems
         .filter(item => item.sync_state !== 'SYNCED')
         .map(item => {
@@ -325,6 +315,34 @@ export function useGrocerySync(options: UseGrocerySyncOptions = {}) {
         storeChanges.length > 0 ||
         categoryChanges.length > 0 ||
         groceryItemStoreInfoChanges.length > 0
+
+      // 2. Ask the status endpoint whether the server has anything for us -- but only when
+      // the answer could change what happens next. It exists to turn a sync with nothing to
+      // push into no sync at all; with local changes the POST goes regardless, and when the
+      // caller already knows the server has something (a stream invalidation, a stream
+      // reconnect) it would only say yes. Either way it is a round trip in front of the one
+      // that matters.
+      let hasRemoteChanges = true
+      if (!hasLocalChanges && !syncOptions.remoteChanged) {
+        try {
+          const checkRes = await api.get<{ needs_sync: boolean }>('/api/sync/status', {
+            params: {
+              client_id: clientId.current,
+              last_synced_at: lastSyncedAt,
+              scope: 'GROCERY'
+            }
+          })
+          hasRemoteChanges = checkRes.data.needs_sync
+        } catch (err: unknown) {
+          const errorResponse = (err as { response?: { status?: number } }).response
+          if (errorResponse?.status === 404) {
+            console.warn('[Sync] Status endpoint returned 404. Proceeding with full payload sync fallback.')
+          } else {
+            console.error('[Sync] Status check failed. Falling back to full sync.', err)
+          }
+          hasRemoteChanges = true
+        }
+      }
 
       if (!hasRemoteChanges && !hasLocalChanges) {
         console.log('[Sync] Caching optimization hit. Client and remote match. Skipping sync payload.')

@@ -111,7 +111,6 @@ describe('useGrocerySync Hook', () => {
       remote_grocery_item_store_info_changes: [],
     }
 
-    vi.mocked(api.get).mockResolvedValueOnce({ data: { needs_sync: false } })
     vi.mocked(api.post).mockResolvedValueOnce({ data: mockSyncResponse })
 
     const { result } = renderHook(() => useGrocerySync())
@@ -119,6 +118,9 @@ describe('useGrocerySync Hook', () => {
     await act(async () => {
       await result.current.syncNow(localItems, [], [], [], [], [])
     })
+
+    // With something to push the POST goes regardless, so the status check is not asked.
+    expect(api.get).not.toHaveBeenCalled()
 
     expect(api.post).toHaveBeenCalledWith('/api/sync', expect.objectContaining({
       grocery_changes: [
@@ -136,6 +138,30 @@ describe('useGrocerySync Hook', () => {
         },
       ]
     }))
+  })
+
+  it('skips the status check when the caller already knows the server has changes', async () => {
+    const mockSyncResponse = {
+      server_timestamp: '2026-06-27T12:00:00Z',
+      remote_grocery_changes: [],
+      remote_grocery_list_changes: [],
+      remote_grocery_list_member_changes: [],
+      remote_store_changes: [],
+      remote_category_changes: [],
+      remote_grocery_item_store_info_changes: [],
+    }
+    vi.mocked(api.post).mockResolvedValueOnce({ data: mockSyncResponse })
+
+    const { result } = renderHook(() => useGrocerySync())
+
+    let response: any
+    await act(async () => {
+      response = await result.current.syncNow([], [], [], [], [], [], { remoteChanged: true })
+    })
+
+    expect(api.get).not.toHaveBeenCalled()
+    expect(api.post).toHaveBeenCalledWith('/api/sync', expect.any(Object))
+    expect(response).toEqual(mockSyncResponse)
   })
 
   it('should fall back to standard sync if status check fails', async () => {

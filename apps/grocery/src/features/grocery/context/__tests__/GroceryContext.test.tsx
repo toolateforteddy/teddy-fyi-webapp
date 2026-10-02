@@ -81,7 +81,8 @@ function ConsumerComponent() {
       }])}>
         Add Item
       </button>
-      <button data-testid="sync-btn" onClick={handleManualSync}>Sync</button>
+      <button data-testid="sync-btn" onClick={() => handleManualSync()}>Sync</button>
+      <button data-testid="invalidate-btn" onClick={() => handleManualSync({ remoteChanged: true })}>Invalidate</button>
     </div>
   )
 }
@@ -336,5 +337,39 @@ describe('GroceryContext Provider', () => {
     
     vi.useRealTimers()
   })
-})
 
+  // An invalidation that lands mid-sync is folded into the follow-up, and the follow-up still
+  // knows the server has something -- otherwise it would ask the status endpoint again.
+  it('carries remoteChanged into the follow-up sync it queues behind one in flight', async () => {
+    vi.useFakeTimers()
+    try {
+      let resolveFirstSync: (value: null) => void = () => {}
+      mockSyncNow.mockImplementationOnce(() => new Promise(resolve => { resolveFirstSync = resolve }))
+
+      render(
+        <GroceryProvider>
+          <ConsumerComponent />
+        </GroceryProvider>
+      )
+
+      // The mount sync is the one in flight.
+      expect(mockSyncNow).toHaveBeenCalledTimes(1)
+      expect(mockSyncNow.mock.calls[0][6]).toEqual({})
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('invalidate-btn'))
+      })
+      await act(async () => {
+        resolveFirstSync(null)
+      })
+      await act(async () => {
+        vi.advanceTimersByTime(300)
+      })
+
+      expect(mockSyncNow).toHaveBeenCalledTimes(2)
+      expect(mockSyncNow.mock.calls[1][6]).toEqual({ remoteChanged: true })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})

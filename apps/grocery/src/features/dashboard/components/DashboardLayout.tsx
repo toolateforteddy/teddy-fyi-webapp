@@ -296,7 +296,8 @@ function DashboardContent() {
             {/* Sync Status Button */}
             <div className="relative">
               <button
-                onClick={handleManualSync}
+                // Wrapped so the click event is not taken for sync options.
+                onClick={() => { void handleManualSync() }}
                 onMouseEnter={() => setShowSyncTooltip(true)}
                 onMouseLeave={() => setShowSyncTooltip(false)}
                 onClickCapture={() => setShowSyncTooltip(!showSyncTooltip)}

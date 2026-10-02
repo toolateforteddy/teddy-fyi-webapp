@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react'
 import { useAuth } from '@/features/auth/hooks/useAuth'
 import { rowUserId, legacyRowUserId } from '@/features/auth/utils/identity'
-import { useGrocerySync } from '@/features/sync/hooks/useGrocerySync'
+import { useGrocerySync, type SyncNowOptions } from '@/features/sync/hooks/useGrocerySync'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { storage } from '@/utils/storage'
 import { STORAGE_KEYS } from '@/config/storageKeys'
@@ -107,7 +107,7 @@ interface GroceryContextType {
   /** Rows edited here that the server has not acknowledged yet, across every table. */
   pendingCount: number
   lastSyncedAt: string
-  handleManualSync: () => Promise<any>
+  handleManualSync: (options?: SyncNowOptions) => Promise<any>
   /** Whether the shell has a list to render, is still waiting for one, or gave up. */
   bootstrapState: BootstrapState
   /** Put the shell back into `loading` and try the first sync again. */
@@ -347,7 +347,13 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
 
   const isSyncingRef = useRef(false)
   const syncNeededRef = useRef(false)
-  const handleManualSyncRef = useRef<() => Promise<any>>(null as any)
+  /**
+   * Whether any request folded into the pending follow-up sync knew the server had changes.
+   * An invalidation that lands mid-sync is the common case on the shopping page, and the
+   * follow-up it causes should not lose what the invalidation said.
+   */
+  const followUpRemoteChangedRef = useRef(false)
+  const handleManualSyncRef = useRef<(options?: SyncNowOptions) => Promise<any>>(null as any)
   /** Set when the short-circuit path has seeded the default list, so it seeds only one. */
   const adoptedDefaultListRef = useRef(false)
 
@@ -413,9 +419,10 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
   }
 
   // Triggers manual sync using the real syncNow hook
-  const handleManualSync = async (): Promise<any> => {
+  const handleManualSync = async (options: SyncNowOptions = {}): Promise<any> => {
     if (isSyncingRef.current) {
       syncNeededRef.current = true
+      if (options.remoteChanged) followUpRemoteChangedRef.current = true
       return null
     }
     if (!user) return null
@@ -448,7 +455,8 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
         currentStores,
         currentCategories,
         currentItemStoreInfos,
-        currentListMembers
+        currentListMembers,
+        options
       )
 
       if (response) {
@@ -520,9 +528,11 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
       isSyncingRef.current = false
       if (syncNeededRef.current) {
         syncNeededRef.current = false
+        const followUp: SyncNowOptions = { remoteChanged: followUpRemoteChangedRef.current }
+        followUpRemoteChangedRef.current = false
         setTimeout(() => {
           if (handleManualSyncRef.current) {
-            handleManualSyncRef.current().catch(err => console.error('[Sync] Auto-manual sync error:', err))
+            handleManualSyncRef.current(followUp).catch(err => console.error('[Sync] Auto-manual sync error:', err))
           }
         }, 300)
       }
