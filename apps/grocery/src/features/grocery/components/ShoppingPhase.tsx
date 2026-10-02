@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { flushSync } from 'react-dom'
 import { useGrocery } from '@/features/grocery/context/GroceryContext'
-import { CheckSquare, Square, Check, MapPin, MapPinOff, ClipboardList, ChevronDown } from 'lucide-react'
+import { Check, MapPin, MapPinOff, ClipboardList, ChevronDown } from 'lucide-react'
 import type { GroceryItem } from '@/types/grocery'
 import { cn } from '@/utils/cn'
 import { DEFAULT_STORES, DEFAULT_CATEGORIES } from '../config/constants'
@@ -10,6 +10,7 @@ import { STORAGE_KEYS } from '@/config/storageKeys'
 import { mappedStoreIds, isOffMappingAtStore, addStoreMapping } from '../utils/storeMapping'
 import { useGroceryStream } from '@/features/sync/hooks/useGroceryStream'
 import { useOpenListSetup } from '../context/ListSetupContext'
+import { ShoppingItemTile } from './ShoppingItemTile'
 
 /**
  * Runs a state update inside a View Transition when the browser supports one.
@@ -128,8 +129,9 @@ export function ShoppingPhase() {
       .sort((a, b) => a.position - b.position)
   }, [categories, activeListId])
 
-  // Toggle "Bought" state with View Transitions API
-  const toggleBought = (itemId: string) => {
+  // Toggle "Bought" state with View Transitions API. Stable, so the memoised tiles skip
+  // re-rendering when it is another tile that was tapped.
+  const toggleBought = useCallback((itemId: string) => {
     const performUpdate = () => {
       setItems(prev => prev.map(item => {
         if (item.id !== itemId) return item
@@ -143,7 +145,7 @@ export function ShoppingPhase() {
     }
 
     startTransitionSafely(performUpdate)
-  }
+  }, [setItems])
 
   // Clear in-cart items (Complete trip workflow)
   const handleCompleteTrip = () => {
@@ -232,9 +234,10 @@ export function ShoppingPhase() {
       .sort((a, b) => a.name.localeCompare(b.name))
       .map(item => ({
         item,
-        storeNames: mappedStoreIds(itemStoreInfos, item.id, activeListId)
+        usuallyAt: mappedStoreIds(itemStoreInfos, item.id, activeListId)
           .map(id => activeStores.find(store => store.id === id)?.name)
           .filter((name): name is string => Boolean(name))
+          .join(', ')
       }))
   }, [items, activeListId, selectedStoreId, itemStoreInfos, activeStores])
 
@@ -388,21 +391,7 @@ export function ShoppingPhase() {
                   {/* Fluid responsive columns layout */}
                   <div className="tile-grid gap-2">
                     {categoryItems.map((item) => (
-                      <button
-                        key={item.id}
-                        onClick={() => toggleBought(item.id)}
-                        className="flex items-center justify-between p-3 h-12 rounded-lg bg-surface-tile border border-line-faint active:scale-95 transition-all text-left cursor-pointer group"
-                      >
-                        <span className="text-sm font-semibold truncate text-text-primary pr-2 group-hover:text-primary">
-                          {item.name}
-                        </span>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <span className="text-[10px] text-text-muted bg-inset px-1.5 py-0.5 rounded border border-line">
-                            {item.quantity}
-                          </span>
-                          <Square className="w-4 h-4 text-text-muted" />
-                        </div>
-                      </button>
+                      <ShoppingItemTile key={item.id} item={item} variant="toBuy" onToggle={toggleBought} />
                     ))}
                   </div>
                 </div>
@@ -437,24 +426,14 @@ export function ShoppingPhase() {
                       Tap to buy one here anyway. Your mapping stays as it is unless you say otherwise when you complete the trip.
                     </p>
                     <div className="tile-grid gap-2">
-                      {offMappingItems.map(({ item, storeNames }) => (
-                        <button
+                      {offMappingItems.map(({ item, usuallyAt }) => (
+                        <ShoppingItemTile
                           key={item.id}
-                          onClick={() => toggleBought(item.id)}
-                          className="flex items-center justify-between p-3 h-12 rounded-lg bg-surface-tile border border-dashed border-line active:scale-95 transition-all text-left cursor-pointer group/item"
-                        >
-                          <span className="min-w-0 pr-2">
-                            <span className="block text-sm font-semibold truncate text-text-secondary group-hover/item:text-primary">
-                              {item.name}
-                            </span>
-                            {storeNames.length > 0 && (
-                              <span className="block text-[10px] text-text-subtle truncate">
-                                Usually {storeNames.join(', ')}
-                              </span>
-                            )}
-                          </span>
-                          <Square className="w-4 h-4 text-text-muted shrink-0" />
-                        </button>
+                          item={item}
+                          variant="offMapping"
+                          usuallyAt={usuallyAt}
+                          onToggle={toggleBought}
+                        />
                       ))}
                     </div>
                   </div>
@@ -473,21 +452,7 @@ export function ShoppingPhase() {
 
                 <div className="tile-grid gap-2 opacity-35">
                   {inCartItems.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => toggleBought(item.id)}
-                      className="flex items-center justify-between p-3 h-12 rounded-lg bg-surface-tile border border-success/25 text-left line-through cursor-pointer"
-                    >
-                      <span className="text-sm font-medium truncate text-text-muted">
-                        {item.name}
-                      </span>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="text-[10px] text-text-subtle bg-inset px-1.5 py-0.5 rounded border border-line">
-                          {item.quantity}
-                        </span>
-                        <CheckSquare className="w-4 h-4 text-success" />
-                      </div>
-                    </button>
+                    <ShoppingItemTile key={item.id} item={item} variant="inCart" onToggle={toggleBought} />
                   ))}
                 </div>
               </div>

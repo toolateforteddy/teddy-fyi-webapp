@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react'
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useAuth } from '@/features/auth/hooks/useAuth'
 import { rowUserId, legacyRowUserId } from '@/features/auth/utils/identity'
 import { useGrocerySync, type SyncNowOptions } from '@/features/sync/hooks/useGrocerySync'
@@ -23,6 +23,7 @@ import {
   normalizeCategory,
   normalizeStoreInfo
 } from '@/features/grocery/utils/normalize'
+import { keepUnchangedRows } from '@/features/grocery/utils/keepUnchangedRows'
 
 /**
  * What the sync dot in the header is saying.
@@ -339,13 +340,16 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
    * below triggers off this same number, so the indicator and the thing it describes
    * cannot drift apart.
    */
-  const pendingCount =
-    (items || []).filter(i => i.sync_state !== 'SYNCED').length +
-    (lists || []).filter(l => l.sync_state !== 'SYNCED').length +
-    (listMembers || []).filter(m => m.sync_state !== 'SYNCED').length +
-    (stores || []).filter(s => s.sync_state !== 'SYNCED').length +
-    (categories || []).filter(c => c.sync_state !== 'SYNCED').length +
-    (itemStoreInfos || []).filter(info => info.sync_state !== 'SYNCED').length
+  const pendingCount = useMemo(
+    () =>
+      (items || []).filter(i => i.sync_state !== 'SYNCED').length +
+      (lists || []).filter(l => l.sync_state !== 'SYNCED').length +
+      (listMembers || []).filter(m => m.sync_state !== 'SYNCED').length +
+      (stores || []).filter(s => s.sync_state !== 'SYNCED').length +
+      (categories || []).filter(c => c.sync_state !== 'SYNCED').length +
+      (itemStoreInfos || []).filter(info => info.sync_state !== 'SYNCED').length,
+    [items, lists, listMembers, stores, categories, itemStoreInfos]
+  )
 
   // Derive sync status
   const isStale = (() => {
@@ -500,44 +504,46 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
         const defaultList: GroceryList | null = seed?.list ?? null
         const defaultMember: GroceryListMember | null = seed?.member ?? null
 
-        // Apply functional updates to all states using the resolved conflicts and sent IDs
-        setItems(prev => {
-          const merged = resolveConflicts(prev, response.remote_grocery_changes, sentItemIds)
-          return sortItems(merged.map(normalizeItem))
-        })
+        // Apply functional updates to all states using the resolved conflicts and sent IDs.
+        // Each one hands back the previous array when the sync changed nothing in it; see
+        // keepUnchangedRows.
+        setItems(prev => keepUnchangedRows(
+          prev,
+          resolveConflicts(prev, response.remote_grocery_changes, sentItemIds),
+          normalizeItem,
+          sortItems
+        ))
 
         setLists(prev => {
           const merged = resolveListConflicts(prev, response.remote_grocery_list_changes, sentListIds)
-          const mapped = merged.map(normalizeList)
-          if (defaultList) {
-            return sortLists([...mapped, defaultList])
-          }
-          return sortLists(mapped)
+          return keepUnchangedRows(prev, defaultList ? [...merged, defaultList] : merged, normalizeList, sortLists)
         })
 
         setListMembers(prev => {
           const merged = resolveListMemberConflicts(prev, response.remote_grocery_list_member_changes, sentMemberIds)
-          const mapped = merged.map(normalizeListMember)
-          if (defaultMember) {
-            return sortMembers([...mapped, defaultMember])
-          }
-          return sortMembers(mapped)
+          return keepUnchangedRows(prev, defaultMember ? [...merged, defaultMember] : merged, normalizeListMember, sortMembers)
         })
 
-        setStores(prev => {
-          const merged = resolveStoreConflicts(prev, response.remote_store_changes, sentStoreIds)
-          return sortStores(merged.map(normalizeStore))
-        })
+        setStores(prev => keepUnchangedRows(
+          prev,
+          resolveStoreConflicts(prev, response.remote_store_changes, sentStoreIds),
+          normalizeStore,
+          sortStores
+        ))
 
-        setCategories(prev => {
-          const merged = resolveCategoryConflicts(prev, response.remote_category_changes, sentCategoryIds)
-          return sortCategories(merged.map(normalizeCategory))
-        })
+        setCategories(prev => keepUnchangedRows(
+          prev,
+          resolveCategoryConflicts(prev, response.remote_category_changes, sentCategoryIds),
+          normalizeCategory,
+          sortCategories
+        ))
 
-        setItemStoreInfos(prev => {
-          const merged = resolveStoreInfoConflicts(prev, response.remote_grocery_item_store_info_changes, sentStoreInfoIds)
-          return sortStoreInfos(merged.map(normalizeStoreInfo))
-        })
+        setItemStoreInfos(prev => keepUnchangedRows(
+          prev,
+          resolveStoreInfoConflicts(prev, response.remote_grocery_item_store_info_changes, sentStoreInfoIds),
+          normalizeStoreInfo,
+          sortStoreInfos
+        ))
 
         setLastSyncedAt(response.server_timestamp)
         storage.setItem(STORAGE_KEYS.LAST_SYNCED, response.server_timestamp)
@@ -578,15 +584,30 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
     handleManualSyncRef.current = handleManualSync
   })
 
+  /**
+   * `handleManualSync` as the context hands it out: one function for the provider's whole
+   * life, so a consumer that keeps it in a dependency list or passes it down does not see a
+   * new one on every render. It calls through to the latest closure. A child's mount effect
+   * runs before the provider's effect has filled the ref in, so a call that early waits a
+   * tick for it rather than being dropped.
+   */
+  const stableHandleManualSync = useCallback((options?: ManualSyncOptions): Promise<any> => {
+    const current = handleManualSyncRef.current
+    if (current) return current(options)
+    return new Promise(resolve => setTimeout(resolve, 0)).then(
+      () => handleManualSyncRef.current?.(options) ?? null
+    )
+  }, [])
+
   // What the button on the recovery screen does. Going back to `loading` re-arms the
   // timeout above, so a retry that hangs lands back on the same screen rather than on
   // the spinner it replaced.
-  const retryBootstrap = () => {
+  const retryBootstrap = useCallback(() => {
     setBootstrapState('loading')
     if (handleManualSyncRef.current) {
       handleManualSyncRef.current().catch(err => console.error('[Bootstrap] Retry failed:', err))
     }
-  }
+  }, [])
 
   // Auto-sync on mount, on online reconnect, and when the tab comes back into view
   useEffect(() => {
@@ -743,33 +764,44 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(timer)
   }, [awaitedList, isAwaitingJoinedList])
 
+  // One object per change to what it carries, rather than one per render: every consumer of
+  // the context re-renders when this identity changes, and a render of the provider that
+  // changed none of it -- its own parent re-rendering, say -- has nothing to tell them.
+  const value = useMemo<GroceryContextType>(() => ({
+    activeListId,
+    setActiveListId,
+    activeList,
+    isAwaitingJoinedList,
+    items,
+    setItems,
+    lists,
+    setLists,
+    listMembers,
+    setListMembers,
+    stores,
+    setStores,
+    categories,
+    setCategories,
+    itemStoreInfos,
+    setItemStoreInfos,
+    syncStatus,
+    isSyncing,
+    isOnline,
+    pendingCount,
+    lastSyncedAt,
+    handleManualSync: stableHandleManualSync,
+    bootstrapState,
+    retryBootstrap
+  }), [
+    activeListId, setActiveListId, activeList, isAwaitingJoinedList,
+    items, setItems, lists, setLists, listMembers, setListMembers,
+    stores, setStores, categories, setCategories, itemStoreInfos, setItemStoreInfos,
+    syncStatus, isSyncing, isOnline, pendingCount, lastSyncedAt,
+    stableHandleManualSync, bootstrapState, retryBootstrap
+  ])
+
   return (
-    <GroceryContext.Provider value={{
-      activeListId,
-      setActiveListId,
-      activeList,
-      isAwaitingJoinedList,
-      items,
-      setItems,
-      lists,
-      setLists,
-      listMembers,
-      setListMembers,
-      stores,
-      setStores,
-      categories,
-      setCategories,
-      itemStoreInfos,
-      setItemStoreInfos,
-      syncStatus,
-      isSyncing,
-      isOnline,
-      pendingCount,
-      lastSyncedAt,
-      handleManualSync,
-      bootstrapState,
-      retryBootstrap
-    }}>
+    <GroceryContext.Provider value={value}>
       {children}
     </GroceryContext.Provider>
   )
