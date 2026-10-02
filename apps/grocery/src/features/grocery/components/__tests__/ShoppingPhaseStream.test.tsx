@@ -31,8 +31,16 @@ describe('ShoppingPhase and the live stream', () => {
     render(<ShoppingPhase />)
 
     const onInvalidate = vi.mocked(useGroceryStream).mock.calls[0][1]
-    onInvalidate()
 
-    expect(handleManualSync).toHaveBeenCalledWith({ remoteChanged: true })
+    onInvalidate('invalidate')
+    expect(handleManualSync).toHaveBeenLastCalledWith({ remoteChanged: true, resumed: false })
+
+    onInvalidate('reconnect')
+    expect(handleManualSync).toHaveBeenLastCalledWith({ remoteChanged: true, resumed: false })
+
+    // A reopen after a hide is marked, so the context can drop it if its own visibility sync
+    // has already run.
+    onInvalidate('resume')
+    expect(handleManualSync).toHaveBeenLastCalledWith({ remoteChanged: true, resumed: true })
   })
 })

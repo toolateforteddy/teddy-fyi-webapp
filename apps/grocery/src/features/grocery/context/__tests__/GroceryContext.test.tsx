@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useEffect } from 'react'
 import { render, screen, fireEvent, act } from '@testing-library/react'
-import { GroceryProvider, useGrocery } from '../GroceryContext'
+import { GroceryProvider, useGrocery, VISIBILITY_SYNC_THROTTLE_MS } from '../GroceryContext'
 import { storage } from '@/utils/storage'
 import { STORAGE_KEYS } from '@/config/storageKeys'
 
@@ -83,6 +83,7 @@ function ConsumerComponent() {
       </button>
       <button data-testid="sync-btn" onClick={() => handleManualSync()}>Sync</button>
       <button data-testid="invalidate-btn" onClick={() => handleManualSync({ remoteChanged: true })}>Invalidate</button>
+      <button data-testid="resume-btn" onClick={() => handleManualSync({ remoteChanged: true, resumed: true })}>Resume</button>
     </div>
   )
 }
@@ -371,5 +372,91 @@ describe('GroceryContext Provider', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  describe('when the tab comes back into view', () => {
+    let visibility: DocumentVisibilityState = 'visible'
+
+    const setVisibility = async (state: DocumentVisibilityState) => {
+      visibility = state
+      await act(async () => {
+        document.dispatchEvent(new Event('visibilitychange'))
+      })
+    }
+
+    const renderProvider = async () => {
+      // A synced list, so nothing is owed to the server and the debounced push-on-edit
+      // sync stays out of the count.
+      storage.setItem(STORAGE_KEYS.LISTS, [
+        { id: 'list-1', name: 'My List', ownerId: 'user-123', createdAt: 1, sync_state: 'SYNCED', version: 1, is_deleted: false },
+      ])
+      storage.setItem(STORAGE_KEYS.ACTIVE_LIST_ID, 'list-1')
+      render(
+        <GroceryProvider>
+          <ConsumerComponent />
+        </GroceryProvider>
+      )
+      // Let the mount sync settle.
+      await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    }
+
+    beforeEach(() => {
+      vi.useFakeTimers()
+      visibility = 'visible'
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => visibility })
+    })
+
+    afterEach(() => {
+      delete (document as { visibilityState?: DocumentVisibilityState }).visibilityState
+      vi.useRealTimers()
+    })
+
+    it('syncs once the last sync is older than the throttle, and not before', async () => {
+      await renderProvider()
+      expect(mockSyncNow).toHaveBeenCalledTimes(1)
+
+      // Flicking away and straight back, just after the mount sync: nothing.
+      await setVisibility('hidden')
+      await setVisibility('visible')
+      expect(mockSyncNow).toHaveBeenCalledTimes(1)
+
+      await setVisibility('hidden')
+      await act(async () => { await vi.advanceTimersByTimeAsync(VISIBILITY_SYNC_THROTTLE_MS) })
+      expect(mockSyncNow).toHaveBeenCalledTimes(1)
+      await setVisibility('visible')
+      expect(mockSyncNow).toHaveBeenCalledTimes(2)
+
+      // Hiding is never a reason to sync.
+      await setVisibility('hidden')
+      expect(mockSyncNow).toHaveBeenCalledTimes(2)
+    })
+
+    it("drops the stream's resume sync when the visibility sync has already run", async () => {
+      await renderProvider()
+      await setVisibility('hidden')
+      await act(async () => { await vi.advanceTimersByTimeAsync(VISIBILITY_SYNC_THROTTLE_MS) })
+      await setVisibility('visible')
+      expect(mockSyncNow).toHaveBeenCalledTimes(2)
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('resume-btn'))
+      })
+      await act(async () => { await vi.advanceTimersByTimeAsync(1000) })
+      expect(mockSyncNow).toHaveBeenCalledTimes(2)
+    })
+
+    it("runs the stream's resume sync when the throttle held the visibility sync back", async () => {
+      await renderProvider()
+      await setVisibility('hidden')
+      await act(async () => { await vi.advanceTimersByTimeAsync(5000) })
+      await setVisibility('visible')
+      expect(mockSyncNow).toHaveBeenCalledTimes(1)
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('resume-btn'))
+      })
+      expect(mockSyncNow).toHaveBeenCalledTimes(2)
+      expect(mockSyncNow.mock.calls[1][6]).toEqual({ remoteChanged: true })
+    })
   })
 })

@@ -113,8 +113,11 @@ export function ShoppingPhase() {
   //
   // Everything the stream triggers is a sync the server has already asked for -- an
   // invalidation, or a reconnect after a gap nobody was listening through -- so it skips the
-  // status pre-check, whose answer would only be yes.
-  useGroceryStream(selectedStoreId !== null, () => handleManualSync({ remoteChanged: true }))
+  // status pre-check, whose answer would only be yes. A reopen after the tab was hidden is
+  // marked as such, so it is dropped when the app's own visibility sync has already run.
+  useGroceryStream(selectedStoreId !== null, cause =>
+    handleManualSync({ remoteChanged: true, resumed: cause === 'resume' })
+  )
 
 
   // Memoize active categories
