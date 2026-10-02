@@ -41,6 +41,7 @@ export function useGroceryStream(enabled: boolean, onInvalidate: () => void) {
     const controller = new AbortController()
     let stopped = false
     let attempt = 0
+    let connectedBefore = false
     let reconnectTimer: ReturnType<typeof setTimeout> | undefined
     let debounceTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -98,6 +99,11 @@ export function useGroceryStream(enabled: boolean, onInvalidate: () => void) {
         }
 
         attempt = 0
+        // Anything that changed while the stream was down was published to nobody, so a
+        // reconnect is answered with a sync as if an invalidation had arrived. Not the
+        // first connect: the page has just synced on mount.
+        if (connectedBefore) scheduleSync()
+        connectedBefore = true
         const reader = response.body.getReader()
         const decoder = new TextDecoder()
         const frames = new SseFrameReader()

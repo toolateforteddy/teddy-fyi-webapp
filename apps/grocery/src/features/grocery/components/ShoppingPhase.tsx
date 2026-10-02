@@ -149,9 +149,15 @@ export function ShoppingPhase() {
     const performArchive = () => {
       const boughtAt = Date.now()
       setItems(prev => prev.map(item => {
-        if (item.isBought) {
+        // Only this list's cart. An archived row keeps whatever `isBought` it had before
+        // this was fixed, and a cart on another list is that list's trip, so without both
+        // checks every trip re-archived the whole purchase history of every list -- each
+        // row's count went up again, and all of it was uploaded and fanned out to members.
+        // Android's `markDoneForTrip` is the reference: same three conditions.
+        if (item.isBought && item.isActive && item.listId === activeListId) {
           return {
             ...item,
+            isBought: false,
             isActive: false,
             timesBought: (item.timesBought || 0) + 1,
             lastBoughtAt: boughtAt,
