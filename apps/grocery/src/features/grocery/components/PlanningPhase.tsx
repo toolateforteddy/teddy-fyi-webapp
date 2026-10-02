@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useGrocery } from '@/features/grocery/context/GroceryContext'
 import { Plus, Check, MapPin, Sparkles, AlertCircle } from 'lucide-react'
-import type { GroceryItem } from '@/types/grocery'
 import { cn } from '@/utils/cn'
 import { DEFAULT_STORES, DEFAULT_RECOMMENDATIONS } from '../config/constants'
-import { isRecentlyBought } from '../utils/recentPurchase'
+import { recommendationsFromHistory } from '../utils/recommendations'
+import { addOrReuseItem, findReusableItem } from '../utils/addItem'
+import { addStoreMapping } from '../utils/storeMapping'
 import { generateUuid } from '@/utils/uuid'
 
 // Custom hook to manage items temporarily marked as "added" with self-cleaning timeouts
@@ -71,17 +72,13 @@ export function PlanningPhase() {
   // Memoize historical bought items as recommendations source. Anything a trip bought in the
   // last 36 hours is left out.
   const now = useNow(RECENT_PURCHASE_REFRESH_MS)
-  const dynamicRecs = useMemo(() => {
-    return items
-      .filter(item => item.listId === activeListId && !item.isActive && !item.is_deleted && item.timesBought > 0)
-      .filter(item => !isRecentlyBought(item, now))
-      .map(item => ({
-        name: item.name,
-        categoryId: item.categoryId || '1',
-        storeId: selectedStoreId || '',
-        timesBought: item.timesBought
-      }))
-  }, [items, activeListId, selectedStoreId, now])
+  const dynamicRecs = useMemo(
+    () => recommendationsFromHistory(items, activeListId, now).map(rec => ({
+      ...rec,
+      storeId: selectedStoreId || '',
+    })),
+    [items, activeListId, selectedStoreId, now]
+  )
 
   // Memoize recommendation merging & sorting operations
   const filteredRecs = useMemo(() => {
@@ -99,45 +96,45 @@ export function PlanningPhase() {
       .slice(0, 10)
   }, [dynamicRecs, plannedItems, selectedStoreId])
 
+  // A recommendation is a row the list already has, so tapping one brings that row back
+  // rather than inserting a twin of it. The insert path is only for a recommendation with no
+  // row behind it -- a built-in default.
   const handleAddRecommendation = useCallback((itemName: string) => {
     if (addedItems[itemName]) return
 
     triggerAdded(itemName)
 
-    const itemId = generateUuid()
-    const newItem: GroceryItem = {
-      id: itemId,
-      name: itemName,
-      quantity: '1',
-      isBought: false,
-      createdAt: Date.now(),
-      position: items.length + 1,
-      categoryId: '1',
-      timesBought: 1,
-      isActive: true,
-      listId: activeListId,
-      sync_state: 'PENDING_INSERT',
-      version: 1,
-      is_deleted: false,
-    }
+    // Resolved against this render's items so the store mapping below can name the row;
+    // the updater resolves again against the latest state, and finds the same row.
+    const itemId = findReusableItem(items, activeListId, itemName)?.id ?? generateUuid()
 
-    setItems(prev => [...prev, newItem])
+    setItems(prev => addOrReuseItem(
+      prev,
+      { name: itemName, listId: activeListId },
+      () => ({
+        id: itemId,
+        name: itemName,
+        quantity: '1',
+        isBought: false,
+        createdAt: Date.now(),
+        position: prev.length + 1,
+        categoryId: '1',
+        timesBought: 1,
+        isActive: true,
+        listId: activeListId,
+        sync_state: 'PENDING_INSERT',
+        version: 1,
+        is_deleted: false,
+      })
+    ).items)
 
     if (selectedStoreId !== null) {
-      setItemStoreInfos(prev => [
-        ...prev,
-        {
-          groceryItemId: itemId,
-          storeId: selectedStoreId,
-          isAvailable: true,
-          listId: activeListId,
-          sync_state: 'PENDING_INSERT',
-          version: 1,
-          is_deleted: false
-        }
-      ])
+      // A reused row may already be mapped to this store, or have been unmapped from it;
+      // addStoreMapping revives the one row the server keys by the pair instead of adding a
+      // second.
+      setItemStoreInfos(prev => addStoreMapping(prev, itemId, selectedStoreId, activeListId))
     }
-  }, [addedItems, items.length, setItems, activeListId, selectedStoreId, setItemStoreInfos, triggerAdded])
+  }, [addedItems, items, setItems, activeListId, selectedStoreId, setItemStoreInfos, triggerAdded])
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">

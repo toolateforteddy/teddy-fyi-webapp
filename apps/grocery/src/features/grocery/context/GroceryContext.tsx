@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react'
 import { useAuth } from '@/features/auth/hooks/useAuth'
 import { rowUserId, legacyRowUserId } from '@/features/auth/utils/identity'
-import { useGrocerySync } from '@/features/sync/hooks/useGrocerySync'
+import { useGrocerySync, type SyncNowOptions } from '@/features/sync/hooks/useGrocerySync'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { storage } from '@/utils/storage'
 import { STORAGE_KEYS } from '@/config/storageKeys'
@@ -76,6 +76,28 @@ export const BOOTSTRAP_TIMEOUT_MS = 15000
  */
 export const AWAITED_LIST_TIMEOUT_MS = 20000
 
+/**
+ * How long after the last sync a tab coming back into view syncs again.
+ *
+ * Coming back to the app is when somebody looks at the list, and without this a list that
+ * someone else changed in the meantime stayed as it was until this device edited something
+ * itself. Throttled because flicking between apps is many visibility changes a minute, and
+ * thirty seconds is short enough that a list you return to after doing anything else is
+ * fresh.
+ */
+export const VISIBILITY_SYNC_THROTTLE_MS = 30_000
+
+/** What a caller of handleManualSync can say about the sync it is asking for. */
+export interface ManualSyncOptions extends SyncNowOptions {
+  /**
+   * The sync catches up after the tab was hidden, so it is not needed if a sync has already
+   * started since the tab became visible -- which is the visibility handler's own, when the
+   * throttle let it through. The shopping page's stream reopens on the same event and asks
+   * with this set; without it, a return to the shopping page after a while synced twice.
+   */
+  resumed?: boolean
+}
+
 interface GroceryContextType {
   activeListId: string
   setActiveListId: (id: string) => void
@@ -107,7 +129,7 @@ interface GroceryContextType {
   /** Rows edited here that the server has not acknowledged yet, across every table. */
   pendingCount: number
   lastSyncedAt: string
-  handleManualSync: () => Promise<any>
+  handleManualSync: (options?: ManualSyncOptions) => Promise<any>
   /** Whether the shell has a list to render, is still waiting for one, or gave up. */
   bootstrapState: BootstrapState
   /** Put the shell back into `loading` and try the first sync again. */
@@ -347,7 +369,17 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
 
   const isSyncingRef = useRef(false)
   const syncNeededRef = useRef(false)
-  const handleManualSyncRef = useRef<() => Promise<any>>(null as any)
+  /**
+   * Whether any request folded into the pending follow-up sync knew the server had changes.
+   * An invalidation that lands mid-sync is the common case on the shopping page, and the
+   * follow-up it causes should not lose what the invalidation said.
+   */
+  const followUpRemoteChangedRef = useRef(false)
+  const handleManualSyncRef = useRef<(options?: ManualSyncOptions) => Promise<any>>(null as any)
+  /** When the last sync actually started, for the visibility throttle and `resumed`. */
+  const lastSyncStartedAtRef = useRef(0)
+  /** When the tab last came back into view; 0 until it has been hidden once. */
+  const visibleSinceRef = useRef(0)
   /** Set when the short-circuit path has seeded the default list, so it seeds only one. */
   const adoptedDefaultListRef = useRef(false)
 
@@ -413,14 +445,21 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
   }
 
   // Triggers manual sync using the real syncNow hook
-  const handleManualSync = async (): Promise<any> => {
+  const handleManualSync = async (options: ManualSyncOptions = {}): Promise<any> => {
+    // Checked before the in-flight test: a sync that is running now started after the tab
+    // came back, and queueing a follow-up behind it would be the double sync this avoids.
+    if (options.resumed && visibleSinceRef.current > 0 && lastSyncStartedAtRef.current >= visibleSinceRef.current) {
+      return null
+    }
     if (isSyncingRef.current) {
       syncNeededRef.current = true
+      if (options.remoteChanged) followUpRemoteChangedRef.current = true
       return null
     }
     if (!user) return null
 
     isSyncingRef.current = true
+    lastSyncStartedAtRef.current = Date.now()
 
     // Capture snapshots of the current state at the exact time sync starts using the latest refs
     const currentItems = itemsRef.current
@@ -448,7 +487,8 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
         currentStores,
         currentCategories,
         currentItemStoreInfos,
-        currentListMembers
+        currentListMembers,
+        { remoteChanged: options.remoteChanged }
       )
 
       if (response) {
@@ -520,9 +560,11 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
       isSyncingRef.current = false
       if (syncNeededRef.current) {
         syncNeededRef.current = false
+        const followUp: SyncNowOptions = { remoteChanged: followUpRemoteChangedRef.current }
+        followUpRemoteChangedRef.current = false
         setTimeout(() => {
           if (handleManualSyncRef.current) {
-            handleManualSyncRef.current().catch(err => console.error('[Sync] Auto-manual sync error:', err))
+            handleManualSyncRef.current(followUp).catch(err => console.error('[Sync] Auto-manual sync error:', err))
           }
         }, 300)
       }
@@ -546,7 +588,7 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  // Auto-sync on mount and on online reconnect
+  // Auto-sync on mount, on online reconnect, and when the tab comes back into view
   useEffect(() => {
     if (isLoading) return
     if (!user) return
@@ -558,9 +600,20 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
       handleManualSync()
     }
 
+    // Throttled from when the last sync started, whatever started it, so returning to a tab
+    // that has just synced -- or that synced on mount a moment ago -- costs nothing.
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') return
+      visibleSinceRef.current = Date.now()
+      if (Date.now() - lastSyncStartedAtRef.current < VISIBILITY_SYNC_THROTTLE_MS) return
+      handleManualSyncRef.current?.().catch(err => console.error('[Sync] Visibility sync error:', err))
+    }
+
     window.addEventListener('online', handleOnline)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
     return () => {
       window.removeEventListener('online', handleOnline)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading, user])

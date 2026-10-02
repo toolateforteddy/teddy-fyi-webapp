@@ -38,7 +38,7 @@ function Consumer() {
     <div>
       <div data-testid="lists">{JSON.stringify(lists.map(l => [l.id, l.ownerId, l.sync_state]))}</div>
       <div data-testid="members">{JSON.stringify(listMembers.map(m => [m.id, m.userId, m.sync_state]))}</div>
-      <button data-testid="sync" onClick={handleManualSync}>Sync</button>
+      <button data-testid="sync" onClick={() => handleManualSync()}>Sync</button>
     </div>
   )
 }

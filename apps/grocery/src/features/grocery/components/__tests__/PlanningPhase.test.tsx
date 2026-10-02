@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { PlanningPhase } from '../PlanningPhase'
 import { useGrocery } from '@/features/grocery/context/GroceryContext'
 import type { GroceryItem } from '@/types/grocery'
@@ -40,5 +40,31 @@ describe('PlanningPhase recommendations', () => {
     expect(screen.queryByText('Eggs')).not.toBeInTheDocument()
     expect(screen.getByText('Flour')).toBeInTheDocument()
     expect(screen.getByText('Salt')).toBeInTheDocument()
+  })
+
+  it('shows a name held by several rows once, and tapping it brings a row back instead of inserting', () => {
+    const setItems = vi.fn()
+    const setItemStoreInfos = vi.fn()
+    const items = [archived('a', 'Salt'), archived('b', 'salt')]
+    vi.mocked(useGrocery).mockReturnValue({
+      activeListId: 'list-1',
+      items,
+      setItems,
+      stores: [],
+      setItemStoreInfos,
+    } as unknown as ReturnType<typeof useGrocery>)
+
+    render(<PlanningPhase />)
+
+    const tiles = screen.getAllByRole('button', { name: /salt/i })
+    expect(tiles).toHaveLength(1)
+
+    fireEvent.click(tiles[0])
+
+    const update = setItems.mock.calls[0][0] as (prev: GroceryItem[]) => GroceryItem[]
+    const next = update(items)
+    expect(next).toHaveLength(2)
+    expect(next.filter(i => i.isActive)).toHaveLength(1)
+    expect(next.find(i => i.isActive)?.sync_state).toBe('PENDING_UPDATE')
   })
 })

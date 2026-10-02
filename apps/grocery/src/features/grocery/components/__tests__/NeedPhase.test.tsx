@@ -213,6 +213,31 @@ describe('NeedPhase Component', () => {
   })
 
 
+  it('brings back an item the list already has instead of adding a second row', () => {
+    renderNeedPhase()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add grocery item' }))
+    fireEvent.change(screen.getByPlaceholderText('What is needed? (e.g. Milk, Eggs)'), { target: { value: 'milk' } })
+    fireEvent.click(screen.getByRole('button', { name: /Add Item/ }))
+
+    const update = mockSetItems.mock.calls[0][0]
+    const next: GroceryItem[] = update(mockItems)
+    expect(next).toHaveLength(mockItems.length)
+    expect(next.find(i => i.id === 'item-2')).toMatchObject({ isActive: true, quantity: '1', sync_state: 'PENDING_UPDATE', version: 2 })
+  })
+
+  it('adds a row for a name the list has not seen', () => {
+    renderNeedPhase()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add grocery item' }))
+    fireEvent.change(screen.getByPlaceholderText('What is needed? (e.g. Milk, Eggs)'), { target: { value: 'Bread' } })
+    fireEvent.click(screen.getByRole('button', { name: /Add Item/ }))
+
+    const next: GroceryItem[] = mockSetItems.mock.calls[0][0](mockItems)
+    expect(next).toHaveLength(mockItems.length + 1)
+    expect(next[next.length - 1]).toMatchObject({ name: 'Bread', sync_state: 'PENDING_INSERT', isActive: true })
+  })
+
   /**
    * The two ways in that are not the button: the manifest's "Add an item" shortcut,
    * and an OS share. Both have to land with the sheet already open -- a share that

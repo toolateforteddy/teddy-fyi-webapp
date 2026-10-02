@@ -84,7 +84,11 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Source+Code+Pro:ital,wght@0,200..900;1,200..900&display=swap" rel="stylesheet">
+  <!-- Only the Inter weights the app's classes use (font-medium through font-black, and 400
+       as the body weight). Nothing here names Source Code Pro -- font-mono is Tailwind's
+       system monospace stack -- and nothing sets Inter in italic, so neither is requested;
+       tests/fonts.test.ts holds this list to the classes in src/. -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
     /* Tailwind v4 emits oklch(), color-mix() and @property with no fallbacks, so
        it requires Safari / iOS 16.4+ (March 2023). Below that nearly every color

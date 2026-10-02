@@ -10,6 +10,7 @@ import { GroceryItemTile } from './GroceryItemTile'
 import { AddNeededItemSheet, AddNeededItemPane } from './AddNeededItemSheet'
 import { useAppLayout } from '@/hooks/useAppLayout'
 import { peekSharedItem, clearSharedItem } from '../utils/sharedItem'
+import { addOrReuseItem } from '../utils/addItem'
 
 export function NeedPhase() {
   const { 
@@ -230,24 +231,28 @@ export function NeedPhase() {
     setExpandedItemId(null)
   }
 
+  // Adding a name the list already knows brings that row back rather than inserting a
+  // second one, so its purchase history carries on. See addOrReuseItem.
   const handleAddItem = (name: string, quantity: string, categoryId: string | undefined) => {
-    const newItem: GroceryItem = {
-      id: generateUuid(),
-      name: name,
-      quantity: quantity || '1',
-      isBought: false,
-      createdAt: Date.now(),
-      position: items.length + 1,
-      categoryId: categoryId,
-      timesBought: 0,
-      isActive: true,
-      listId: activeListId,
-      sync_state: 'PENDING_INSERT',
-      version: 1,
-      is_deleted: false,
-    }
-
-    setItems(prev => [...prev, newItem])
+    setItems(prev => addOrReuseItem(
+      prev,
+      { name, listId: activeListId, quantity, categoryId },
+      () => ({
+        id: generateUuid(),
+        name: name,
+        quantity: quantity || '1',
+        isBought: false,
+        createdAt: Date.now(),
+        position: prev.length + 1,
+        categoryId: categoryId,
+        timesBought: 0,
+        isActive: true,
+        listId: activeListId,
+        sync_state: 'PENDING_INSERT',
+        version: 1,
+        is_deleted: false,
+      })
+    ).items)
   }
 
   const list = (

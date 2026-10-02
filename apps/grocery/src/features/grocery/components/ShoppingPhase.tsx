@@ -110,7 +110,14 @@ export function ShoppingPhase() {
   // unless you happened to edit something yourself. Held open only for this page with a
   // store picked, which is the one stretch where a stale list is wrong in a way you notice;
   // the stream costs the server a slot per account.
-  useGroceryStream(selectedStoreId !== null, handleManualSync)
+  //
+  // Everything the stream triggers is a sync the server has already asked for -- an
+  // invalidation, or a reconnect after a gap nobody was listening through -- so it skips the
+  // status pre-check, whose answer would only be yes. A reopen after the tab was hidden is
+  // marked as such, so it is dropped when the app's own visibility sync has already run.
+  useGroceryStream(selectedStoreId !== null, cause =>
+    handleManualSync({ remoteChanged: true, resumed: cause === 'resume' })
+  )
 
 
   // Memoize active categories

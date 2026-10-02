@@ -28,35 +28,49 @@ import { SseFrameReader, isGroceryInvalidation } from '@/features/sync/sseFrames
  *   for the shopping page with a store selected and false everywhere else; a stream costs
  *   the server a slot per account, and this is the only screen where a stale list is wrong
  *   in a way anyone notices.
- * @param onInvalidate run when a grocery change lands, already debounced. Held in a ref, so
- *   the caller may pass a fresh closure on every render without reopening the connection.
+ * @param onInvalidate run when a grocery change lands, already debounced, with why. Held in a
+ *   ref, so the caller may pass a fresh closure on every render without reopening the
+ *   connection.
  */
-export function useGroceryStream(enabled: boolean, onInvalidate: () => void) {
+export function useGroceryStream(enabled: boolean, onInvalidate: (cause: StreamSyncCause) => void) {
   const onInvalidateRef = useRef(onInvalidate)
   onInvalidateRef.current = onInvalidate
 
   useEffect(() => {
     if (!enabled) return
 
-    const controller = new AbortController()
     let stopped = false
+    // The connection currently wanted, or null while the tab is hidden. Each connect gets its
+    // own controller, so closing for a hide cannot be confused with a later reopen.
+    let controller: AbortController | null = null
     let attempt = 0
     let connectedBefore = false
+    // Set by a reopen after the tab was hidden, and spent by the connect that succeeds.
+    let resuming = false
     let reconnectTimer: ReturnType<typeof setTimeout> | undefined
     let debounceTimer: ReturnType<typeof setTimeout> | undefined
+    let pendingCause: StreamSyncCause = 'invalidate'
 
     /**
      * One trip round a shop is a great many single-item syncs on somebody else's phone, and
      * each of ours is a request, a download and a reconcile. The window is short enough that
      * a change lands while you are still looking at the aisle it happened in.
+     *
+     * Causes folded into one sync keep the strongest of them: a `resume` sync may be dropped
+     * as already covered (see StreamSyncCause), and an invalidation riding along with it must
+     * not be dropped with it.
      */
-    const scheduleSync = () => {
-      if (debounceTimer !== undefined) return
+    const scheduleSync = (cause: StreamSyncCause) => {
+      if (debounceTimer !== undefined) {
+        if (pendingCause === 'resume') pendingCause = cause
+        return
+      }
+      pendingCause = cause
       debounceTimer = setTimeout(() => {
         debounceTimer = undefined
         if (stopped) return
         try {
-          onInvalidateRef.current()
+          onInvalidateRef.current(pendingCause)
         } catch (err) {
           console.error('[Stream] Sync triggered by an invalidation failed:', err)
         }
@@ -64,17 +78,17 @@ export function useGroceryStream(enabled: boolean, onInvalidate: () => void) {
     }
 
     const scheduleReconnect = () => {
-      if (stopped) return
+      if (stopped || controller === null) return
       const delay = backoffFor(attempt)
       attempt += 1
       reconnectTimer = setTimeout(() => {
         reconnectTimer = undefined
-        if (!stopped) void connect()
+        if (!stopped && controller !== null) void connect(controller)
       }, delay)
     }
 
-    const connect = async () => {
-      if (stopped) return
+    const connect = async (own: AbortController) => {
+      if (stopped || own.signal.aborted) return
       try {
         // `fetch` rather than `EventSource`, which cannot be given headers -- and
         // `/api/sync/stream` answers 400 without `X-Client-UUID`. `credentials: 'include'`
@@ -86,8 +100,9 @@ export function useGroceryStream(enabled: boolean, onInvalidate: () => void) {
             'X-Client-UUID': getClientUuid(),
           },
           credentials: 'include',
-          signal: controller.signal,
+          signal: own.signal,
         })
+        if (own.signal.aborted) return
 
         if (!response.ok || !response.body) {
           // A 401 is left to the next ordinary request: axios owns the refresh, and a
@@ -101,8 +116,12 @@ export function useGroceryStream(enabled: boolean, onInvalidate: () => void) {
         attempt = 0
         // Anything that changed while the stream was down was published to nobody, so a
         // reconnect is answered with a sync as if an invalidation had arrived. Not the
-        // first connect: the page has just synced on mount.
-        if (connectedBefore) scheduleSync()
+        // first connect: the page has just synced on mount. A reopen after the tab was
+        // hidden is a reconnect too -- the stream was closed on purpose, but the changes
+        // published meanwhile went to nobody all the same.
+        if (resuming) scheduleSync('resume')
+        else if (connectedBefore) scheduleSync('reconnect')
+        resuming = false
         connectedBefore = true
         const reader = response.body.getReader()
         const decoder = new TextDecoder()
@@ -114,7 +133,7 @@ export function useGroceryStream(enabled: boolean, onInvalidate: () => void) {
 
         for (;;) {
           const { done, value } = await reader.read()
-          if (done) break
+          if (done || own.signal.aborted) break
           buffer += decoder.decode(value, { stream: true })
 
           let newline = buffer.indexOf('\n')
@@ -122,31 +141,77 @@ export function useGroceryStream(enabled: boolean, onInvalidate: () => void) {
             const line = buffer.slice(0, newline).replace(/\r$/, '')
             buffer = buffer.slice(newline + 1)
             const frame = frames.accept(line)
-            if (frame && isGroceryInvalidation(frame.data)) scheduleSync()
+            if (frame && isGroceryInvalidation(frame.data)) scheduleSync('invalidate')
             newline = buffer.indexOf('\n')
           }
         }
 
         // The server closed a stream that was working. Reconnecting is the point: it holds
         // itself open for as long as the page wants it.
-        scheduleReconnect()
+        if (!own.signal.aborted) scheduleReconnect()
       } catch (err) {
-        if (controller.signal.aborted) return
+        if (own.signal.aborted) return
         console.warn('[Stream] Grocery stream failed:', err)
         scheduleReconnect()
       }
     }
 
-    void connect()
+    const open = () => {
+      controller = new AbortController()
+      attempt = 0
+      void connect(controller)
+    }
+
+    const close = () => {
+      controller?.abort()
+      controller = null
+      if (reconnectTimer !== undefined) {
+        clearTimeout(reconnectTimer)
+        reconnectTimer = undefined
+      }
+    }
+
+    /**
+     * A hidden tab holds no stream. A phone in a pocket on the shopping page would otherwise
+     * keep a server slot -- and a socket, and the radio -- for a list nobody is looking at, and
+     * mobile browsers kill a backgrounded connection whenever they like anyway. Coming back
+     * reopens it at once, with a fresh backoff, and the reopen syncs (see `resuming`).
+     *
+     * An invalidation already being debounced is left to run: it arrived while the stream
+     * was open, and the sync it asks for is still owed.
+     */
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        close()
+      } else if (controller === null) {
+        resuming = true
+        open()
+      }
+    }
+
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    if (document.visibilityState !== 'hidden') open()
 
     return () => {
       stopped = true
-      controller.abort()
-      if (reconnectTimer !== undefined) clearTimeout(reconnectTimer)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      close()
       if (debounceTimer !== undefined) clearTimeout(debounceTimer)
     }
   }, [enabled])
 }
+
+/**
+ * Why the stream is asking for a sync. Every cause is something the server has already said
+ * or implied -- there is something to fetch -- so every one of them skips the status
+ * pre-check.
+ *
+ * `resume` is kept apart because it is the one sync somebody else may already have run: the
+ * app syncs on its own when a tab comes back after a while (GroceryContext's visibility
+ * handler), so the reopen's sync is redundant when that one has already started since the
+ * tab came back.
+ */
+export type StreamSyncCause = 'invalidate' | 'reconnect' | 'resume'
 
 /**
  * `scope=grocery` is load-bearing rather than decoration. Without it the server treats the
@@ -165,8 +230,9 @@ export const MIN_BACKOFF_MS = 250
 /**
  * The longest the computed backoff may grow to. A stream that has been failing for five
  * minutes is not one more reconnect away from working. Somebody actually waiting on it does
- * not wait this out: leaving the shopping page and coming back remounts the effect, which
- * resets the attempt count and reconnects at once.
+ * not wait this out: leaving the shopping page and coming back remounts the effect, and
+ * hiding the tab and coming back reopens it, and either resets the attempt count and
+ * reconnects at once.
  */
 export const MAX_BACKOFF_MS = 300_000
 
