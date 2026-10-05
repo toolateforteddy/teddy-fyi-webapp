@@ -65,7 +65,7 @@ export const HELP_SECTIONS: HelpSection[] = [
         gesture: 'scroll',
         verb: 'Drag a row of chips sideways',
         what: 'Scrolls store chips that run off the edge',
-        then: "The store row inside an item's drawer, and the store filter on Planning, both scroll when you have more stores than fit.",
+        then: "The store row inside an item's drawer scrolls when you have more stores than fit.",
       },
       {
         kind: 'gesture',
@@ -205,7 +205,7 @@ export const HELP_SECTIONS: HelpSection[] = [
     blocks: [
       {
         kind: 'text',
-        body: "Planning's Smart Recommendations tray is built from items you have completed a trip with before, ranked by how often you have bought them, capped at ten. Anything a trip bought in the last 36 hours stays out of it, so what you just brought home is not the first thing it suggests.",
+        body: "Planning's Recommendations tray is built from items you have completed a trip with before, ranked by how often you have bought them, capped at ten. Anything a trip bought in the last 36 hours stays out of it, so what you just brought home is not the first thing it suggests.",
       },
       {
         kind: 'gesture',
@@ -221,7 +221,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       },
       {
         kind: 'text',
-        body: 'The store chips on this tab do not narrow the recommendations: the same cards show under General as under any one store. What they change is the item you get, which is tagged as available at the store you picked.',
+        body: 'The store picker beside Recommendations does not narrow them: the same cards show under All Stores as under any one store. What they change is the item you get, which is tagged as available at the store you picked.',
       },
     ],
   },

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useGrocery } from '@/features/grocery/context/GroceryContext'
-import { Plus, Check, MapPin, Sparkles, AlertCircle } from 'lucide-react'
+import { Plus, Check, MapPin, Sparkles, AlertCircle, ChevronDown } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { DEFAULT_STORES, DEFAULT_RECOMMENDATIONS } from '../config/constants'
 import { recommendationsFromHistory } from '../utils/recommendations'
@@ -61,6 +61,8 @@ export function PlanningPhase() {
       .filter(s => s.listId === activeListId && !s.is_deleted)
       .sort((a, b) => a.position - b.position)
   }, [stores, activeListId])
+
+  const selectedStoreName = activeStores.find(s => s.id === selectedStoreId)?.name ?? 'All Stores'
 
   // Memoize currently planned items names
   const plannedItems = useMemo(() => {
@@ -137,43 +139,10 @@ export function PlanningPhase() {
   }, [addedItems, items, setItems, activeListId, selectedStoreId, setItemStoreInfos, triggerAdded])
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
-      <div className="space-y-2">
-        <label className="text-[10px] uppercase tracking-wider font-bold text-text-muted px-1 block">
-          Select Store Filter
-        </label>
-
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none -mx-4 px-4 mask-right">
-          <button
-            onClick={() => setSelectedStoreId(null)}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all whitespace-nowrap cursor-pointer",
-              selectedStoreId === null
-                ? "bg-primary text-on-primary border-primary"
-                : "bg-surface-tile text-text-muted border-line hover:border-line-strong"
-            )}
-          >
-            All Stores
-          </button>
-
-          {activeStores.map((store) => (
-            <button
-              key={store.id}
-              onClick={() => setSelectedStoreId(store.id)}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all whitespace-nowrap cursor-pointer",
-                selectedStoreId === store.id
-                  ? "bg-primary text-on-primary border-primary"
-                  : "bg-surface-tile text-text-muted border-line hover:border-line-strong"
-              )}
-            >
-              <MapPin className="w-3 h-3" />
-              {store.name}
-            </button>
-          ))}
-        </div>
-      </div>
-
+    // mt-auto: in the shell's column a short list sits at the bottom, by the thumb and the
+    // tabs, instead of under the header with the rest of the screen empty. A long one
+    // scrolls as before.
+    <div className="mt-auto animate-in fade-in duration-200">
       {/* The tray and the list. Stacked on a phone; side by side at 40/60 once the
           content column can carry two panes, which is the arrangement the Android
           tablet layout uses. */}
@@ -181,16 +150,33 @@ export function PlanningPhase() {
 
         {/* Recommendation Tray */}
         <div className="space-y-2.5">
-          {/* Wraps rather than squeezes: in the two-pane layout this header lives
-              in the narrower of the two panes. */}
-          <div className="flex items-center justify-between flex-wrap gap-x-2 gap-y-0.5 px-1">
-            <div className="flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-primary" />
-              <h4 className="text-xs font-bold tracking-widest text-text-muted uppercase">
-                Smart Recommendations
+          {/* The store picker lives in the tray's heading. It replaced a row of a chip per
+              store, which said one thing in a whole row of the screen. */}
+          <div className="flex items-center justify-between gap-2 px-1">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
+              <h4 className="text-xs font-bold tracking-widest text-text-muted uppercase truncate">
+                Recommendations
               </h4>
             </div>
-            <span className="text-[10px] text-text-subtle">Based on historical purchases</span>
+            <label className="relative flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-semibold border border-line bg-surface-tile text-text-primary hover:border-line-strong cursor-pointer min-w-0 max-w-[60%]">
+              <MapPin className="w-3 h-3 text-primary shrink-0" />
+              <span className="truncate">{selectedStoreName}</span>
+              <ChevronDown className="w-3.5 h-3.5 text-text-muted shrink-0" />
+              {/* The native control, transparent over the chip: the phone's own picker,
+                  and a keyboard and screen reader get a real select. */}
+              <select
+                aria-label="Store"
+                value={selectedStoreId ?? ''}
+                onChange={e => setSelectedStoreId(e.target.value === '' ? null : e.target.value)}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              >
+                <option value="">All Stores</option>
+                {activeStores.map(store => (
+                  <option key={store.id} value={store.id}>{store.name}</option>
+                ))}
+              </select>
+            </label>
           </div>
 
           {/* The recommendation grid's 140px is deliberately below the item tiles'
@@ -211,27 +197,21 @@ export function PlanningPhase() {
                     key={rec.name}
                     onClick={() => handleAddRecommendation(rec.name)}
                     disabled={isAdded}
+                    // A suggestion is a tinted pill with the + leading, so it reads at a glance as
+                    // not yet on the list -- unlike the list's own rows, which are square and grey.
                     className={cn(
-                      "flex flex-col justify-between items-start text-left p-3 h-12 rounded-lg border transition-all cursor-pointer",
+                      "flex items-center gap-1.5 text-left px-3 h-9 rounded-full border transition-all cursor-pointer min-w-0",
                       isAdded
                         ? "bg-success/10 border-success/40 text-success-strong"
-                        : "bg-surface-tile border-line-faint hover:border-line hover:bg-surface-raised/50"
+                        : "bg-primary/10 border-primary/40 text-primary hover:bg-primary/20"
                     )}
                   >
-                    <div className="w-full flex items-start justify-between">
-                      <span className={cn(
-                        "text-xs font-semibold line-clamp-2 pr-2",
-                        isAdded ? "text-success-strong" : "text-text-primary"
-                      )}>
-                        {rec.name}
-                      </span>
-                      <div className={cn(
-                        "w-5 h-5 rounded-full flex items-center justify-center transition-all",
-                        isAdded ? "bg-success text-on-success" : "bg-surface-hover text-text-muted hover:bg-surface-hover-strong"
-                      )}>
-                        {isAdded ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-                      </div>
-                    </div>
+                    {isAdded
+                      ? <Check className="w-3.5 h-3.5 shrink-0" />
+                      : <Plus className="w-3.5 h-3.5 shrink-0" />}
+                    <span className="text-xs font-semibold truncate">
+                      {rec.name}
+                    </span>
                   </button>
                 )
               })}

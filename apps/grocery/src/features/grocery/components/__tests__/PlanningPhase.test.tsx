@@ -67,4 +67,27 @@ describe('PlanningPhase recommendations', () => {
     expect(next.filter(i => i.isActive)).toHaveLength(1)
     expect(next.find(i => i.isActive)?.sync_state).toBe('PENDING_UPDATE')
   })
+
+  it('picks the store from one dropdown rather than a chip per store', () => {
+    vi.mocked(useGrocery).mockReturnValue({
+      activeListId: 'list-1',
+      items: [],
+      setItems: vi.fn(),
+      stores: [
+        { id: 's2', name: 'Costco', listId: 'list-1', position: 2, is_deleted: false },
+        { id: 's1', name: 'H Mart', listId: 'list-1', position: 1, is_deleted: false },
+      ],
+      setItemStoreInfos: vi.fn(),
+    } as unknown as ReturnType<typeof useGrocery>)
+
+    render(<PlanningPhase />)
+
+    const picker = screen.getByRole('combobox', { name: 'Store' })
+    expect(screen.getAllByRole('option').map(o => o.textContent)).toEqual(['All Stores', 'H Mart', 'Costco'])
+    expect(screen.queryByRole('button', { name: /costco/i })).not.toBeInTheDocument()
+
+    fireEvent.change(picker, { target: { value: 's2' } })
+
+    expect(picker).toHaveValue('s2')
+  })
 })
