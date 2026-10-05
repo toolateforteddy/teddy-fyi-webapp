@@ -4,6 +4,7 @@ import { Plus, Check, MapPin, Sparkles, AlertCircle, ChevronDown } from 'lucide-
 import { cn } from '@/utils/cn'
 import { DEFAULT_STORES, DEFAULT_RECOMMENDATIONS } from '../config/constants'
 import { recommendationsFromHistory } from '../utils/recommendations'
+import { MIN_RECOMMENDATIONS, TRAY_MIN_HEIGHT_PX, recommendationsThatFit } from '../utils/recommendationLimit'
 import { addOrReuseItem, findReusableItem } from '../utils/addItem'
 import { addStoreMapping } from '../utils/storeMapping'
 import { generateUuid } from '@/utils/uuid'
@@ -46,6 +47,24 @@ function useNow(intervalMs: number): number {
     return () => clearInterval(id)
   }, [intervalMs])
   return now
+}
+
+function useRecommendationLimit(): [(el: HTMLDivElement | null) => void, number] {
+  const [limit, setLimit] = useState(MIN_RECOMMENDATIONS)
+  const observer = useRef<ResizeObserver | null>(null)
+
+  const ref = useCallback((el: HTMLDivElement | null) => {
+    observer.current?.disconnect()
+    observer.current = null
+    if (!el || typeof ResizeObserver === 'undefined') return
+    observer.current = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect
+      setLimit(recommendationsThatFit(width, height))
+    })
+    observer.current.observe(el)
+  }, [])
+
+  return [ref, limit]
 }
 
 export function PlanningPhase() {
@@ -95,8 +114,10 @@ export function PlanningPhase() {
       .filter(rec => !plannedItems.some(pName => pName.toLowerCase() === rec.name.toLowerCase()))
       .filter(rec => selectedStoreId === null || rec.storeId === selectedStoreId)
       .sort((a, b) => b.timesBought - a.timesBought)
-      .slice(0, 10)
   }, [dynamicRecs, plannedItems, selectedStoreId])
+
+  const [trayRef, recLimit] = useRecommendationLimit()
+  const shownRecs = useMemo(() => filteredRecs.slice(0, recLimit), [filteredRecs, recLimit])
 
   // A recommendation is a row the list already has, so tapping one brings that row back
   // rather than inserting a twin of it. The insert path is only for a recommendation with no
@@ -139,17 +160,17 @@ export function PlanningPhase() {
   }, [addedItems, items, setItems, activeListId, selectedStoreId, setItemStoreInfos, triggerAdded])
 
   return (
-    // mt-auto: in the shell's column a short list sits at the bottom, by the thumb and the
-    // tabs, instead of under the header with the rest of the screen empty. A long one
-    // scrolls as before.
-    <div className="mt-auto animate-in fade-in duration-200">
+    // flex-1 down to the tray: the page fills the shell's column, the list takes the height
+    // its rows need, and the tray takes whatever is left -- so a short list leaves room
+    // for more suggestions rather than for empty screen.
+    <div className="flex-1 flex flex-col animate-in fade-in duration-200">
       {/* The tray and the list. Stacked on a phone; side by side at 40/60 once the
           content column can carry two panes, which is the arrangement the Android
           tablet layout uses. */}
-      <div className="planning-panes">
+      <div className="planning-panes flex-1">
 
         {/* Recommendation Tray */}
-        <div className="space-y-2.5">
+        <div className="flex flex-col gap-2.5 min-h-0">
           {/* The store picker lives in the tray's heading. It replaced a row of a chip per
               store, which said one thing in a whole row of the screen. */}
           <div className="flex items-center justify-between gap-2 px-1">
@@ -188,8 +209,12 @@ export function PlanningPhase() {
               <p className="text-sm text-text-muted">No recommendations for this store yet.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-2.5">
-              {filteredRecs.map((rec) => {
+            // The grid is absolutely placed so that the box measured is the room the layout
+            // gave the tray, not the grid's own content -- otherwise a tray once grown would
+            // hold its height when the list got longer.
+            <div ref={trayRef} className="relative flex-1" style={{ minHeight: TRAY_MIN_HEIGHT_PX }}>
+            <div className="absolute inset-0 overflow-y-auto grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] content-start gap-2.5">
+              {shownRecs.map((rec) => {
                 const isAdded = addedItems[rec.name]
 
                 return (
@@ -215,6 +240,7 @@ export function PlanningPhase() {
                   </button>
                 )
               })}
+            </div>
             </div>
           )}
         </div>
