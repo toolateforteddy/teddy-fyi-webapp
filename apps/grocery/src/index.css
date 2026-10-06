@@ -134,15 +134,20 @@ body {
 /* Planning: the recommendation tray sits above the list on a phone and beside it
    once the content column can carry two panes, at the 40/60 split the Android
    tablet layout uses (TRAY_PANE_WEIGHT / LIST_PANE_WEIGHT). */
+/* Stacked, the list's row is as tall as the list and the tray's row takes the rest, so
+   the room a short list leaves goes to more suggestions. Side by side, the tray is as
+   tall as the pane. */
 .planning-panes {
   display: grid;
   gap: 1.5rem;
-  align-items: start;
+  grid-template-rows: 1fr auto;
+  align-items: stretch;
 }
 
 @container content (min-width: 600px) {
   .planning-panes {
     grid-template-columns: 2fr 3fr;
+    grid-template-rows: 1fr;
   }
 }
 

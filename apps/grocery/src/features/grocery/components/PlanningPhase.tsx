@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useGrocery } from '@/features/grocery/context/GroceryContext'
-import { Plus, Check, MapPin, Sparkles, AlertCircle } from 'lucide-react'
+import { Plus, Check, MapPin, Sparkles, AlertCircle, ChevronDown } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { DEFAULT_STORES, DEFAULT_RECOMMENDATIONS } from '../config/constants'
 import { recommendationsFromHistory } from '../utils/recommendations'
+import { MIN_RECOMMENDATIONS, TRAY_MIN_HEIGHT_PX, recommendationsThatFit } from '../utils/recommendationLimit'
 import { addOrReuseItem, findReusableItem } from '../utils/addItem'
 import { addStoreMapping } from '../utils/storeMapping'
 import { generateUuid } from '@/utils/uuid'
@@ -48,6 +49,24 @@ function useNow(intervalMs: number): number {
   return now
 }
 
+function useRecommendationLimit(): [(el: HTMLDivElement | null) => void, number] {
+  const [limit, setLimit] = useState(MIN_RECOMMENDATIONS)
+  const observer = useRef<ResizeObserver | null>(null)
+
+  const ref = useCallback((el: HTMLDivElement | null) => {
+    observer.current?.disconnect()
+    observer.current = null
+    if (!el || typeof ResizeObserver === 'undefined') return
+    observer.current = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect
+      setLimit(recommendationsThatFit(width, height))
+    })
+    observer.current.observe(el)
+  }, [])
+
+  return [ref, limit]
+}
+
 export function PlanningPhase() {
   const { activeListId, items, setItems, stores, setItemStoreInfos } = useGrocery()
 
@@ -61,6 +80,8 @@ export function PlanningPhase() {
       .filter(s => s.listId === activeListId && !s.is_deleted)
       .sort((a, b) => a.position - b.position)
   }, [stores, activeListId])
+
+  const selectedStoreName = activeStores.find(s => s.id === selectedStoreId)?.name ?? 'All Stores'
 
   // Memoize currently planned items names
   const plannedItems = useMemo(() => {
@@ -93,8 +114,10 @@ export function PlanningPhase() {
       .filter(rec => !plannedItems.some(pName => pName.toLowerCase() === rec.name.toLowerCase()))
       .filter(rec => selectedStoreId === null || rec.storeId === selectedStoreId)
       .sort((a, b) => b.timesBought - a.timesBought)
-      .slice(0, 10)
   }, [dynamicRecs, plannedItems, selectedStoreId])
+
+  const [trayRef, recLimit] = useRecommendationLimit()
+  const shownRecs = useMemo(() => filteredRecs.slice(0, recLimit), [filteredRecs, recLimit])
 
   // A recommendation is a row the list already has, so tapping one brings that row back
   // rather than inserting a twin of it. The insert path is only for a recommendation with no
@@ -137,60 +160,44 @@ export function PlanningPhase() {
   }, [addedItems, items, setItems, activeListId, selectedStoreId, setItemStoreInfos, triggerAdded])
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
-      <div className="space-y-2">
-        <label className="text-[10px] uppercase tracking-wider font-bold text-text-muted px-1 block">
-          Select Store Filter
-        </label>
-
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none -mx-4 px-4 mask-right">
-          <button
-            onClick={() => setSelectedStoreId(null)}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all whitespace-nowrap cursor-pointer",
-              selectedStoreId === null
-                ? "bg-primary text-on-primary border-primary"
-                : "bg-surface-tile text-text-muted border-line hover:border-line-strong"
-            )}
-          >
-            All Stores
-          </button>
-
-          {activeStores.map((store) => (
-            <button
-              key={store.id}
-              onClick={() => setSelectedStoreId(store.id)}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all whitespace-nowrap cursor-pointer",
-                selectedStoreId === store.id
-                  ? "bg-primary text-on-primary border-primary"
-                  : "bg-surface-tile text-text-muted border-line hover:border-line-strong"
-              )}
-            >
-              <MapPin className="w-3 h-3" />
-              {store.name}
-            </button>
-          ))}
-        </div>
-      </div>
-
+    // flex-1 down to the tray: the page fills the shell's column, the list takes the height
+    // its rows need, and the tray takes whatever is left -- so a short list leaves room
+    // for more suggestions rather than for empty screen.
+    <div className="flex-1 flex flex-col animate-in fade-in duration-200">
       {/* The tray and the list. Stacked on a phone; side by side at 40/60 once the
           content column can carry two panes, which is the arrangement the Android
           tablet layout uses. */}
-      <div className="planning-panes">
+      <div className="planning-panes flex-1">
 
         {/* Recommendation Tray */}
-        <div className="space-y-2.5">
-          {/* Wraps rather than squeezes: in the two-pane layout this header lives
-              in the narrower of the two panes. */}
-          <div className="flex items-center justify-between flex-wrap gap-x-2 gap-y-0.5 px-1">
-            <div className="flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-primary" />
-              <h4 className="text-xs font-bold tracking-widest text-text-muted uppercase">
-                Smart Recommendations
+        <div className="flex flex-col gap-2.5 min-h-0">
+          {/* The store picker lives in the tray's heading. It replaced a row of a chip per
+              store, which said one thing in a whole row of the screen. */}
+          <div className="flex items-center justify-between gap-2 px-1">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
+              <h4 className="text-xs font-bold tracking-widest text-text-muted uppercase truncate">
+                Recommendations
               </h4>
             </div>
-            <span className="text-[10px] text-text-subtle">Based on historical purchases</span>
+            <label className="relative flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-semibold border border-line bg-surface-tile text-text-primary hover:border-line-strong cursor-pointer min-w-0 max-w-[60%]">
+              <MapPin className="w-3 h-3 text-primary shrink-0" />
+              <span className="truncate">{selectedStoreName}</span>
+              <ChevronDown className="w-3.5 h-3.5 text-text-muted shrink-0" />
+              {/* The native control, transparent over the chip: the phone's own picker,
+                  and a keyboard and screen reader get a real select. */}
+              <select
+                aria-label="Store"
+                value={selectedStoreId ?? ''}
+                onChange={e => setSelectedStoreId(e.target.value === '' ? null : e.target.value)}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              >
+                <option value="">All Stores</option>
+                {activeStores.map(store => (
+                  <option key={store.id} value={store.id}>{store.name}</option>
+                ))}
+              </select>
+            </label>
           </div>
 
           {/* The recommendation grid's 140px is deliberately below the item tiles'
@@ -202,8 +209,12 @@ export function PlanningPhase() {
               <p className="text-sm text-text-muted">No recommendations for this store yet.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-2.5">
-              {filteredRecs.map((rec) => {
+            // The grid is absolutely placed so that the box measured is the room the layout
+            // gave the tray, not the grid's own content -- otherwise a tray once grown would
+            // hold its height when the list got longer.
+            <div ref={trayRef} className="relative flex-1" style={{ minHeight: TRAY_MIN_HEIGHT_PX }}>
+            <div className="absolute inset-0 overflow-y-auto grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] content-start gap-2.5">
+              {shownRecs.map((rec) => {
                 const isAdded = addedItems[rec.name]
 
                 return (
@@ -211,30 +222,25 @@ export function PlanningPhase() {
                     key={rec.name}
                     onClick={() => handleAddRecommendation(rec.name)}
                     disabled={isAdded}
+                    // A suggestion is a tinted pill with the + leading, so it reads at a glance as
+                    // not yet on the list -- unlike the list's own rows, which are square and grey.
                     className={cn(
-                      "flex flex-col justify-between items-start text-left p-3 h-12 rounded-lg border transition-all cursor-pointer",
+                      "flex items-center gap-1.5 text-left px-3 h-9 rounded-full border transition-all cursor-pointer min-w-0",
                       isAdded
                         ? "bg-success/10 border-success/40 text-success-strong"
-                        : "bg-surface-tile border-line-faint hover:border-line hover:bg-surface-raised/50"
+                        : "bg-primary/10 border-primary/40 text-primary hover:bg-primary/20"
                     )}
                   >
-                    <div className="w-full flex items-start justify-between">
-                      <span className={cn(
-                        "text-xs font-semibold line-clamp-2 pr-2",
-                        isAdded ? "text-success-strong" : "text-text-primary"
-                      )}>
-                        {rec.name}
-                      </span>
-                      <div className={cn(
-                        "w-5 h-5 rounded-full flex items-center justify-center transition-all",
-                        isAdded ? "bg-success text-on-success" : "bg-surface-hover text-text-muted hover:bg-surface-hover-strong"
-                      )}>
-                        {isAdded ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-                      </div>
-                    </div>
+                    {isAdded
+                      ? <Check className="w-3.5 h-3.5 shrink-0" />
+                      : <Plus className="w-3.5 h-3.5 shrink-0" />}
+                    <span className="text-xs font-semibold truncate">
+                      {rec.name}
+                    </span>
                   </button>
                 )
               })}
+            </div>
             </div>
           )}
         </div>
