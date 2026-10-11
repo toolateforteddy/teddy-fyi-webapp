@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { BrowserRouter } from 'react-router-dom'
 import { ErrorBoundary } from '@shared/ErrorBoundary'
+import { PageViewTracker } from '@/providers/PageViewTracker'
 
 interface AppProviderProps {
   children: ReactNode
@@ -14,6 +15,7 @@ export function AppProvider({ children }: AppProviderProps) {
   return (
     <ErrorBoundary>
       <BrowserRouter>
+        <PageViewTracker />
         {children}
       </BrowserRouter>
     </ErrorBoundary>
