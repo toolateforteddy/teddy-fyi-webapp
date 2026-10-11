@@ -61,6 +61,13 @@
     <p>This site needs iOS 16.4 or newer (or a current version of Chrome, Edge or Firefox) to display correctly.</p>
     <p>On iPhone or iPad, open Settings &rsaquo; General &rsaquo; Software Update to update iOS.</p>
   </div>
+  <!-- GoatCounter, for page views on teddy.fyi only; the dashboard is
+       teddyfyi.goatcounter.com. It counts the page the visitor lands on by
+       itself, and PageViewTracker counts every in-app navigation after that,
+       which the nginx access log cannot see. It ignores localhost, so `pnpm dev`
+       counts nothing. No other site here carries it: scribbleroute.com's
+       privacy policy promises no analytics code. -->
+  <script data-goatcounter="https://teddyfyi.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
   <script type="module" src="/src/main.tsx"></script>
 </body>
 
