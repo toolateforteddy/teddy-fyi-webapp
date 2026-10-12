@@ -48,6 +48,8 @@
   /* The bottom tab bar, which every notice and the input bar sit above. */
   --app-nav-height: 64px;
   --shadow-sheet: 0 -12px 40px rgba(0, 0, 0, 0.6);
+  /* Set by keyboardInset.ts: the part of the screen the on-screen keyboard covers. */
+  --keyboard-inset: 0px;
 }
 
 @theme inline {

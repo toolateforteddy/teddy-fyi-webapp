@@ -453,7 +453,7 @@ function InputBar({
       className="fixed inset-x-0 z-20 flex justify-center px-4 pointer-events-none"
       style={{
         bottom: composing
-          ? 'calc(env(safe-area-inset-bottom) + 0.5rem)'
+          ? 'calc(var(--keyboard-inset) + env(safe-area-inset-bottom) + 0.5rem)'
           : 'calc(var(--app-nav-height) + env(safe-area-inset-bottom) + 0.75rem)',
       }}
     >
