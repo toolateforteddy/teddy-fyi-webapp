@@ -44,15 +44,11 @@ export function ItemSheet({ item, onClose }: { item: TodoItem; onClose: () => vo
 
   if (view === 'subtask') {
     return (
-      <TextPrompt
-        title={`Subtask of ${live.title}`}
-        placeholder="What needs doing?"
-        submitLabel="Add"
+      <SubtaskView
+        parent={live}
+        subtasks={items.filter((i) => i.parentId === live.id && !i.isDeleted)}
+        onAdd={(title) => addItem(title, { parentId: live.id })}
         onClose={onClose}
-        onSubmit={(title) => {
-          addItem(title, { parentId: live.id })
-          done()
-        }}
       />
     )
   }
@@ -253,35 +249,79 @@ function EditView({
   )
 }
 
-export function TextPrompt({
-  title,
-  placeholder,
-  submitLabel,
-  initial = '',
-  onSubmit,
+/**
+ * Adding subtasks, several at a time. Add (or Enter) files the one typed and clears the field
+ * with the keyboard still up, so the next can follow straight away; the ones added so far are
+ * listed above it. Finish files anything still typed and closes the sheet.
+ */
+function SubtaskView({
+  parent,
+  subtasks,
+  onAdd,
   onClose,
 }: {
-  title: string
-  placeholder: string
-  submitLabel: string
-  initial?: string
-  onSubmit: (value: string) => void
+  parent: TodoItem
+  subtasks: TodoItem[]
+  onAdd: (title: string) => void
   onClose: () => void
 }) {
-  const [value, setValue] = useState(initial)
+  const [value, setValue] = useState('')
+  const add = () => {
+    if (!value.trim()) return
+    onAdd(value)
+    setValue('')
+  }
   return (
-    <Sheet title={title} onClose={onClose}>
+    <Sheet title={`Subtasks of ${parent.title}`} onClose={onClose}>
+      {subtasks.length > 0 && (
+        <ul className="flex flex-col gap-1 mb-3" aria-label="Subtasks">
+          {[...subtasks]
+            .sort((a, b) => a.position - b.position)
+            .map((subtask) => (
+              <li key={subtask.id} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-inset text-sm text-text-secondary">
+                <span className={`hex w-3 h-3 shrink-0 ${subtask.isCompleted ? 'bg-primary' : 'bg-line-strong'}`} />
+                <span className={`truncate ${subtask.isCompleted ? 'line-through text-text-muted' : ''}`}>{subtask.title}</span>
+              </li>
+            ))}
+        </ul>
+      )}
       <form
         onSubmit={(event) => {
           event.preventDefault()
-          if (value.trim()) onSubmit(value)
+          add()
         }}
-        className="flex gap-2"
+        className="flex flex-col gap-3"
       >
-        <PlainTextField label={placeholder} autoFocus placeholder={placeholder} value={value} onChange={setValue} className={`${inputClass} min-w-0`} />
-        <button type="submit" className={primaryButtonClass} disabled={!value.trim()}>
-          {submitLabel}
-        </button>
+        <PlainTextField
+          label="New subtask"
+          autoFocus
+          placeholder="What needs doing?"
+          enterKeyHint="enter"
+          value={value}
+          onChange={setValue}
+          className={inputClass}
+        />
+        <div className="flex gap-2 justify-end">
+          {/* Keeps focus in the field, so the keyboard stays up for the next one. */}
+          <button
+            type="submit"
+            className={`${quietButtonClass} disabled:opacity-40`}
+            disabled={!value.trim()}
+            onMouseDown={(event) => event.preventDefault()}
+          >
+            Add
+          </button>
+          <button
+            type="button"
+            className={primaryButtonClass}
+            onClick={() => {
+              add()
+              onClose()
+            }}
+          >
+            Finish
+          </button>
+        </div>
       </form>
     </Sheet>
   )
