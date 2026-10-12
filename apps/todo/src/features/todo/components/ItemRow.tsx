@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, CalendarDays, History, MoreVertical, Repeat, RefreshCw, Star } from 'lucide-react'
+import { ArrowDown, ArrowUp, CalendarDays, ChevronDown, ChevronRight, History, MoreVertical, Repeat, RefreshCw, Star } from 'lucide-react'
 import type { TodoItem } from '../types'
 import { iconLigature } from '../icons'
 import { recurrenceLabel } from '../rules'
@@ -22,6 +22,9 @@ export function ItemRow({
   onOpen,
   onStar,
   onMove,
+  subtasks,
+  expanded,
+  onToggleExpand,
 }: {
   item: TodoItem
   color: string
@@ -34,6 +37,10 @@ export function ItemRow({
   onOpen: () => void
   onStar: () => void
   onMove: (move: 'up' | 'down') => void
+  /** A parent's subtasks, counted, when it has any: the toggle and, collapsed, "(done/total)". */
+  subtasks?: { done: number; total: number }
+  expanded?: boolean
+  onToggleExpand?: () => void
 }) {
   const icon = iconLigature(item.icon)
   const recurrence = recurrenceLabel(item.recurrenceRule)
@@ -67,6 +74,11 @@ export function ItemRow({
           <span className={`text-sm font-medium truncate ${struck ? 'line-through text-text-faint' : 'text-text-primary'}`}>
             {item.title}
           </span>
+          {subtasks && !expanded && (
+            <span className="shrink-0 text-[11px] text-text-muted">
+              ({subtasks.done}/{subtasks.total})
+            </span>
+          )}
         </div>
         {(item.description || recurrence || item.isDaily || rolledOver || item.dueDate !== null || (showDate && item.scheduledDate)) && (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-[11px] text-text-muted">
@@ -97,6 +109,18 @@ export function ItemRow({
           </div>
         )}
       </button>
+
+      {subtasks && onToggleExpand && (
+        <button
+          type="button"
+          aria-label={expanded ? `Collapse ${item.title}` : `Expand ${item.title}`}
+          aria-expanded={expanded}
+          onClick={onToggleExpand}
+          className="px-1.5 flex items-center text-text-muted hover:text-text-primary cursor-pointer app-chrome"
+        >
+          {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+        </button>
+      )}
 
       {editMode ? (
         <div className="flex items-center pr-1 app-chrome">
