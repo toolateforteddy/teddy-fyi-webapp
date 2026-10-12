@@ -51,21 +51,38 @@ nothing here, because Safari also ignores the manifest list entirely whenever an
 ## The geometry, and why it is computed
 
 `maskable` has a safe zone, and the spec is exact about it: a centred circle of
-radius 2/5 of the icon's smaller side, so 80% of the canvas across, leaving about
-10% margin on each edge. A user agent must not make any pixel inside it
-transparent and may crop anything outside. *Which* part gets cropped depends on
-the launcher, so it cannot be checked by looking at one device. (Chrome does the
-rest of the arithmetic itself: building a WebAPK it pads the icon by ~15.5% a
-side, which lands the 80% circle on Android's own 66-of-108dp keyline.)
+radius 2/5 of the icon's smaller side, so 80% of the canvas across. A user agent
+must not make any pixel inside it transparent and may crop anything outside.
 
-The script therefore does not scale the mark by its bounding box. It finds the
-smallest circle containing every inked pixel and scales that circle to the safe
-circle. For this mark the difference is about 20%: it is taller than it is wide
-and its corners are empty, so fitting the bounding box would have left it
-noticeably small inside every mask.
+That circle is not the tightest crop this icon gets, though, so the mark is fitted
+to a smaller one: Android's own adaptive-icon keyline, 66 of 108dp, about 61% of
+the canvas. The reason is the home-screen shortcut Chrome pins when it cannot mint
+a WebAPK (WebAPK minting blocked or unavailable on the device, or the install
+failing). That shortcut still uses the manifest, and still prefers the maskable
+icon (`InstallableIconFetcher`, `prefer_maskable_icon`), but since Chrome 118 it
+passes the bitmap to Android untouched: `WebappsIconUtils::FinalizeLauncherIconInBackground`
+returns any icon big enough as it is, and `WebappsUtils.addShortcutWithShortcutManager`
+wraps it in `Icon.createWithAdaptiveBitmap`. Android treats that as a whole 108dp
+layer and the launcher shows only its middle 72dp, so on a round mask everything
+outside a circle of two thirds of the canvas is cut off. At 80% that shaved the
+leaves, the bread and the sides of the bag; at the keyline the whole mark survives
+every mask shape, which is the same rule a native app's adaptive icon follows.
 
-`any` and `apple-touch-icon` are never cropped, so they get the plain 80%
-bounding-box fit instead, which fills the tile.
+The cost is a WebAPK. Chrome's own padding constant for this conversion
+(`MASKABLE_ICON_PADDING_RATIO`, ~15.5% a side, which lands the spec's circle on
+Android's keyline) is no longer applied on the device, so whether a minted WebAPK
+pads the icon is up to Google's minting server, which is not public. If it does,
+the mark sits with more paper round it there than it did at 80%.
+
+The script does not scale the mark by its bounding box. It finds the smallest
+circle containing every inked pixel and scales that circle to the keyline. For
+this mark the difference is about 20%: it is taller than it is wide and its
+corners are empty, so fitting the bounding box would have left it noticeably
+small inside every mask.
+
+`monochrome` keeps the spec's 80% circle, since no Android path reads it. `any`
+and `apple-touch-icon` are never cropped, so they get the plain 80% bounding-box
+fit instead, which fills the tile.
 
 ## The link-preview card
 
@@ -98,9 +115,11 @@ stencil.
 
 ## What each platform actually does with these
 
-- **Android / Chrome**: uses `maskable` for the launcher icon (since Chrome 79)
-  and falls back to `any`, which it shims onto a white background instead. It
-  ignores `monochrome` — see above.
+- **Android / Chrome**: uses `maskable` for the launcher icon (since Chrome 79),
+  for a WebAPK and for the plain shortcut it pins when it cannot mint one alike,
+  and falls back to `any`, which the launcher shims onto a white background
+  instead. Only with no usable manifest icon does it look at `index.html`'s
+  `<link>` tags. It ignores `monochrome` — see above.
 - **iOS / Safari**: home-screen icons come from `<link rel="apple-touch-icon">`
   in `index.html`, not from the manifest, and the manifest list is skipped
   entirely while that tag is present. WebKit parses `purpose` and then does

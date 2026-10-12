@@ -16,7 +16,7 @@ the icon of the whole app, so the installed web app looks like the app it came f
 | `purpose` | Drawn as |
 | --- | --- |
 | `any` | The mark edge to edge on white, opaque. Also the favicons and `apple-touch-icon.png`. |
-| `maskable` | The mark at 80% on white, so a launcher's crop to any shape keeps the whole circle. |
+| `maskable` | The mark at 66/108 (Android's adaptive-icon keyline) on white, so a launcher's crop to any shape keeps the whole circle, including the plain shortcut Chrome pins when it cannot mint a WebAPK. `../../grocery/icons/README.md` has why it is not the spec's 80%. |
 
 There is no `monochrome` icon. A themed launcher keeps only the alpha, and this mark's alpha
 is a plain disc.

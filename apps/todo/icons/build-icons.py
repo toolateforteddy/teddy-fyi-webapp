@@ -30,10 +30,13 @@ OUT = HERE.parent / "public"
 # The page the portrait's circle sits on in the Play Store export.
 PAPER = (255, 255, 255)
 
-# A maskable icon is cropped to whatever shape the launcher prefers, and the only region
-# guaranteed to survive every shape is a centred circle of 80% of the canvas. The mark is
-# itself a circle filling its canvas, so scaling it to 80% puts it exactly there.
-SAFE_CIRCLE = 0.80
+# A maskable icon is cropped to whatever shape the launcher prefers. The spec's safe zone
+# is a centred circle of 80% of the canvas, but when Chrome cannot mint a WebAPK and pins a
+# plain shortcut instead, it hands this bitmap to Android unpadded as a whole 108dp adaptive
+# layer and the launcher shows only the middle 72dp. So the mark is fitted to Android's own
+# keyline, 66 of 108dp, which survives that crop and every mask shape inside it. The mark
+# is itself a circle filling its canvas, so scaling it to that fraction puts it exactly there.
+SAFE_CIRCLE = 66 / 108
 
 
 def flat(image, size):
