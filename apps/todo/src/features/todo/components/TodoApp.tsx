@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from 'react'
 import {
   CalendarClock,
   CalendarDays,
@@ -68,6 +68,9 @@ export function TodoApp() {
   const [reordering, setReordering] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [confirmClear, setConfirmClear] = useState(false)
+  // The add-task field has focus, so the keyboard is up. The tab bar steps aside for it, and
+  // the header's spaces and days become what the new task is filed under.
+  const [composing, setComposing] = useState(false)
 
   const now = useNow()
   const today = todayIso(now)
@@ -93,6 +96,8 @@ export function TodoApp() {
   }, [lists, items, mode, editMode, now])
 
   const showInput = (!showCompleted || searchOpen) && mode !== 'TODAY' && mode !== 'SCHEDULED' && !editMode
+  const keyboardUp = composing && showInput
+  const selectedList = lists.find((l) => l.id === selectedListId) ?? null
 
   const toggle = (item: TodoItem, checked: boolean) => {
     if (mode === 'PLANNING' && !showCompleted) {
@@ -189,12 +194,13 @@ export function TodoApp() {
 
           {(lists.length > 0 || editMode) && (
             <div className="flex gap-2 px-4 pb-2 overflow-x-auto">
-              <Chip selected={selectedListId === null} color={FALLBACK_COLOR} onClick={() => setSelectedListId(null)}>
+              <Chip selected={selectedListId === null} color={FALLBACK_COLOR} keepFocus onClick={() => setSelectedListId(null)}>
                 All
               </Chip>
               {chips.map(({ list, label }) => (
                 <Chip
                   key={list.id}
+                  keepFocus={!editMode}
                   selected={selectedListId === list.id}
                   color={list.colorHex}
                   onClick={() => (editMode ? setSpaceSheet(list) : setSelectedListId(list.id))}
@@ -221,7 +227,9 @@ export function TodoApp() {
           {mode === 'PLANNING' && !showCompleted && <PlanningStrip value={planningDate} onChange={setPlanningDate} today={today} />}
         </header>
 
-        <main className="flex-1 flex flex-col gap-1.5 px-4 pt-2 pb-[calc(var(--app-nav-height)+env(safe-area-inset-bottom)+5rem)]">
+        <main
+          className={`flex-1 flex flex-col gap-1.5 px-4 pt-2 ${keyboardUp ? 'pb-28' : 'pb-[calc(var(--app-nav-height)+env(safe-area-inset-bottom)+5rem)]'}`}
+        >
           {body}
           {editMode && (
             <button
@@ -237,11 +245,18 @@ export function TodoApp() {
         {showInput && (
           <InputBar
             placeholder={mode === 'PLANNING' ? `Add for ${dateBucketLabel(planningDate, now)}` : 'Add a task'}
+            composing={keyboardUp}
+            onComposingChange={setComposing}
+            space={selectedList ? { name: selectedList.name, color: selectedList.colorHex } : null}
+            day={mode === 'PLANNING' ? dateBucketLabel(planningDate, now) : null}
             onAdd={(title) => todo.addItem(title, { scheduledDate: mode === 'PLANNING' ? planningDate : null })}
           />
         )}
 
-        <nav className="fixed bottom-0 inset-x-0 z-20 flex justify-center bg-chassis border-t border-line pb-[env(safe-area-inset-bottom)] app-chrome">
+        <nav
+          hidden={keyboardUp}
+          className="fixed bottom-0 inset-x-0 z-20 flex justify-center bg-chassis border-t border-line pb-[env(safe-area-inset-bottom)] app-chrome"
+        >
           <div className="app-frame flex h-[var(--app-nav-height)]">
             {TABS.map((tab) => (
               <button
@@ -330,17 +345,25 @@ function IconButton({ label, pressed, onClick, children }: { label: string; pres
   )
 }
 
+/**
+ * Taps on this control leave focus where it is. On the header's spaces and days that is the
+ * add-task field, so picking where a new task goes does not close the keyboard mid-sentence.
+ */
+const keepFocusHandler = (event: MouseEvent) => event.preventDefault()
+
 function Chip({
   selected,
   color,
   onClick,
   label,
+  keepFocus,
   children,
 }: {
   selected: boolean
   color?: string
   onClick: () => void
   label?: string
+  keepFocus?: boolean
   children: ReactNode
 }) {
   return (
@@ -348,6 +371,7 @@ function Chip({
       type="button"
       aria-pressed={selected}
       aria-label={label}
+      onMouseDown={keepFocus ? keepFocusHandler : undefined}
       onClick={onClick}
       className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold cursor-pointer ${selected ? 'border-primary bg-surface-hover-strong text-text-primary' : 'border-line text-text-secondary hover:bg-surface-hover'}`}
     >
@@ -369,6 +393,7 @@ function PlanningStrip({ value, onChange, today }: { value: string; onChange: (i
           key={iso}
           type="button"
           aria-pressed={value === iso}
+          onMouseDown={keepFocusHandler}
           onClick={() => onChange(iso)}
           className={`clipped shrink-0 w-12 py-1.5 flex flex-col items-center cursor-pointer ${value === iso ? 'bg-primary text-on-primary' : 'bg-surface-tile text-text-secondary hover:bg-surface-hover'}`}
         >
@@ -394,8 +419,29 @@ function PlanningStrip({ value, onChange, today }: { value: string; onChange: (i
   )
 }
 
-function InputBar({ placeholder, onAdd }: { placeholder: string; onAdd: (title: string) => void }) {
+/**
+ * The add-task field. While it has focus it sits on the keyboard rather than on the tab bar,
+ * and says where the task will land: the space picked in the header (none under "All") and,
+ * in Planning, the day picked in the strip. Both stay tappable without closing the keyboard.
+ */
+function InputBar({
+  placeholder,
+  composing,
+  onComposingChange,
+  space,
+  day,
+  onAdd,
+}: {
+  placeholder: string
+  composing: boolean
+  onComposingChange: (composing: boolean) => void
+  space: { name: string; color: string } | null
+  day: string | null
+  onAdd: (title: string) => void
+}) {
   const [value, setValue] = useState('')
+  // A tab switch can unmount the bar with focus still in it, and no blur follows.
+  useEffect(() => () => onComposingChange(false), [onComposingChange])
   return (
     <form
       onSubmit={(event) => {
@@ -405,20 +451,44 @@ function InputBar({ placeholder, onAdd }: { placeholder: string; onAdd: (title: 
         setValue('')
       }}
       className="fixed inset-x-0 z-20 flex justify-center px-4 pointer-events-none"
-      style={{ bottom: 'calc(var(--app-nav-height) + env(safe-area-inset-bottom) + 0.75rem)' }}
+      style={{
+        bottom: composing
+          ? 'calc(env(safe-area-inset-bottom) + 0.5rem)'
+          : 'calc(var(--app-nav-height) + env(safe-area-inset-bottom) + 0.75rem)',
+      }}
     >
-      <div className="app-frame flex gap-2 pointer-events-auto bg-surface-raised border border-line-strong rounded-xl p-1.5 shadow-[var(--shadow-sheet)]">
-        <input
-          aria-label={placeholder}
-          placeholder={placeholder}
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          enterKeyHint="done"
-          className="flex-1 min-w-0 bg-transparent outline-none text-sm px-2 text-text-primary placeholder:text-text-faint"
-        />
-        <button type="submit" aria-label="Add task" disabled={!value.trim()} className={`${primaryButtonClass} px-3 py-2`}>
-          <Plus className="w-4 h-4" />
-        </button>
+      <div className="app-frame flex flex-col gap-1 pointer-events-auto bg-surface-raised border border-line-strong rounded-xl p-1.5 shadow-[var(--shadow-sheet)]">
+        {composing && (
+          <p className="flex items-center gap-1.5 px-2 pt-0.5 text-[11px] font-semibold text-text-muted app-chrome" aria-live="polite">
+            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: space?.color ?? 'var(--palette-text-faint)' }} />
+            <span className="truncate">
+              {space ? `In ${space.name}` : 'No space'}
+              {day && ` · ${day}`}
+            </span>
+          </p>
+        )}
+        <div className="flex gap-2">
+          <input
+            aria-label={placeholder}
+            placeholder={placeholder}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onFocus={() => onComposingChange(true)}
+            onBlur={() => onComposingChange(false)}
+            enterKeyHint="done"
+            className="flex-1 min-w-0 bg-transparent outline-none text-sm px-2 text-text-primary placeholder:text-text-faint"
+          />
+          {/* Keeps focus too, so several tasks can go in without the keyboard dropping between them. */}
+          <button
+            type="submit"
+            aria-label="Add task"
+            disabled={!value.trim()}
+            onMouseDown={keepFocusHandler}
+            className={`${primaryButtonClass} px-3 py-2`}
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
       </div>
     </form>
   )

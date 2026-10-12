@@ -85,4 +85,31 @@ describe('the todo screen', () => {
     expect(screen.getByText('Water Plants')).toHaveClass('line-through')
     expect(screen.getByRole('checkbox', { name: 'Untick Water Plants' })).toHaveAttribute('aria-checked', 'true')
   })
+
+  it('files a new task under the space picked mid-typing, with the keyboard kept up', async () => {
+    localStorage.setItem(
+      STORAGE_KEYS.LISTS,
+      JSON.stringify([
+        { id: 'work', name: 'Work', colorHex: '#FF0000', userId: 'surrogate', createdAt: 1, syncState: 'SYNCED', version: 1, isDeleted: false },
+      ]),
+    )
+    renderApp()
+    const field = screen.getByRole('textbox', { name: 'Add a task' })
+    await userEvent.click(field)
+    // The tab bar steps aside while the keyboard is up, and the bar says where the task goes.
+    expect(screen.queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
+    expect(screen.getByText('No space')).toBeInTheDocument()
+
+    await userEvent.type(field, 'ship it')
+    await userEvent.click(screen.getByRole('button', { name: 'Work' }))
+    expect(field).toHaveFocus()
+    expect(screen.getByText('In Work')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add task' }))
+    expect(field).toHaveFocus()
+    expect(await screen.findByText('Ship It')).toBeInTheDocument()
+    type Stored = Array<{ title: string; listId: string | null }>
+    const stored = () => JSON.parse(localStorage.getItem(STORAGE_KEYS.ITEMS) ?? '[]') as Stored
+    await waitFor(() => expect(stored().find((i) => i.title === 'Ship It')?.listId).toBe('work'))
+  })
 })
