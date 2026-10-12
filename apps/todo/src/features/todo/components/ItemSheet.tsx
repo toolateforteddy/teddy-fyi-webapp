@@ -229,9 +229,10 @@ function EditView({
         }}
         className="flex flex-col gap-3"
       >
-        <input aria-label="Title" autoFocus value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} />
+        <input aria-label="Title" autoFocus autoComplete="off" value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} />
         <textarea
           aria-label="Notes"
+          autoComplete="off"
           placeholder="Notes"
           rows={4}
           value={description}
@@ -276,7 +277,7 @@ export function TextPrompt({
         }}
         className="flex gap-2"
       >
-        <input aria-label={placeholder} autoFocus placeholder={placeholder} value={value} onChange={(e) => setValue(e.target.value)} className={inputClass} />
+        <input aria-label={placeholder} autoFocus autoComplete="off" placeholder={placeholder} value={value} onChange={(e) => setValue(e.target.value)} className={inputClass} />
         <button type="submit" className={primaryButtonClass} disabled={!value.trim()}>
           {submitLabel}
         </button>

@@ -182,6 +182,7 @@ export function TodoApp() {
             <div className="px-4 pb-2">
               <input
                 autoFocus
+                autoComplete="off"
                 type="search"
                 aria-label="Search tasks"
                 placeholder="Search tasks"
@@ -453,7 +454,7 @@ function InputBar({
       className="fixed inset-x-0 z-20 flex justify-center px-4 pointer-events-none"
       style={{
         bottom: composing
-          ? 'calc(env(safe-area-inset-bottom) + 0.5rem)'
+          ? 'calc(var(--keyboard-inset) + env(safe-area-inset-bottom) + 0.5rem)'
           : 'calc(var(--app-nav-height) + env(safe-area-inset-bottom) + 0.75rem)',
       }}
     >
@@ -468,8 +469,11 @@ function InputBar({
           </p>
         )}
         <div className="flex gap-2">
+          {/* Off on every free-text field here: these are tasks, never anything Chrome should offer
+              to fill from an address or a saved card. */}
           <input
             aria-label={placeholder}
+            autoComplete="off"
             placeholder={placeholder}
             value={value}
             onChange={(e) => setValue(e.target.value)}

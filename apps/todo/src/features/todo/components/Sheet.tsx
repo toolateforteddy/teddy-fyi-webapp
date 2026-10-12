@@ -15,9 +15,15 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
   }, [onClose])
 
   return (
-    <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center" role="dialog" aria-modal="true" aria-label={title}>
+    <div
+      className="fixed inset-x-0 top-0 z-40 flex items-end sm:items-center justify-center"
+      style={{ bottom: 'var(--keyboard-inset)' }}
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+    >
       <button type="button" aria-label="Close" className="absolute inset-0 bg-scrim/70 cursor-default" onClick={onClose} />
-      <div className="relative app-frame max-h-[85dvh] overflow-y-auto bg-surface-raised border border-line rounded-t-2xl sm:rounded-2xl shadow-[var(--shadow-sheet)] pb-[env(safe-area-inset-bottom)]">
+      <div className="relative app-frame max-h-[85%] overflow-y-auto bg-surface-raised border border-line rounded-t-2xl sm:rounded-2xl shadow-[var(--shadow-sheet)] pb-[env(safe-area-inset-bottom)]">
         <div className="sticky top-0 bg-surface-raised flex items-center justify-between px-5 pt-4 pb-2 app-chrome">
           <h2 className="text-base font-bold text-text-primary truncate">{title}</h2>
           <button type="button" onClick={onClose} aria-label="Close" className="p-2 -mr-2 text-text-muted hover:text-text-primary cursor-pointer">

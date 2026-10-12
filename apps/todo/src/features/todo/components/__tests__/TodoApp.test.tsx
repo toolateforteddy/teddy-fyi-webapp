@@ -112,4 +112,16 @@ describe('the todo screen', () => {
     const stored = () => JSON.parse(localStorage.getItem(STORAGE_KEYS.ITEMS) ?? '[]') as Stored
     await waitFor(() => expect(stored().find((i) => i.title === 'Ship It')?.listId).toBe('work'))
   })
+
+  it('keeps the keyboard up while a new space gets its colour', async () => {
+    renderApp()
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Add space' }))
+    const name = screen.getByRole('textbox', { name: 'Space name' })
+    await userEvent.type(name, 'Work')
+    const swatch = screen.getAllByRole('radio')[1]
+    await userEvent.click(swatch)
+    expect(swatch).toHaveAttribute('aria-checked', 'true')
+    expect(name).toHaveFocus()
+  })
 })

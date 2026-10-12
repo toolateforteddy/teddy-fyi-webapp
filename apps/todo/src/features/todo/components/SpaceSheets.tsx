@@ -47,7 +47,17 @@ export function SpaceSheet({ space, onClose }: { space: TodoList | null; onClose
           onClose()
         }}
       >
-        <input aria-label="Name" autoFocus placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
+        {/* "Name" alone reads to Chrome as a person's name, and it pins its autofill bar over the
+            keyboard's suggestions -- and over this sheet's buttons. */}
+        <input
+          aria-label="Space name"
+          autoFocus
+          autoComplete="off"
+          placeholder="Space name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className={inputClass}
+        />
         <div className="flex flex-wrap gap-3" role="radiogroup" aria-label="Colour">
           {SPACE_SWATCHES.map((swatch) => (
             <button
@@ -56,6 +66,9 @@ export function SpaceSheet({ space, onClose }: { space: TodoList | null; onClose
               role="radio"
               aria-checked={color === swatch}
               aria-label={swatch}
+              // Leaves focus in the name field: a tap here would otherwise drop the keyboard,
+              // and the sheet with it, halfway through naming the space.
+              onMouseDown={(event) => event.preventDefault()}
               onClick={() => setColor(swatch)}
               className="hex w-9 h-9 flex items-center justify-center cursor-pointer"
               style={{ background: swatch }}
