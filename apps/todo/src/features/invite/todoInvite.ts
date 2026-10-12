@@ -6,8 +6,9 @@ import api from '@/lib/axios'
  * The app is invite-only: the API refuses a sign-in from this origin unless the browser carries
  * a todo-web invite for the address signing in. The invite lives in an `HttpOnly` cookie the
  * API sets on its own host, so this page can neither read nor forge it — it can only ask the
- * API what it holds (`GET /auth/todo-web/invite`) and hand it a code to hold
- * (`POST /auth/todo-web/invite`). See `src/auth/todo_web.rs` in `teddy-fyi-api-rust`.
+ * API what it holds (`GET /auth/todo-web/status`) and hand it a code to hold
+ * (`POST /auth/todo-web/redeem`). The contract is `todo-web/invite-api.md` in the project's
+ * shared files, implemented in `teddy-fyi-api-rust`.
  *
  * A cookie rather than localStorage for the reason that matters most here: an app installed
  * from this browser shares its cookie jar, so somebody who opened the link in their work
@@ -56,13 +57,15 @@ function statusOf(error: unknown): number | undefined {
   return (error as { response?: { status?: number } } | null | undefined)?.response?.status
 }
 
-/** Asks the API which invite this browser holds. */
+type StatusResponse = { invited: true; email: string; expires_at: string } | { invited: false }
+
+/** Asks the API which invite this browser holds. It answers 200 either way. */
 export async function fetchInviteState(): Promise<InviteState> {
   try {
-    const response = await api.get<TodoInvite>('/auth/todo-web/invite')
-    return { kind: 'invited', invite: response.data }
-  } catch (error) {
-    return statusOf(error) === 404 ? { kind: 'none' } : { kind: 'unknown' }
+    const { data } = await api.get<StatusResponse>('/auth/todo-web/status')
+    return data.invited ? { kind: 'invited', invite: { email: data.email, expires_at: data.expires_at } } : { kind: 'none' }
+  } catch {
+    return { kind: 'unknown' }
   }
 }
 
@@ -72,16 +75,27 @@ export type AdmitFailure = 'refused' | 'unreachable'
 /**
  * Hands the API a code from an invite link to hold in this browser's cookie.
  *
- * `refused` is a `403`: expired, tampered with, or an ordinary account invite rather than a
- * todo-web one. The API does not say which, for the reason `/auth/login` does not.
+ * `refused` is the API's `400 invalid_invite`: malformed, forged or expired. It does not say
+ * which.
  */
 export async function admitInvite(
   code: string,
 ): Promise<{ ok: true; invite: TodoInvite } | { ok: false; reason: AdmitFailure }> {
   try {
-    const response = await api.post<TodoInvite>('/auth/todo-web/invite', { code })
+    const response = await api.post<TodoInvite>('/auth/todo-web/redeem', { code })
     return { ok: true, invite: response.data }
   } catch (error) {
-    return { ok: false, reason: statusOf(error) === 403 ? 'refused' : 'unreachable' }
+    return { ok: false, reason: statusOf(error) === 400 ? 'refused' : 'unreachable' }
   }
+}
+
+/** Why `/auth/login` refused a sign-in from this origin, if it was the invite gate. */
+export type LoginRefusal = 'invite_required' | 'email_mismatch'
+
+export function loginRefusalOf(error: unknown): LoginRefusal | null {
+  const response = (error as { response?: { status?: number; data?: { error?: unknown } } } | null | undefined)?.response
+  if (response?.status !== 403) return null
+  if (response.data?.error === 'todo_web_invite_required') return 'invite_required'
+  if (response.data?.error === 'todo_web_invite_email_mismatch') return 'email_mismatch'
+  return null
 }

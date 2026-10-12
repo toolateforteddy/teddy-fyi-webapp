@@ -7,6 +7,7 @@ import { STORAGE_KEYS } from '@/config/storageKeys'
 import type { LoginResponse, User } from '../types'
 import { getUserIdFromToken, getClientUuid } from '../utils/authHelper'
 import { isAccountRefused } from '../utils/accountRefusal'
+import { loginRefusalOf, type LoginRefusal } from '@/features/invite/todoInvite'
 
 export function useLogin() {
   const { setAuthState } = useAuth()
@@ -18,11 +19,14 @@ export function useLogin() {
    * answers it with a field rather than a red box.
    */
   const [needsInvite, setNeedsInvite] = useState(false)
+  /** The todo-web invite gate's refusal: no invite held, or one for another address. */
+  const [refusal, setRefusal] = useState<LoginRefusal | null>(null)
 
   const loginWithGoogle = async (credential: string, inviteCode?: string) => {
     setIsLoading(true)
     setError(null)
     setNeedsInvite(false)
+    setRefusal(null)
     try {
       const userId = getUserIdFromToken(credential)
       const clientUuid = getClientUuid()
@@ -58,6 +62,12 @@ export function useLogin() {
 
       return user
     } catch (err: unknown) {
+      const gate = loginRefusalOf(err)
+      if (gate) {
+        // Worded by the screen around the invited address, not as a generic failure.
+        setRefusal(gate)
+        throw err
+      }
       if (isAccountRefused(err)) {
         // Not a failure to word as one: the token was good and the person is who they say.
         // The screen says so and offers an invite; `error` stays null so it is not also
@@ -81,6 +91,7 @@ export function useLogin() {
     isLoading,
     error,
     needsInvite,
+    refusal,
   }
 }
 export default useLogin

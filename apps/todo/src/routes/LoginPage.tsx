@@ -54,7 +54,7 @@ export function LoginPage() {
                 <p className="flex items-center gap-2 text-xs text-text-secondary">
                   <MailCheck className="w-4 h-4 text-success" />
                   <span>
-                    Invited as <strong>{invite.invite.email}</strong>
+                    Sign in with Google as <strong>{invite.invite.email}</strong>
                   </span>
                 </p>
               )}

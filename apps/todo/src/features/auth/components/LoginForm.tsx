@@ -13,11 +13,11 @@ import { env } from '@/config/env'
  * button would be offering a Google prompt that can only end in a refusal.
  *
  * `invitedEmail` is what the refusal is worded around. The one mistake left to make is
- * choosing a different Google account from the one the invite names, and the API's `403` is
- * the same either way, so the screen names the address rather than guessing.
+ * choosing a different Google account from the one the invite names, which the API answers
+ * with `403 todo_web_invite_email_mismatch`.
  */
 export function LoginForm({ invitedEmail }: { invitedEmail?: string }) {
-  const { loginWithGoogle, isLoading, error, needsInvite } = useLogin()
+  const { loginWithGoogle, isLoading, error, needsInvite, refusal } = useLogin()
   const navigate = useNavigate()
   const buttonRef = useRef<HTMLDivElement>(null)
   const [gsiError, setGsiError] = useState<string | null>(null)
@@ -70,11 +70,16 @@ export function LoginForm({ invitedEmail }: { invitedEmail?: string }) {
 
   return (
     <div className="flex flex-col items-center justify-center gap-4 w-full">
-      {needsInvite && (
+      {(refusal === 'email_mismatch' || ((refusal === 'invite_required' || needsInvite) && invitedEmail)) && (
         <p className="text-xs text-danger max-w-[300px] text-center">
           {invitedEmail
             ? `That Google account isn't the one this invite is for. Sign in as ${invitedEmail}.`
-            : "That Google account isn't invited. Open the invite link you were sent, in this browser."}
+            : "That Google account isn't the one this invite is for. Sign in with the address the invite was sent to."}
+        </p>
+      )}
+      {(refusal === 'invite_required' || needsInvite) && !invitedEmail && (
+        <p className="text-xs text-danger max-w-[300px] text-center">
+          This browser holds no invite, or it has expired. Open the invite link you were sent, in this browser.
         </p>
       )}
 

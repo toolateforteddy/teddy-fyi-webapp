@@ -291,13 +291,14 @@ deploys as the same `grocery-deployer` account.
 ### The invite gate
 
 The gate is on the API, not here. A login whose `Origin` is `https://todo.teddy.fyi` is
-refused unless the browser sends a `todo_invite` cookie that redeems against the
-signed-in Google email. `/invite/<code>` posts the code to
-`POST /auth/todo-web/invite`, which sets that cookie (HttpOnly, on the API host, for the
-invite's lifetime); `/login` asks `GET /auth/todo-web/invite` whether one is held and
-says the app is invite-only when not. Invites are minted on the Android admin screen.
-The manifest, icons and the bundle itself are public and ungated: Chrome's WebAPK
-minting server fetches them with no cookie.
+refused (`403 todo_web_invite_required`, or `todo_web_invite_email_mismatch` for a different
+Google account) unless the browser sends a `todo_web_invite` cookie for the signed-in Google
+email. `/invite/<code>` posts the code to `POST /auth/todo-web/redeem`, which sets that
+HttpOnly cookie; `/login` asks `GET /auth/todo-web/status` whether one is held and says the
+app is invite-only when not. A successful login re-sets the cookie as a sliding 365-day pass,
+so an installed app keeps working after the link expires. Invites are minted on the Android
+admin screen. The manifest, icons and the bundle itself are public and ungated: Chrome's
+WebAPK minting server fetches them with no cookie.
 
 ## `apps/personal` → teddy.fyi
 
