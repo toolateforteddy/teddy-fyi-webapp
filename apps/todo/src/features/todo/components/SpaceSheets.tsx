@@ -4,6 +4,7 @@ import type { TodoList } from '../types'
 import { useTodo } from '../TodoContext'
 import { SPACE_SWATCHES } from '../swatches'
 import { Sheet, inputClass, primaryButtonClass, quietButtonClass } from './Sheet'
+import { PlainTextField } from './PlainTextField'
 
 /** Add a space, or edit or delete one (`TodoDialogs.kt`). */
 export function SpaceSheet({ space, onClose }: { space: TodoList | null; onClose: () => void }) {
@@ -47,17 +48,7 @@ export function SpaceSheet({ space, onClose }: { space: TodoList | null; onClose
           onClose()
         }}
       >
-        {/* "Name" alone reads to Chrome as a person's name, and it pins its autofill bar over the
-            keyboard's suggestions -- and over this sheet's buttons. */}
-        <input
-          aria-label="Space name"
-          autoFocus
-          autoComplete="off"
-          placeholder="Space name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className={inputClass}
-        />
+        <PlainTextField label="Space name" autoFocus placeholder="Space name" value={name} onChange={setName} className={inputClass} />
         <div className="flex flex-wrap gap-3" role="radiogroup" aria-label="Colour">
           {SPACE_SWATCHES.map((swatch) => (
             <button

@@ -21,6 +21,7 @@ import { useTodo } from '../TodoContext'
 import { TODO_ICONS, iconLigature } from '../icons'
 import { RECURRENCE_OPTIONS, addDays, customDaysRule, recurrenceLabel, snoozeMonths, todayIso } from '../rules'
 import { Sheet, SheetAction, inputClass, primaryButtonClass, quietButtonClass } from './Sheet'
+import { PlainTextField } from './PlainTextField'
 
 type View = 'menu' | 'edit' | 'schedule' | 'recurrence' | 'snooze' | 'icon' | 'space' | 'subtask' | 'delete'
 
@@ -229,7 +230,7 @@ function EditView({
         }}
         className="flex flex-col gap-3"
       >
-        <input aria-label="Title" autoFocus autoComplete="off" value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} />
+        <PlainTextField label="Title" autoFocus value={title} onChange={setTitle} className={inputClass} />
         <textarea
           aria-label="Notes"
           autoComplete="off"
@@ -277,7 +278,7 @@ export function TextPrompt({
         }}
         className="flex gap-2"
       >
-        <input aria-label={placeholder} autoFocus autoComplete="off" placeholder={placeholder} value={value} onChange={(e) => setValue(e.target.value)} className={inputClass} />
+        <PlainTextField label={placeholder} autoFocus placeholder={placeholder} value={value} onChange={setValue} className={`${inputClass} min-w-0`} />
         <button type="submit" className={primaryButtonClass} disabled={!value.trim()}>
           {submitLabel}
         </button>

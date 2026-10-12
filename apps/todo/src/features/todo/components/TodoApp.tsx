@@ -29,6 +29,7 @@ import { ItemRow } from './ItemRow'
 import { ItemSheet } from './ItemSheet'
 import { ReorderSpacesSheet, SpaceSheet } from './SpaceSheets'
 import { Sheet, SheetAction, primaryButtonClass, quietButtonClass } from './Sheet'
+import { PlainTextField } from './PlainTextField'
 
 const FALLBACK_COLOR = 'var(--palette-primary)'
 
@@ -180,14 +181,13 @@ export function TodoApp() {
 
           {mode === 'BACKLOG' && searchOpen && (
             <div className="px-4 pb-2">
-              <input
+              <PlainTextField
                 autoFocus
-                autoComplete="off"
-                type="search"
-                aria-label="Search tasks"
+                label="Search tasks"
                 placeholder="Search tasks"
+                enterKeyHint="search"
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={setQuery}
                 className="w-full bg-inset border border-line focus:border-primary outline-none text-sm px-3 py-2 rounded-lg"
               />
             </div>
@@ -469,18 +469,14 @@ function InputBar({
           </p>
         )}
         <div className="flex gap-2">
-          {/* Off on every free-text field here: these are tasks, never anything Chrome should offer
-              to fill from an address or a saved card. */}
-          <input
-            aria-label={placeholder}
-            autoComplete="off"
+          <PlainTextField
+            label={placeholder}
             placeholder={placeholder}
             value={value}
-            onChange={(e) => setValue(e.target.value)}
+            onChange={setValue}
             onFocus={() => onComposingChange(true)}
             onBlur={() => onComposingChange(false)}
-            enterKeyHint="done"
-            className="flex-1 min-w-0 bg-transparent outline-none text-sm px-2 text-text-primary placeholder:text-text-faint"
+            className="flex-1 min-w-0 self-center bg-transparent outline-none text-sm px-2 py-1 text-text-primary"
           />
           {/* Keeps focus too, so several tasks can go in without the keyboard dropping between them. */}
           <button
