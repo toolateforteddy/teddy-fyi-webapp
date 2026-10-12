@@ -1,0 +1,5 @@
+# todo.teddy.fyi is one invite-only app with nothing for a crawler. This file exists so
+# that a request for /robots.txt gets a robots.txt rather than index.html from nginx's
+# try_files fallback.
+User-agent: *
+Disallow: /

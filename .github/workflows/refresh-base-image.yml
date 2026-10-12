@@ -1,7 +1,9 @@
 name: Refresh Base Image
 
-# Opens a pull request that bumps the date in apps/grocery/base-refresh.txt, which is
-# how the grocery container image is asked to rebuild against a newer base.
+# Opens a pull request that bumps the date in apps/grocery/base-refresh.txt and
+# apps/todo/base-refresh.txt, which is how those two container images are asked to
+# rebuild against a newer base. Both are the same nginx image shape, so they refresh
+# together.
 #
 # This exists because of a trade the deploy workflow makes. That workflow tags the
 # image with the hash of the files it is built from and skips the build entirely when
@@ -53,12 +55,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          file=apps/grocery/base-refresh.txt
+          files="apps/grocery/base-refresh.txt apps/todo/base-refresh.txt"
           today="$(date -u +%F)"
-          current="$(head -1 "$file")"
+          current="$(head -1 apps/grocery/base-refresh.txt)"
 
-          if [ "$current" = "$today" ]; then
-            echo "$file already reads $today; nothing to do."
+          stale=0
+          for file in $files; do
+            [ "$(head -1 "$file")" = "$today" ] || stale=1
+          done
+          if [ "$stale" -eq 0 ]; then
+            echo "Every base-refresh.txt already reads $today; nothing to do."
             exit 0
           fi
 
@@ -70,20 +76,22 @@ jobs:
           git switch -c "$branch"
 
           # Only the first line is the date; everything below it is the explanation of
-          # what this file is for and must survive.
-          printf '%s\n' "$today" > "$file.new"
-          tail -n +2 "$file" >> "$file.new"
-          mv "$file.new" "$file"
+          # what the file is for and must survive.
+          for file in $files; do
+            printf '%s\n' "$today" > "$file.new"
+            tail -n +2 "$file" >> "$file.new"
+            mv "$file.new" "$file"
+          done
 
-          git add "$file"
+          git add $files
           git commit --file=- <<COMMIT
-          Rebuild the grocery image against a fresh base
+          Rebuild the grocery and todo images against a fresh base
 
-          apps/grocery/base-refresh.txt is in the image's content hash and in no
+          Each app's base-refresh.txt is in its image's content hash and in no
           build step, so moving the date is how a rebuild against a current
           nginxinc/nginx-unprivileged:alpine is requested. Merging this makes the
-          next deploy build and push one image, and pay one scan, instead of
-          serving whatever base was current when nginx.conf last changed.
+          next deploy of each build and push one image, and pay one scan, instead
+          of serving whatever base was current when its nginx.conf last changed.
 
           Opened by .github/workflows/refresh-base-image.yml.
           COMMIT
@@ -100,12 +108,12 @@ jobs:
           gh pr create \
             --head "$branch" \
             --base main \
-            --title "Rebuild the grocery image against a fresh base ($today)" \
+            --title "Rebuild the grocery and todo images against a fresh base ($today)" \
             --body "$(printf '%s\n' \
-              "Bumps \`apps/grocery/base-refresh.txt\` from \`$current\` to \`$today\`." \
+              "Bumps \`apps/grocery/base-refresh.txt\` and \`apps/todo/base-refresh.txt\` (grocery's read \`$current\`) to \`$today\`." \
               "" \
-              "Before: the grocery image in production was built when its own files last changed, so the Alpine and nginx inside it are as old as that build." \
+              "Before: the grocery and todo images in production were built when their own files last changed, so the Alpine and nginx inside them are as old as those builds." \
               "" \
-              "After: the file is part of the image's content hash, so this changes the hash, and the next deploy rebuilds with \`pull: true\` against a current \`nginxinc/nginx-unprivileged:alpine\` and pushes one new image." \
+              "After: each file is part of its image's content hash, so this changes the hash, and the next deploy of each app rebuilds with \`pull: true\` against a current \`nginxinc/nginx-unprivileged:alpine\` and pushes one new image for it." \
               "" \
               "How: opened weekly by \`.github/workflows/refresh-base-image.yml\`. Nothing in the app changes and no bundle is republished -- see DEPLOYMENT.md." )"

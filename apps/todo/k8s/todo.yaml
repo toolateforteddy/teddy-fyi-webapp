@@ -1,0 +1,199 @@
+# todo.teddy.fyi -- the todo app's own front end. The same shape as
+# apps/grocery/k8s/grocery.yaml, whose comments have the reasoning for each choice below.
+#
+# This repo owns the Service, the Deployment and the certificate. What it does NOT own
+# is the Ingress: `k8s/ingress.yaml` in the teddyfyi repo is the shared front door for
+# every hostname on this load balancer, and it routes todo.teddy.fyi here. Renaming
+# todo-svc is therefore a change in two repos, and the certificate below has to be
+# named in that Ingress's `networking.gke.io/managed-certificates` annotation or it is
+# never issued.
+#
+# Three placeholders are written by .github/workflows/deploy-todo.yml before this is
+# applied: IMAGE_TAG_PLACEHOLDER, BUNDLE_TAG_PLACEHOLDER and BUNDLE_SHA256_PLACEHOLDER.
+# Do not put a moving tag in any of them.
+#
+# The image is nginx plus nginx.conf, tagged with the hash of the files that compose it,
+# so it is pushed only when one of them moves. The app is a release asset that the init
+# container below fetches and verifies at startup, and the bundle tag lives in the pod
+# template so each release is its own rollout and `kubectl rollout undo` refetches the
+# previous bundle.
+apiVersion: v1
+kind: Service
+metadata:
+  name: todo-svc
+  annotations:
+    cloud.google.com/backend-config: '{"default": "todo-be-config"}'
+spec:
+  selector:
+    app: todo
+  ports:
+    - name: http
+      protocol: TCP
+      # port stays 80: the ingress in teddyfyi routes to todo-svc on 80 and
+      # must not move. Only targetPort follows the container to its unprivileged
+      # port. The BackendConfig below pins no health-check port, so the GCLB
+      # health check follows targetPort too -- do not add one.
+      port: 80
+      targetPort: 8080
+  type: NodePort
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: todo-dep
+spec:
+  # Two, because the bundle fetch is fail-hard: with maxUnavailable: 0 below, a bad pin
+  # or an unreachable GitHub stalls the deploy while the existing pods keep serving.
+  replicas: 2
+  # Spelled out rather than left to the percentage defaults, which at two replicas
+  # round to one unavailable -- i.e. they would drop half the serving capacity mid-roll
+  # and hand the guarantee above straight back.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  # A pod counts as available only once it has been Ready this long: the readiness
+  # probe says nginx answered once, this says it kept answering.
+  minReadySeconds: 10
+  selector:
+    matchLabels:
+      app: todo
+  template:
+    metadata:
+      labels:
+        app: todo
+    spec:
+      # The image is nginxinc/nginx-unprivileged, which runs as uid/gid 101.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        # In case a volume ever arrives root-owned, as grocery.yaml explains.
+        fsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+      # nginx's pid file and every *_temp_path are pointed at /tmp in nginx.conf;
+      # this is the only writable path in the container.
+      - name: tmp
+        emptyDir: {}
+      # The unpacked app, on the node's disk. Its lifetime is the pod's, so every pod
+      # fetches its own copy of the pinned release.
+      - name: bundle
+        emptyDir: {}
+      # Fetches the built app and verifies it against the hash the deploy pinned. The
+      # same image as the container below, and no credential: the repo is public.
+      initContainers:
+      - name: fetch-bundle
+        image: gcr.io/melodic-sunbeam-164916/teddy-fyi-todo:IMAGE_TAG_PLACEHOLDER
+        imagePullPolicy: IfNotPresent
+        command: ["/usr/local/bin/fetch-bundle.sh"]
+        env:
+        # The release the deploy workflow published for this revision.
+        - name: BUNDLE_URL
+          value: https://github.com/toolateforteddy/teddy-fyi-webapp/releases/download/BUNDLE_TAG_PLACEHOLDER/todo.tar.gz
+        # A release asset can be replaced in place without its tag moving.
+        - name: BUNDLE_SHA256
+          value: BUNDLE_SHA256_PLACEHOLDER
+        - name: BUNDLE_ROOT
+          value: /bundle
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: bundle
+          mountPath: /bundle
+        # mktemp writes the archive here before it is verified, so this has to be the
+        # writable volume rather than the read-only root filesystem.
+        - name: tmp
+          mountPath: /tmp
+        resources:
+          requests:
+            cpu: 50m
+            memory: 32Mi
+          limits:
+            # About the gunzip, not the download: the archive streams to disk.
+            cpu: 500m
+            memory: 128Mi
+      containers:
+      - name: todo
+        image: gcr.io/melodic-sunbeam-164916/teddy-fyi-todo:IMAGE_TAG_PLACEHOLDER
+        # The tag is the hash of the files the image is built from, so it can never
+        # change meaning and there is nothing for `Always` to re-check.
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        # The docroot, out of the volume the init container filled. Read-only: nothing
+        # nginx does should write to the app, and the init container finished before
+        # this one started.
+        - name: bundle
+          mountPath: /usr/share/nginx/html
+          readOnly: true
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+        readinessProbe:
+          httpGet:
+            path: /index.html
+            port: 8080
+          timeoutSeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /index.html
+            port: 8080
+          initialDelaySeconds: 15
+          timeoutSeconds: 5
+          periodSeconds: 15
+---
+# Named in teddyfyi's ingress.yaml annotation; the two must land together.
+#
+# Provisioning order, once: the DNS record for todo.teddy.fyi must point at the
+# teddy-fyi-ip load balancer *before* the annotation naming this merges, because
+# Google issues a managed certificate only after the name resolves there. Merge
+# first and it sits in Provisioning. It fails alone: TLS breaks for this hostname
+# and no other.
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: todo-teddy-fyi-cert
+spec:
+  domains:
+    - todo.teddy.fyi
+---
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: todo-be-config
+spec:
+  # The visitor's country, added by the load balancer to every request it forwards, for
+  # the "region" field of the access log in nginx.conf. Two letters from Google's own
+  # lookup, and nothing finer: no address reaches the log.
+  customRequestHeaders:
+    headers:
+    - "X-Client-Region:{client_region}"
+  healthCheck:
+    checkIntervalSec: 30
+    timeoutSec: 25
+    type: HTTP
+    # "/" is an SPA route that try_files answers with index.html, so it would work
+    # -- but /index.html is the literal file and cannot become a redirect if the
+    # routing ever changes.
+    requestPath: /index.html

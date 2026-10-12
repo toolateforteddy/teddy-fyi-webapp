@@ -1,0 +1,106 @@
+/* The todo app's stylesheet: the shared token vocabulary, re-pointed at the Android todo
+   app's palette (TodoPalette.kt / TodoTheme.kt in teddy-fyi-android), plus what an
+   installed, phone-shaped app needs.
+
+   Dark only, like the Android app. The shared theme.css declares a light scheme too, but
+   nothing here ever sets data-theme='light', so it is never used. */
+
+@import "../../../packages/shared/theme.css";
+
+:root {
+  --palette-canvas: #000000;
+  --palette-inset: #0B0B0F;
+  --palette-surface-tile: #0B0B0F;
+  --palette-surface-raised: #121214;
+  --palette-surface-hover: #1E1E1E;
+  --palette-surface-hover-strong: #2A2A30;
+  --palette-line-faint: #1B182B;
+  --palette-line: #2A1F45;
+  --palette-line-strong: #3700B3;
+  --palette-text-primary: #FFFFFF;
+  --palette-text-secondary: #D8D8DE;
+  --palette-text-muted: #B0B0B8;
+  --palette-text-subtle: #8A8A92;
+  --palette-text-faint: #666666;
+  --palette-primary: #00F2FE;
+  --palette-primary-hover: #5CF7FE;
+  --palette-on-primary: #000000;
+  --palette-secondary: #3700B3;
+  --palette-tertiary: #FFA500;
+  --palette-success: #4CAF50;
+  --palette-success-strong: #66BB6A;
+  --palette-success-hover: #43A047;
+  --palette-on-success: #000000;
+  --palette-danger: #FF4B4B;
+  --palette-danger-solid: #FF4B4B;
+  --palette-danger-solid-hover: #E53935;
+  --palette-on-danger: #000000;
+  --palette-warning: #FFA500;
+  --palette-pending: #FFD700;
+  --palette-scrim: #000000;
+
+  /* Todo's own: the priority star and the "rolled over" marker. */
+  --palette-priority-high: #FFD700;
+  --palette-priority-medium: #FFA500;
+  --palette-chassis: #161424;
+
+  --app-frame-width: 40rem;
+  /* The bottom tab bar, which every notice and the input bar sit above. */
+  --app-nav-height: 64px;
+  --shadow-sheet: 0 -12px 40px rgba(0, 0, 0, 0.6);
+}
+
+@theme inline {
+  --color-priority-high: var(--palette-priority-high);
+  --color-priority-medium: var(--palette-priority-medium);
+  --color-chassis: var(--palette-chassis);
+}
+
+body {
+  /* Installed apps don't rubber-band the whole page, and pull-to-refresh in a standalone
+     PWA only ever throws away in-memory state. */
+  overscroll-behavior-y: none;
+}
+
+.app-frame {
+  width: 100%;
+  max-width: var(--app-frame-width);
+}
+
+/* Chrome -- bars, tabs, buttons -- should not be text you can accidentally select. */
+.app-chrome {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* The Android app's clipped-corner rows and its hexagonal checkbox. */
+.clipped {
+  clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px), 0 8px);
+}
+
+.hex {
+  clip-path: polygon(50% 0, 93.3% 25%, 93.3% 75%, 50% 100%, 6.7% 75%, 6.7% 25%);
+}
+
+.material-symbols-rounded {
+  font-family: 'Material Symbols Rounded';
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* iOS zooms on focus below 16px and never zooms back. */
+@media (max-width: 767px) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
