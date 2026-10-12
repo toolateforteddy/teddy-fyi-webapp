@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { TodoProvider } from '../../TodoContext'
 import { TodoApp } from '../TodoApp'
@@ -123,5 +123,30 @@ describe('the todo screen', () => {
     await userEvent.click(swatch)
     expect(swatch).toHaveAttribute('aria-checked', 'true')
     expect(name).toHaveFocus()
+  })
+
+  it('adds subtasks one after another until Finish', async () => {
+    renderApp()
+    await userEvent.type(screen.getByRole('textbox', { name: 'Add a task' }), 'pack{Enter}')
+    await userEvent.click(await screen.findByRole('button', { name: 'More for Pack' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Add subtask' }))
+
+    const field = screen.getByRole('textbox', { name: 'New subtask' })
+    await userEvent.type(field, 'socks{Enter}')
+    await userEvent.type(field, 'shirts')
+    await userEvent.click(screen.getByRole('button', { name: 'Add' }))
+    expect(field).toHaveFocus()
+    const listed = within(screen.getByRole('list', { name: 'Subtasks' }))
+    expect(listed.getByText('Socks')).toBeInTheDocument()
+    expect(listed.getByText('Shirts')).toBeInTheDocument()
+
+    await userEvent.type(field, 'shoes')
+    await userEvent.click(screen.getByRole('button', { name: 'Finish' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    type Stored = Array<{ title: string; parentId: string | null }>
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEYS.ITEMS) ?? '[]') as Stored
+    const parentId = stored.find((i) => i.title === 'Pack')!.parentId
+    expect(parentId).toBeNull()
+    expect(stored.filter((i) => i.parentId !== null).map((i) => i.title)).toEqual(['Socks', 'Shirts', 'Shoes'])
   })
 })
