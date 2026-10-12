@@ -1,0 +1,385 @@
+name: Deploy Todo
+
+# todo.teddy.fyi deploys itself on merge, exactly as grocery.teddy.fyi does: see
+# deploy-grocery.yml, whose comments carry the reasoning for every job and step here.
+#
+# **The app is not in the container image.** It is published as a release asset and
+# fetched at pod startup by an init container; the image is nginx and nginx.conf, tagged
+# with the hash of the files that compose it, so an app-only merge pushes no image and
+# pays no vulnerability scan. apps/todo/base-refresh.txt is the knob that asks for a
+# fresh base.
+#
+# It runs as the same deploy service account as grocery (repository variable
+# GCP_DEPLOY_SA), pushes to gcr.io/melodic-sunbeam-164916/teddy-fyi-todo, and builds with
+# the same Google web client id: the API's audience list already accepts that one.
+
+on:
+  push:
+    branches: [main]
+    # A change that cannot alter what is deployed should not rebuild it or roll
+    # production.
+    paths:
+      - 'apps/todo/**'
+      - 'packages/shared/**'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/deploy-todo.yml'
+      - '.github/workflows/ci.yml'
+  # A manual button, for redeploying the current commit without an empty commit
+  # to kick it -- e.g. after changing something in the cluster by hand.
+  workflow_dispatch:
+
+permissions:
+  contents: 'read'
+
+# Deploys are serialised, never cancelled. Two merges a minute apart must not race
+# to `kubectl apply`, and cancelling the older one mid-rollout would leave the
+# cluster half-way through a ReplicaSet swap with nothing watching it.
+concurrency:
+  group: deploy-todo-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # The gate: the whole of CI -- lint, the tests, both app builds -- rather than a
+  # weaker copy of it inline here.
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
+  # Fails fast and legibly when the Workload Identity configuration is missing.
+  # Without it, the first thing that goes wrong is google-github-actions/auth
+  # saying "the GitHub Action workflow must specify exactly one of
+  # workload_identity_provider or credentials_json" -- which reads like the
+  # workflow is malformed, when the workflow is fine and the value it
+  # interpolated was simply empty. That exact error cost a debugging round on
+  # this workflow's first run, when the credential it wanted did not exist.
+  #
+  # These are repository *variables*, not secrets, and deliberately so: under
+  # Workload Identity Federation there is no secret material to hold. A provider
+  # resource name and a service account email are not credentials -- the trust is
+  # in the IAM binding, which names this repository.
+  preflight:
+    name: Check deploy configuration
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require the Workload Identity variables
+        # Passed through env rather than interpolated into the script, so the
+        # values are shell data and not shell source.
+        env:
+          WIF_PROVIDER: ${{ vars.GCP_WIF_PROVIDER }}
+          DEPLOY_SA: ${{ vars.GCP_DEPLOY_SA }}
+          GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+        run: |
+          missing=0
+          if [ -z "$WIF_PROVIDER" ]; then
+            echo "::error::Repository variable GCP_WIF_PROVIDER is not set. Expected the full provider resource name: projects/34718544535/locations/global/workloadIdentityPools/github-pool/providers/github-provider (34718544535 is the project number, not the project ID)"
+            missing=1
+          fi
+          if [ -z "$DEPLOY_SA" ]; then
+            echo "::error::Repository variable GCP_DEPLOY_SA is not set. Expected grocery-deployer@melodic-sunbeam-164916.iam.gserviceaccount.com (todo deploys as the same account)"
+            missing=1
+          fi
+          # Not a deploy credential -- a build input, and the one whose absence is
+          # silent. src/config/env.ts falls back to a dummy client id, so a build
+          # without this produces an app that looks completely fine and cannot sign
+          # anybody in. See the assertion after the build step.
+          if [ -z "$GOOGLE_CLIENT_ID" ]; then
+            echo "::error::Repository variable VITE_GOOGLE_CLIENT_ID is not set. Google sign-in is baked in at build time; without it the bundle ships env.ts's dummy-client-id fallback and no one can log in."
+            missing=1
+          fi
+          if [ "$missing" -eq 0 ]; then
+            echo "Deploy configuration present."
+          fi
+          exit $missing
+
+  # What used to be most of the image job. It builds the app and publishes it as a
+  # release asset instead of baking it into a container.
+  #
+  # Built in parallel with the gate, on the same reasoning as the image build it
+  # replaces: the release is named after the commit, so a bundle published for a
+  # revision whose tests then fail is an unreferenced tarball that the deploy job
+  # below never reaches. It would not be safe if this moved a pointer anything reads
+  # by itself -- which is why `--latest=false` is on the release, and why the pin
+  # that actually selects it is written into the pod spec by the deploy job.
+  bundle:
+    name: Build and Publish Bundle
+    # Nothing expensive should run before we know the deploy can authenticate.
+    needs: [preflight]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      # To create the release. Note this job never touches Google Cloud at all.
+      contents: 'write'
+    outputs:
+      tag: ${{ steps.publish.outputs.tag }}
+      sha256: ${{ steps.publish.outputs.sha256 }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Vite inlines VITE_* at build time, so this has to be present HERE, in the
+      # job that builds -- not at deploy, and not in the cluster. A public OAuth
+      # client id is not a secret (it is served in the page to every visitor), so
+      # it is a repository variable like the others.
+      #
+      # VITE_API_BASE_URL is deliberately not passed: its default in
+      # src/config/env.ts is already the production value. The client id's default
+      # is a placeholder that cannot work, which is the whole reason for this.
+      #
+      # VITE_DISABLE_SW is the service worker's fleet kill switch, and it is wired
+      # through here so that throwing it is setting a repository variable and
+      # pressing the manual deploy button -- not writing, reviewing and merging a
+      # code change while every installed phone is serving itself a broken cache.
+      # Normally unset, which is the same as `false`. See src/pwa.ts and
+      # DEPLOYMENT.md.
+      - name: Build the todo app
+        env:
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+          VITE_DISABLE_SW: ${{ vars.VITE_DISABLE_SW }}
+        run: pnpm --filter todo build
+
+      # Preflight can only see that the variable is set; this sees what actually
+      # got compiled in, which is what matters and what was wrong -- the first
+      # images this workflow pushed used env.ts's dummy fallback and would have
+      # shipped an app nobody could sign in to.
+      #
+      # The check asserts the value is PRESENT rather than that the dummy is
+      # absent. `getEnvVar(key, fallback)` keeps its fallback as a plain argument,
+      # so `dummy-client-id` is in the bundle either way and looking for it is a
+      # false positive -- which it was, on the first attempt at this guard.
+      # Vite serialises `import.meta.env` with the VITE_* vars that existed at
+      # build time and simply omits the ones that did not, so the value's presence
+      # is the real signal. Comparing against the variable rather than a
+      # hardcoded id keeps this honest if the client id ever changes.
+      - name: Verify the client id was compiled in
+        env:
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+        run: |
+          if ! grep -rqF "$VITE_GOOGLE_CLIENT_ID" apps/todo/dist/assets/; then
+            echo "::error::VITE_GOOGLE_CLIENT_ID is not present in the built bundle, so the app fell back to env.ts's dummy client id and Google sign-in would be broken. Refusing to publish this bundle."
+            exit 1
+          fi
+          echo "Google client id compiled into the bundle."
+
+      # Packed from inside dist/ so the archive has no top-level directory: the init
+      # container unpacks it straight into the volume that becomes the docroot, and a
+      # wrapping directory would put the whole app one level too deep.
+      #
+      # The hash is computed here, from the file that is about to be uploaded, and
+      # travels to the pod in the pod spec. It is checked again there rather than
+      # trusted, because a release asset can be replaced in place without its tag
+      # moving and this unpacks into the origin that holds a Google sign-in.
+      - name: Publish the bundle as a release
+        id: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="todo-${{ github.run_number }}-$(git rev-parse --short "$GITHUB_SHA")"
+          tar -czf todo.tar.gz -C apps/todo/dist .
+          sha256="$(sha256sum todo.tar.gz | cut -d' ' -f1)"
+
+          # --latest=false: this repo publishes a release per deploy, several a day.
+          # Letting them churn the repository's "Latest release" badge would make it a
+          # meaningless timestamp, and nothing resolves a bundle by "latest" -- the
+          # deploy job writes this exact tag into the pod spec.
+          gh release create "$tag" todo.tar.gz \
+            --title "todo $tag" \
+            --latest=false \
+            --notes "The todo app built from ${GITHUB_SHA}.
+
+          Fetched at pod startup by the init container in \`apps/todo/k8s/todo.yaml\`; see DEPLOYMENT.md.
+
+          \`todo.tar.gz\` sha256: \`${sha256}\`"
+
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "sha256=$sha256" >> "$GITHUB_OUTPUT"
+          echo "Published $tag ($sha256)"
+
+  # The image, which is nginx and its configuration and nothing else. Tagged by the
+  # hash of the files it is built from rather than by the commit, which is what makes
+  # "has this image already been built?" a question with an answer: an app-only merge
+  # computes the tag that is already in the registry and pushes nothing.
+  #
+  # Content-addressing rather than a hand-maintained version, because the failure mode
+  # of a hand-maintained one is silent in the dangerous direction -- an nginx.conf
+  # change that forgets to bump it deploys the old configuration and looks fine.
+  image:
+    name: Build Image If Needed
+    needs: [preflight]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # Every file that ends up in the image, plus base-refresh.txt, which ends up in
+      # no build step at all and exists only to be the knob that forces a rebuild
+      # against a newer `nginxinc/nginx-unprivileged:alpine`. Listed explicitly rather
+      # than globbed: a glob would silently start including a file somebody added
+      # next to these, and change the tag of an image whose content did not move.
+      - name: Compute the image tag from its inputs
+        id: tag
+        run: |
+          set -euo pipefail
+          hash="$(sha256sum \
+            apps/todo/Dockerfile \
+            apps/todo/.dockerignore \
+            apps/todo/nginx.conf \
+            apps/todo/base-refresh.txt \
+            apps/todo/scripts/fetch-bundle.sh \
+            | sha256sum | cut -c1-16)"
+          echo "tag=img-$hash" >> "$GITHUB_OUTPUT"
+          echo "Image tag for these inputs: img-$hash"
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+
+      # The whole point. A tag that is already there describes an image built from
+      # exactly these files, so there is nothing to build and -- the part that costs
+      # real money -- nothing to scan.
+      - name: Is that image already in the registry?
+        id: exists
+        env:
+          IMAGE: gcr.io/melodic-sunbeam-164916/teddy-fyi-todo:${{ steps.tag.outputs.tag }}
+        run: |
+          if gcloud container images describe "$IMAGE" >/dev/null 2>&1; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+            echo "$IMAGE is already built; skipping the build, the push and its scan."
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "$IMAGE is not in the registry; building it."
+          fi
+
+      - uses: docker/setup-buildx-action@v4
+        if: steps.exists.outputs.present == 'false'
+
+      - name: Configure Docker
+        if: steps.exists.outputs.present == 'false'
+        run: gcloud auth configure-docker gcr.io --quiet
+
+      # `pull: true` so a rebuild genuinely re-resolves the moving `:alpine` base
+      # rather than reusing a cached one. This job runs rarely now, and when it does
+      # the reason is usually that somebody asked for a fresh base -- getting a stale
+      # one from the layer cache would defeat the entire exercise.
+      - name: Build and Push Docker Image
+        if: steps.exists.outputs.present == 'false'
+        uses: docker/build-push-action@v7
+        with:
+          context: ./apps/todo
+          push: true
+          pull: true
+          tags: gcr.io/melodic-sunbeam-164916/teddy-fyi-todo:${{ steps.tag.outputs.tag }}
+
+  deploy:
+    name: Deploy to GKE
+    runs-on: ubuntu-latest
+    # All three, and in this order of importance: nothing reaches the cluster until
+    # the gate is green, and there is no point applying a manifest that names an image
+    # or a bundle that does not exist yet.
+    needs: [ci, bundle, image]
+    timeout-minutes: 15
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+
+      - name: Get GKE Credentials
+        uses: google-github-actions/get-gke-credentials@v3
+        with:
+          cluster_name: prod
+          location: us-central1-a
+          project_id: melodic-sunbeam-164916
+
+      # The manifest names placeholders rather than tags that move, so what is being
+      # deployed is written into it here, in the workspace, before anything is
+      # applied.
+      #
+      # The check afterwards is the part that matters: a manifest reaching the cluster
+      # with a placeholder still in it fails to pull, or fetches a bundle from a URL
+      # with the literal word PLACEHOLDER in it, and it should fail here instead --
+      # loudly, before apply. Both the substitution and the check are restricted to
+      # `image:` and `value:` lines, because the manifest also *mentions* the
+      # placeholders in the comments explaining them.
+      - name: Pin the manifest to this revision
+        env:
+          IMAGE_TAG: ${{ needs.image.outputs.tag }}
+          BUNDLE_TAG: ${{ needs.bundle.outputs.tag }}
+          BUNDLE_SHA256: ${{ needs.bundle.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+          for v in IMAGE_TAG BUNDLE_TAG BUNDLE_SHA256; do
+            eval "value=\${$v:-}"
+            if [ -z "$value" ]; then
+              echo "::error::$v came through empty; the job that produces it did not report an output."
+              exit 1
+            fi
+          done
+          sed -i "/^[[:space:]]*image:/s|IMAGE_TAG_PLACEHOLDER|$IMAGE_TAG|g" apps/todo/k8s/*.yaml
+          sed -i "/^[[:space:]]*value:/s|BUNDLE_TAG_PLACEHOLDER|$BUNDLE_TAG|g" apps/todo/k8s/*.yaml
+          sed -i "/^[[:space:]]*value:/s|BUNDLE_SHA256_PLACEHOLDER|$BUNDLE_SHA256|g" apps/todo/k8s/*.yaml
+          if grep -rnE '^[[:space:]]*(image|value):.*_PLACEHOLDER' apps/todo/k8s/; then
+            echo "::error::a line still carries a placeholder after substitution"
+            exit 1
+          fi
+          grep -rnE '^[[:space:]]*(image|value):' apps/todo/k8s/
+
+      # Note what is not here: `kubectl rollout restart`. The image tag and the bundle
+      # pin are both in the pod template, so a release of either *is* a spec change and
+      # apply starts the rollout by itself; a restart would only add a second,
+      # redundant one. The trade is that re-running this on an unchanged commit is a
+      # no-op -- which is right, but means a config changed outside git needs a
+      # deliberate `kubectl rollout restart deployment/todo-dep`.
+      #
+      # Not quite true of the bundle, and worth knowing: the pin is the release tag,
+      # which carries the run number, so even a rebuild of the identical commit
+      # produces a new tag and therefore a real rollout.
+      #
+      # This does not apply the Ingress: that is teddyfyi's, and a resource applied
+      # from two repos flaps between whatever each one last said.
+      - name: Apply Kubernetes Manifests
+        run: kubectl apply -f apps/todo/k8s/
+
+      - name: Wait for the rollout
+        # Without this the job is green the moment the change is *accepted*, so a
+        # crash-looping image -- or an init container that cannot fetch its bundle --
+        # reports a successful deploy. `rollout status` blocks until the new ReplicaSet
+        # is actually available and exits non-zero if it never gets there.
+        run: kubectl rollout status deployment/todo-dep --timeout=5m
+
+      # The init container is where a bad pin surfaces, and `rollout status` failing is
+      # a timeout message that does not say why. This turns it into the actual reason.
+      - name: Explain a stalled rollout
+        if: failure()
+        run: |
+          echo "The rollout did not complete. The init container's log usually says why:"
+          kubectl get pods -l app=todo \
+            --sort-by=.metadata.creationTimestamp -o name | while read -r pod; do
+            echo "--- $pod ---"
+            kubectl logs "$pod" -c fetch-bundle --tail=-1 2>&1 || true
+          done
+          kubectl describe deployment/todo-dep | tail -20

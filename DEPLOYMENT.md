@@ -1,7 +1,8 @@
 # How these apps get deployed
 
 This repo is a pnpm workspace holding **two apps that deploy in completely
-different ways**, on purpose:
+different ways**, on purpose (and `apps/todo`, which deploys exactly as
+`apps/grocery` does; see its section below):
 
 | | `apps/personal` | `apps/grocery` |
 |---|---|---|
@@ -262,6 +263,41 @@ here. Two consequences:
 
 Never apply the Ingress from here. A resource applied from two repos flaps
 between whatever each one last said.
+
+## `apps/todo` → todo.teddy.fyi
+
+**The same pipeline as grocery**, in `.github/workflows/deploy-todo.yml`: a bundle
+published as `todo.tar.gz` on a release tagged `todo-<run>-<short-sha>`, an nginx
+image at `gcr.io/melodic-sunbeam-164916/teddy-fyi-todo` tagged by the hash of its own
+files and built only when that tag is missing, and `apps/todo/k8s/todo.yaml` pinned
+and applied. Everything the grocery section says about rollback, the base image and
+the service account holds here; the workflow uses the same repository variables and
+deploys as the same `grocery-deployer` account.
+
+`apps/todo/k8s/todo.yaml` holds `todo-svc`, `todo-dep`, `todo-be-config` and
+`todo-teddy-fyi-cert`. The Ingress rule and the certificate annotation are in
+`teddyfyi`, as for grocery.
+
+**First deploy, once, in this order:**
+
+1. The DNS A record for `todo.teddy.fyi` points at the `teddy-fyi-ip` load balancer.
+2. `https://todo.teddy.fyi` is added to the Authorized JavaScript Origins of the
+   Google web client in `VITE_GOOGLE_CLIENT_ID` (the one grocery uses).
+3. The API change that adds `https://todo.teddy.fyi` to the compiled CORS allowlist
+   and the invite gate is live.
+4. This repo merges, so `todo-svc` and the certificate exist.
+5. `teddyfyi`'s Ingress names `todo-teddy-fyi-cert` and routes the host to `todo-svc`.
+
+### The invite gate
+
+The gate is on the API, not here. A login whose `Origin` is `https://todo.teddy.fyi` is
+refused unless the browser sends a `todo_invite` cookie that redeems against the
+signed-in Google email. `/invite/<code>` posts the code to
+`POST /auth/todo-web/invite`, which sets that cookie (HttpOnly, on the API host, for the
+invite's lifetime); `/login` asks `GET /auth/todo-web/invite` whether one is held and
+says the app is invite-only when not. Invites are minted on the Android admin screen.
+The manifest, icons and the bundle itself are public and ungated: Chrome's WebAPK
+minting server fetches them with no cookie.
 
 ## `apps/personal` → teddy.fyi
 

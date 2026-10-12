@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <!-- viewport-fit=cover is what makes env(safe-area-inset-*) resolve to real
+       values on iPhone. No maximum-scale / user-scalable=no here on purpose:
+       pinch-zoom stays available, and the input auto-zoom is fixed by giving
+       form controls a 16px font size (see index.css). -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+  <title>Teddy Todo</title>
+  <meta name="description" content="Your teddy.fyi todo list, on the web." />
+  <!-- Invite-only, so there is nothing here for a search engine. robots.txt says the same. -->
+  <meta name="robots" content="noindex" />
+
+  <!-- Installed-app metadata. `display: standalone` in the manifest is what
+       drops the browser chrome on Android; iOS reads apple-mobile-web-app-capable
+       for the same thing, and still needs it even though it now also honours the
+       manifest for some properties. -->
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <!-- Dark only, like the Android todo screen. -->
+  <meta name="theme-color" content="#000000" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Todo" />
+  <!-- black-translucent puts the page *under* the status bar, which is why every
+       top-level surface pads itself with env(safe-area-inset-top). -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <!-- iOS does not generate a launch image from the manifest icons; without an
+       apple-touch-icon it falls back to a screenshot of the page and flashes
+       white on launch. The 180px PNG is the one iOS actually wants. -->
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <!-- Tab icons. The mark is a drawing with real detail in it rather than a
+       glyph, so it is scaled once per size by icons/build-icons.py instead of
+       being left to the browser -- a 512px icon squeezed into a 16px tab is the
+       one place the resampling is visibly worse than a purpose-made file. There
+       is no SVG here for the same reason: the mark only exists as raster. -->
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+  <!-- The shared theme.css keys its palette off data-theme, and this app only has the
+       dark one. Set here rather than from React so the first paint is already right. -->
+  <script>
+    document.documentElement.setAttribute('data-theme', 'dark');
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Only the Inter weights the app's classes use (font-medium through font-black, and 400
+       as the body weight). Nothing here names Source Code Pro -- font-mono is Tailwind's
+       system monospace stack -- and nothing sets Inter in italic, so neither is requested;
+       tests/fonts.test.ts holds this list to the classes in src/. -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+  <!-- The task icons: Material Symbols ligatures, the same names the Android app draws
+       (src/features/todo/icons.ts). `block` rather than `swap`, because a ligature in the
+       fallback face renders as its name spelled out. -->
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0,0&display=block" rel="stylesheet">
+  <style>
+    /* Tailwind v4 emits oklch(), color-mix() and @property with no fallbacks, so
+       it requires Safari / iOS 16.4+ (March 2023). Below that nearly every color
+       declaration is dropped and the app renders as an unreadable black page.
+       Detect that directly and say so instead of shipping a broken UI. */
+    #legacy-browser-notice {
+      display: none;
+    }
+
+    @supports not (color: oklch(0% 0 0)) {
+
+      /* The stylesheet's custom properties resolve on these browsers even though
+         its colours do not. Paint the page black and be done. */
+      body {
+        background: #000000;
+      }
+
+      #root {
+        display: none;
+      }
+
+      #legacy-browser-notice {
+        display: block;
+        box-sizing: border-box;
+        max-width: 32rem;
+        margin: 0 auto;
+        padding: 3rem 1.5rem;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: #ffffff;
+        text-align: center;
+        line-height: 1.6;
+      }
+
+      #legacy-browser-notice h1 {
+        font-size: 1.25rem;
+        margin: 0 0 0.75rem 0;
+      }
+
+      #legacy-browser-notice p {
+        font-size: 0.95rem;
+        color: #a3a3a3;
+        margin: 0 0 0.75rem 0;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="root"></div>
+  <div id="legacy-browser-notice">
+    <h1>This browser is out of date</h1>
+    <p>Teddy Todo needs iOS 16.4 or newer (or a current version of Chrome, Edge or Firefox) to display correctly.</p>
+    <p>On iPhone or iPad, open Settings &rsaquo; General &rsaquo; Software Update to update iOS.</p>
+  </div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
+</html>

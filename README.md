@@ -1,6 +1,6 @@
 # teddy-fyi-webapp
 
-A pnpm workspace holding the two React + TypeScript + Vite apps behind
+A pnpm workspace holding the three React + TypeScript + Vite apps behind
 [teddy.fyi](https://teddy.fyi):
 
 - **`apps/personal`** → `teddy.fyi`. A personal site: about, articles, and
@@ -8,6 +8,10 @@ A pnpm workspace holding the two React + TypeScript + Vite apps behind
 - **`apps/grocery`** → `grocery.teddy.fyi`. **Grocery**, a shared,
   install-to-home-screen grocery list that replaces an iOS app. The phone
   experience is the product, not an afterthought.
+- **`apps/todo`** → `todo.teddy.fyi`. The Android app's todo list on the web,
+  installable as a WebAPK and **invite-only**: the API refuses a login from this
+  origin unless the browser holds an invite cookie, which an invite link minted on
+  the Android admin screen sets.
 - **`packages/shared`** — what both genuinely use: the theme tokens and an error
   boundary. Deliberately thin.
 
@@ -21,14 +25,15 @@ but a colour palette and a very different idea of how often they ship — see
 pnpm install
 pnpm dev:personal   # http://localhost:5173
 pnpm dev:grocery    # http://localhost:5174
+pnpm dev:todo       # http://localhost:5175
 ```
 
-Both can run at once. Only the grocery app proxies `/api` and `/auth` to
+All three can run at once. The grocery and todo apps proxy `/api` and `/auth` to
 `localhost:3000` for a locally running API.
 
 | Command | |
 |---|---|
-| `pnpm build` | build both apps |
+| `pnpm build` | build every app |
 | `pnpm lint` | ESLint across the workspace |
 | `pnpm test:run` | Vitest, one shot (CI's invocation) |
 | `pnpm --filter grocery <script>` | scope any of the above to one app |
@@ -51,6 +56,9 @@ apps/
     nginx.conf      its own front end
     Dockerfile
     k8s/            its own Service, Deployment and certificate
+  todo/             todo.teddy.fyi — the same shape as grocery
+    src/features/   auth, invite (the cookie gate), todo (rules, sync, screens), pwa
+    icons/          build-icons.py, from the Android app's launcher icon
 packages/
   shared/           ErrorBoundary, theme.css
 ```
@@ -66,6 +74,8 @@ and syncs against the Rust API in `../teddy-fyi-api-rust`
 - **Grocery ships on merge.** Push to `main` touching `apps/grocery/**` and
   `.github/workflows/deploy-grocery.yml` builds it, pushes a SHA-tagged image and
   rolls out `grocery-dep`. Rollback is `kubectl rollout undo`.
+- **Todo ships the same way**, through `.github/workflows/deploy-todo.yml` on a
+  push touching `apps/todo/**`, rolling out `todo-dep`.
 - **The personal site is deployed by hand**, from the sibling
   [`teddyfyi`](https://github.com/toolateforteddy/teddyfyi) repo:
   `cd ../teddyfyi && . cmd && dn`. It changes a few times a year and shares a

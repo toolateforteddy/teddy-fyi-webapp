@@ -4,9 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "echo 'Pick an app: pnpm dev:personal (5173) or pnpm dev:grocery (5174)' && exit 1",
+    "dev": "echo 'Pick an app: pnpm dev:personal (5173), pnpm dev:grocery (5174) or pnpm dev:todo (5175)' && exit 1",
     "dev:personal": "pnpm --filter personal dev",
     "dev:grocery": "pnpm --filter grocery dev",
+    "dev:todo": "pnpm --filter todo dev",
     "build": "pnpm -r build",
     "lint": "eslint .",
     "test": "pnpm -r test",
