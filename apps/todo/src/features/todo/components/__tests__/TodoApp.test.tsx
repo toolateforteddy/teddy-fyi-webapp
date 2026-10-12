@@ -149,4 +149,31 @@ describe('the todo screen', () => {
     expect(parentId).toBeNull()
     expect(stored.filter((i) => i.parentId !== null).map((i) => i.title)).toEqual(['Socks', 'Shirts', 'Shoes'])
   })
+
+  it("collapses a parent's subtasks, and remembers it open", async () => {
+    const row = (id: string, title: string, parentId: string | null, isCompleted = false) => ({
+      id, title, isCompleted, createdAt: 1, position: 0, scheduledDate: null, recurrenceRule: null, scheduledAt: 1,
+      userId: 'surrogate', parentId, isDaily: false, dueDate: null, description: null, listId: null, priority: 0,
+      icon: null, lastScheduledDate: null, syncState: 'SYNCED', version: 1, isDeleted: false,
+    })
+    localStorage.setItem(
+      STORAGE_KEYS.ITEMS,
+      JSON.stringify([row('p', 'Pack', null), row('a', 'Socks', 'p', true), row('b', 'Shirts', 'p')]),
+    )
+    const { unmount } = renderApp()
+    // Collapsed by default, with a count where the subtasks would be.
+    // The count covers the finished subtask too, which the open view does not list.
+    expect(screen.queryByText('Shirts')).not.toBeInTheDocument()
+    expect(screen.getByText('(1/2)')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Expand Pack' }))
+    expect(screen.getByText('Shirts')).toBeInTheDocument()
+    expect(screen.queryByText('(1/2)')).not.toBeInTheDocument()
+
+    unmount()
+    renderApp()
+    expect(screen.getByText('Shirts')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Collapse Pack' }))
+    expect(screen.queryByText('Shirts')).not.toBeInTheDocument()
+  })
 })

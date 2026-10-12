@@ -19,6 +19,8 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/features/auth/hooks/useAuth'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
+import { storage } from '@/utils/storage'
+import { STORAGE_KEYS } from '@/config/storageKeys'
 import { InstallBanner } from '@/features/pwa/components/InstallBanner'
 import { InstallCard } from '@/features/pwa/components/InstallCard'
 import { UpdateBanner } from '@/features/pwa/components/UpdateBanner'
@@ -72,6 +74,15 @@ export function TodoApp() {
   // The add-task field has focus, so the keyboard is up. The tab bar steps aside for it, and
   // the header's spaces and days become what the new task is filed under.
   const [composing, setComposing] = useState(false)
+  // Parents whose subtasks are showing; collapsed by default, as on Android.
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set(storage.getItem<string[]>(STORAGE_KEYS.EXPANDED_PARENTS, [])))
+  const toggleExpanded = (id: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      if (!next.delete(id)) next.add(id)
+      storage.setItem(STORAGE_KEYS.EXPANDED_PARENTS, [...next])
+      return next
+    })
 
   const now = useNow()
   const today = todayIso(now)
@@ -84,6 +95,20 @@ export function TodoApp() {
         : viewGroups(items, { mode, selectedListId, showCompletedOnly: showCompleted, recentlyCompleted, now }),
     [items, mode, selectedListId, showCompleted, recentlyCompleted, searching, query, now],
   )
+
+  // Every subtask a parent has, not only the ones this view lists: the collapsed count says
+  // how far along the whole task is.
+  const subtaskCounts = useMemo(() => {
+    const counts = new Map<string, { done: number; total: number }>()
+    for (const item of items) {
+      if (!item.parentId || item.isDeleted) continue
+      const count = counts.get(item.parentId) ?? { done: 0, total: 0 }
+      count.total += 1
+      if (item.isCompleted || recentlyCompleted.has(item.id)) count.done += 1
+      counts.set(item.parentId, count)
+    }
+    return counts
+  }, [items, recentlyCompleted])
 
   const colorOf = (item: TodoItem) => lists.find((l) => l.id === item.listId)?.colorHex ?? FALLBACK_COLOR
 
@@ -111,7 +136,7 @@ export function TodoApp() {
   const isChecked = (item: TodoItem) =>
     mode === 'PLANNING' && !showCompleted ? item.scheduledDate === planningDate : item.isCompleted || recentlyCompleted.has(item.id)
 
-  const row = (item: TodoItem, isChild: boolean) => (
+  const row = (item: TodoItem, isChild: boolean, hasChildren = false) => (
     <ItemRow
       key={item.id}
       item={item}
@@ -125,13 +150,17 @@ export function TodoApp() {
       onOpen={() => setOpenItem(item)}
       onStar={() => todo.updateItem(item.id, { priority: item.priority >= 2 ? 0 : 2 })}
       onMove={(move) => todo.moveItem(item, move)}
+      subtasks={hasChildren ? subtaskCounts.get(item.id) : undefined}
+      expanded={searching || expanded.has(item.id)}
+      onToggleExpand={searching ? undefined : () => toggleExpanded(item.id)}
     />
   )
 
   const groupBlock = (group: ItemGroup) => (
     <div key={group.parent.id} className="flex flex-col gap-1.5">
-      {row(group.parent, false)}
-      {group.children.map((child) => row(child, true))}
+      {row(group.parent, false, group.children.length > 0)}
+      {/* A search shows every match, so it never hides one under a collapsed parent. */}
+      {(searching || expanded.has(group.parent.id)) && group.children.map((child) => row(child, true))}
     </div>
   )
 

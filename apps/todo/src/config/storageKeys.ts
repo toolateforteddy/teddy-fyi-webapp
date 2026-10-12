@@ -18,6 +18,8 @@ export const STORAGE_KEYS = {
   LIST_ORDER: 'todo_list_order',
   SELECTED_LIST_ID: 'todo_selected_list_id',
   MODE: 'todo_mode',
+  // Parent ids whose subtasks are shown. Collapsed is the default, as on Android; this device's own.
+  EXPANDED_PARENTS: 'todo_expanded_parents',
   // Epoch ms of the last midnight rollover / 08:00 daily reset this device ran.
   LAST_RESET_TIME: 'todo_last_reset_time',
 } as const
