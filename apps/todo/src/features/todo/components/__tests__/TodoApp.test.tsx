@@ -117,7 +117,7 @@ describe('the todo screen', () => {
     renderApp()
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
     await userEvent.click(screen.getByRole('button', { name: 'Add space' }))
-    const name = screen.getByRole('textbox', { name: 'Name' })
+    const name = screen.getByRole('textbox', { name: 'Space name' })
     await userEvent.type(name, 'Work')
     const swatch = screen.getAllByRole('radio')[1]
     await userEvent.click(swatch)
