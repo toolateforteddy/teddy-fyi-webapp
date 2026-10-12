@@ -34,13 +34,23 @@ OUT = HERE.parent / "public"
 # on a warm off-white and it stops reading the moment it is put on black.
 PAPER = (248, 248, 246)
 
-# A maskable icon is cropped to whatever shape the launcher prefers, and the only
-# region guaranteed to survive every shape is a centred circle of 80% of the
-# canvas. So the mark is scaled until the smallest circle containing all of its ink
-# is exactly that circle -- which is what keeps the tip of the tick and the top of
-# the leaves from being shaved off on a round mask, without wasting the space a
-# bounding box would have wasted on this mark's empty corners.
-SAFE_CIRCLE = 0.80
+# A maskable icon is cropped to whatever shape the launcher prefers. The spec's safe
+# zone is a centred circle of 80% of the canvas, but that is not the tightest crop
+# this icon gets: when Chrome cannot mint a WebAPK and pins a plain shortcut
+# instead, it hands this bitmap to Android unpadded as a whole 108dp adaptive layer,
+# and the launcher shows only the middle 72dp of it. So the mark is fitted to
+# Android's own keyline, 66 of 108dp, which survives that crop and every mask shape
+# inside it. icons/README.md has the Chromium code behind the number.
+#
+# The mark is scaled until the smallest circle containing all of its ink is exactly
+# that circle -- which is what keeps the tip of the tick and the top of the leaves
+# from being shaved off on a round mask, without wasting the space a bounding box
+# would have wasted on this mark's empty corners.
+SAFE_CIRCLE = 66 / 108
+
+# The spec's safe circle, which is still the right fit for the two things only the
+# spec's crop applies to: the monochrome stencil and the link-preview card.
+SPEC_SAFE_CIRCLE = 0.80
 
 # Nothing crops an `any` icon, so it only needs the optical margin that stops the
 # mark touching the edge of the tile.
@@ -175,9 +185,9 @@ def full_bleed(art, size, background):
     return render(art, size, factor, (art.width / 2, art.height / 2), background)
 
 
-def in_safe_circle(art, circle, size, background):
+def in_safe_circle(art, circle, size, background, safe=SAFE_CIRCLE):
     cx, cy, radius = circle
-    factor = (size * SAFE_CIRCLE / 2) / radius
+    factor = (size * safe / 2) / radius
     return render(art, size, factor, (cx, cy), background)
 
 
@@ -189,7 +199,7 @@ def card(art, circle, size, background):
     chat app that shows a small square thumbnail takes the centre 630x630 out of
     this, and one that wants a tighter ratio than 1.91:1 takes a band out of the
     middle. Both of those keep a centred circle of 80% of the height, which is
-    the same circle SAFE_CIRCLE already describes -- so the mark is fitted to it
+    the same circle SPEC_SAFE_CIRCLE already describes -- so the mark is fitted to it
     and every crop anyone applies still contains the whole drawing.
 
     There is deliberately no wordmark on it. Every unfurler draws og:title and
@@ -201,7 +211,7 @@ def card(art, circle, size, background):
     """
     width, height = size
     cx, cy, radius = circle
-    factor = (height * SAFE_CIRCLE / 2) / radius
+    factor = (height * SPEC_SAFE_CIRCLE / 2) / radius
     scaled = art.resize(
         (max(1, round(art.width * factor)), max(1, round(art.height * factor))),
         Image.LANCZOS,
@@ -263,11 +273,12 @@ def main():
             opaque=True,
         )
 
-    # `monochrome`: transparent and one colour, on the same geometry as the
-    # maskable icon because a themed launcher masks it the same way.
+    # `monochrome`: transparent and one colour, inside the spec's safe circle. No
+    # Android path reads it (icons/README.md), so the shortcut crop that sets the
+    # maskable geometry never reaches it.
     for size in (192, 512):
         save(
-            in_safe_circle(mono, stencil_circle, size, clear),
+            in_safe_circle(mono, stencil_circle, size, clear, safe=SPEC_SAFE_CIRCLE),
             f"icon-monochrome-{size}.png",
             opaque=False,
         )
