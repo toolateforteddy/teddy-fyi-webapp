@@ -6,8 +6,11 @@
   <!-- viewport-fit=cover is what makes env(safe-area-inset-*) resolve to real
        values on iPhone. No maximum-scale / user-scalable=no here on purpose:
        pinch-zoom stays available, and the input auto-zoom is fixed by giving
-       form controls a 16px font size (see index.css). -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+       form controls a 16px font size (see index.css).
+       interactive-widget=resizes-content makes Chrome on Android shrink the layout
+       viewport when the keyboard opens, rather than sliding the whole page up under it:
+       the sticky header stays on screen and the fixed input bar sits on the keyboard. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
 
   <title>Teddy Todo</title>
   <meta name="description" content="Your teddy.fyi todo list, on the web." />
