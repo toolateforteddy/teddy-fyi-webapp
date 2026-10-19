@@ -52,12 +52,14 @@ function AddNeededItemForm({
   const [newItemQuantity, setNewItemQuantity] = useState('1')
   const [newItemCategory, setNewItemCategory] = useState<string | undefined>(undefined)
 
-  // Filter autocomplete suggestions
+  // Filter autocomplete suggestions. An exact match stays, and comes first: the
+  // chip is how somebody who has typed "Eggs" can see the name is one we know,
+  // rather than the suggestions vanishing the moment the name is right.
   const query = newItemName.trim().toLowerCase()
   const filteredSuggestions = query
-    ? SUGGESTIONS.filter(
-        s => s.toLowerCase().includes(query) && s.toLowerCase() !== query
-      ).slice(0, 4)
+    ? SUGGESTIONS.filter(s => s.toLowerCase().includes(query))
+        .sort((a, b) => Number(b.toLowerCase() === query) - Number(a.toLowerCase() === query))
+        .slice(0, 4)
     : []
 
   const handleSubmit = (e: FormEvent) => {
