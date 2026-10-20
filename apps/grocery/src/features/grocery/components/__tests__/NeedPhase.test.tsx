@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { NeedPhase } from '../NeedPhase'
 import { useGrocery } from '@/features/grocery/context/GroceryContext'
@@ -212,6 +212,17 @@ describe('NeedPhase Component', () => {
     expect(screen.getByPlaceholderText('What is needed? (e.g. Milk, Eggs)')).toBeInTheDocument()
   })
 
+
+  it('keeps a suggestion up when the name typed matches it exactly', () => {
+    renderNeedPhase()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add grocery item' }))
+    const field = screen.getByPlaceholderText('What is needed? (e.g. Milk, Eggs)')
+
+    fireEvent.change(field, { target: { value: 'eggs' } })
+    const chips = within(screen.getByRole('listbox', { name: 'Autocomplete suggestions' }))
+    expect(chips.getAllByRole('option').map(o => o.textContent)).toEqual(['Eggs'])
+  })
 
   it('brings back an item the list already has instead of adding a second row', () => {
     renderNeedPhase()
