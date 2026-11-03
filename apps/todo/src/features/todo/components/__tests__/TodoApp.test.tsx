@@ -64,7 +64,7 @@ describe('the todo screen', () => {
   it('opens on a tab a launcher shortcut names', async () => {
     window.history.replaceState(null, '', '/?mode=SCHEDULED')
     renderApp()
-    expect(await screen.findByRole('heading', { name: 'Future' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Scheduled' })).toBeInTheDocument()
     expect(window.location.search).toBe('')
   })
 
@@ -96,14 +96,13 @@ describe('the todo screen', () => {
     renderApp()
     const field = screen.getByRole('textbox', { name: 'Add a task' })
     await userEvent.click(field)
-    // The tab bar steps aside while the keyboard is up, and the bar says where the task goes.
+    // The tab bar steps aside while the keyboard is up.
     expect(screen.queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
-    expect(screen.getByText('No space')).toBeInTheDocument()
 
     await userEvent.type(field, 'ship it')
     await userEvent.click(screen.getByRole('button', { name: 'Work' }))
     expect(field).toHaveFocus()
-    expect(screen.getByText('In Work')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Work' })).toHaveAttribute('aria-pressed', 'true')
 
     await userEvent.click(screen.getByRole('button', { name: 'Add task' }))
     expect(field).toHaveFocus()
@@ -128,7 +127,7 @@ describe('the todo screen', () => {
   it('adds subtasks one after another until Finish', async () => {
     renderApp()
     await userEvent.type(screen.getByRole('textbox', { name: 'Add a task' }), 'pack{Enter}')
-    await userEvent.click(await screen.findByRole('button', { name: 'More for Pack' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Pack' }))
     await userEvent.click(screen.getByRole('button', { name: 'Add subtask' }))
 
     const field = screen.getByRole('textbox', { name: 'New subtask' })

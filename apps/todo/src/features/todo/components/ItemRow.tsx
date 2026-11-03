@@ -1,7 +1,7 @@
-import { ArrowDown, ArrowUp, CalendarDays, ChevronDown, ChevronRight, History, MoreVertical, Repeat, RefreshCw, Star } from 'lucide-react'
+import { ArrowDown, ArrowUp, CalendarDays, ChevronDown, ChevronRight, History, Repeat, RefreshCw, Star } from 'lucide-react'
 import type { TodoItem } from '../types'
 import { iconLigature } from '../icons'
-import { recurrenceLabel } from '../rules'
+import { dayLabel, recurrenceLabel } from '../rules'
 
 /**
  * One task, drawn as the Android row is: a hexagonal checkbox in the task's space colour,
@@ -48,7 +48,7 @@ export function ItemRow({
 
   return (
     <div
-      className={`clipped flex items-stretch gap-0 bg-surface-tile ${isChild ? 'ml-8' : ''}`}
+      className={`clipped flex items-stretch gap-0 pr-1.5 bg-surface-tile ${isChild ? 'ml-8' : ''}`}
       style={{ boxShadow: rolledOver ? 'inset 3px 0 0 var(--palette-priority-medium)' : `inset 3px 0 0 ${color}` }}
     >
       <button
@@ -64,7 +64,7 @@ export function ItemRow({
         </span>
       </button>
 
-      <button type="button" onClick={onOpen} className="flex-1 min-w-0 py-3 pr-2 text-left cursor-pointer">
+      <button type="button" onClick={onOpen} className="flex-1 min-w-0 py-3 pr-3 text-left cursor-pointer">
         <div className="flex items-center gap-2 min-w-0">
           {icon && (
             <span className="material-symbols-rounded text-[16px] shrink-0" style={{ color, opacity: 0.7 }} aria-hidden="true">
@@ -82,9 +82,9 @@ export function ItemRow({
         </div>
         {(item.description || recurrence || item.isDaily || rolledOver || item.dueDate !== null || (showDate && item.scheduledDate)) && (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-[11px] text-text-muted">
-            {rolledOver && (
+            {rolledOver && item.lastScheduledDate && (
               <span className="flex items-center gap-1 text-priority-medium">
-                <History className="w-3 h-3" /> From {item.lastScheduledDate}
+                <History className="w-3 h-3" /> {dayLabel(item.lastScheduledDate)}
               </span>
             )}
             {item.isDaily && (
@@ -99,11 +99,12 @@ export function ItemRow({
             )}
             {showDate && item.scheduledDate && (
               <span className="flex items-center gap-1" style={{ color }}>
-                <CalendarDays className="w-3 h-3" /> {item.scheduledDate}
+                <CalendarDays className="w-3 h-3" /> {dayLabel(item.scheduledDate)}
               </span>
             )}
+            {/* Android stores a due date as UTC midnight, so its UTC calendar date is the day. */}
             {item.dueDate !== null && (
-              <span className="text-danger">Due: {new Date(item.dueDate).toISOString().slice(0, 10)}</span>
+              <span className="text-danger">Due {dayLabel(new Date(item.dueDate).toISOString().slice(0, 10))}</span>
             )}
             {item.description && <span className="truncate max-w-full">{item.description}</span>}
           </div>
@@ -147,9 +148,6 @@ export function ItemRow({
         </button>
       )}
 
-      <button type="button" aria-label={`More for ${item.title}`} onClick={onOpen} className="pr-3 pl-1 flex items-center text-text-faint hover:text-text-primary cursor-pointer app-chrome">
-        <MoreVertical className="w-4 h-4" />
-      </button>
     </div>
   )
 }

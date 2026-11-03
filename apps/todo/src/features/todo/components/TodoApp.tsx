@@ -5,7 +5,6 @@ import {
   CheckCheck,
   CloudOff,
   Inbox,
-  ListChecks,
   LogOut,
   Menu,
   Pencil,
@@ -22,18 +21,21 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { storage } from '@/utils/storage'
 import { STORAGE_KEYS } from '@/config/storageKeys'
 import { InstallBanner } from '@/features/pwa/components/InstallBanner'
-import { InstallCard } from '@/features/pwa/components/InstallCard'
+import { InstallAction } from '@/features/pwa/components/InstallAction'
 import { UpdateBanner } from '@/features/pwa/components/UpdateBanner'
 import type { TodoItem, TodoList, TodoMode } from '../types'
 import { useTodo } from '../TodoContext'
-import { addDays, dateBucketLabel, parseIso, searchGroups, todayCountsByList, todayIso, viewGroups, type ItemGroup } from '../rules'
+import { addDays, dayLabel, parseIso, searchGroups, todayCountsByList, todayIso, viewGroups, type ItemGroup } from '../rules'
 import { ItemRow } from './ItemRow'
 import { ItemSheet } from './ItemSheet'
 import { ReorderSpacesSheet, SpaceSheet } from './SpaceSheets'
 import { Sheet, SheetAction, primaryButtonClass, quietButtonClass } from './Sheet'
 import { PlainTextField } from './PlainTextField'
 
-const FALLBACK_COLOR = 'var(--palette-primary)'
+/** The All chip's dot. */
+const ALL_COLOR = 'var(--palette-primary)'
+/** A task with no space: neutral, so it never reads as one of the spaces, or as All. */
+const NO_SPACE_COLOR = 'var(--palette-text-subtle)'
 
 const TABS: ReadonlyArray<{ mode: TodoMode; label: string; icon: ReactNode }> = [
   { mode: 'BACKLOG', label: 'Backlog', icon: <Inbox className="w-5 h-5" /> },
@@ -41,19 +43,6 @@ const TABS: ReadonlyArray<{ mode: TodoMode; label: string; icon: ReactNode }> = 
   { mode: 'TODAY', label: 'Today', icon: <Sun className="w-5 h-5" /> },
   { mode: 'SCHEDULED', label: 'Scheduled', icon: <CalendarClock className="w-5 h-5" /> },
 ]
-
-function titleFor(mode: TodoMode, completed: boolean): string {
-  switch (mode) {
-    case 'BACKLOG':
-      return completed ? 'Completed Backlog' : 'Backlog'
-    case 'SCHEDULED':
-      return completed ? 'Completed Future' : 'Future'
-    case 'PLANNING':
-      return 'Planning'
-    case 'TODAY':
-      return "Today's Tasks"
-  }
-}
 
 /** The todo screen (`TodoScreen.kt`): four tabs over one list of tasks. */
 export function TodoApp() {
@@ -110,7 +99,7 @@ export function TodoApp() {
     return counts
   }, [items, recentlyCompleted])
 
-  const colorOf = (item: TodoItem) => lists.find((l) => l.id === item.listId)?.colorHex ?? FALLBACK_COLOR
+  const colorOf = (item: TodoItem) => lists.find((l) => l.id === item.listId)?.colorHex ?? NO_SPACE_COLOR
 
   const chips = useMemo(() => {
     if (mode !== 'TODAY' || editMode) return lists.map((l) => ({ list: l, label: l.name }))
@@ -166,7 +155,7 @@ export function TodoApp() {
 
   let body: ReactNode
   if (groups.length === 0) {
-    body = <EmptyState mode={mode} completed={showCompleted} searching={searching} />
+    body = searching ? <p className="py-16 text-sm text-center text-text-muted">No matches</p> : null
   } else if (mode === 'SCHEDULED' && !showCompleted) {
     const buckets = new Map<string, ItemGroup[]>()
     for (const group of groups) {
@@ -176,7 +165,7 @@ export function TodoApp() {
     body = [...buckets.entries()].map(([date, bucket]) => (
       <section key={date} className="flex flex-col gap-1.5">
         <h3 className="sticky top-0 z-10 bg-canvas py-1.5 text-[11px] font-bold tracking-widest uppercase text-primary">
-          {dateBucketLabel(date, now)}
+          {dayLabel(date, now)}
         </h3>
         {bucket.map(groupBlock)}
       </section>
@@ -189,8 +178,43 @@ export function TodoApp() {
     <div className="min-h-dvh bg-canvas text-text-primary flex flex-col items-center font-sans antialiased">
       <div className="app-frame min-h-dvh flex flex-col">
         <header className="sticky top-0 z-20 bg-canvas/95 backdrop-blur pt-[env(safe-area-inset-top)] app-chrome">
-          <div className="flex items-center gap-1 px-4 h-14">
-            <h1 className="flex-1 text-lg font-black tracking-tight truncate">{titleFor(mode, showCompleted)}</h1>
+          {/* The tab bar names the place; this heading is for screen readers and agents. */}
+          <h1 className="sr-only">{TABS.find((t) => t.mode === mode)?.label}</h1>
+          <div className="flex items-center gap-1 pl-4 pr-2 h-14">
+            {/* Fades at the edge beside the icons, so a cut-off chip reads as "scrolls" rather than "broken". */}
+            <div className="flex-1 min-w-0 flex items-center gap-2 overflow-x-auto pr-4 [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)]">
+              {(lists.length > 0 || editMode) && (
+                <>
+                  <Chip selected={selectedListId === null} color={ALL_COLOR} keepFocus onClick={() => setSelectedListId(null)}>
+                    All
+                  </Chip>
+                  {chips.map(({ list, label }) => (
+                    <Chip
+                      key={list.id}
+                      keepFocus={!editMode}
+                      selected={selectedListId === list.id}
+                      color={list.colorHex}
+                      onClick={() => (editMode ? setSpaceSheet(list) : setSelectedListId(list.id))}
+                    >
+                      {label}
+                      {editMode && <Pencil className="w-3 h-3 opacity-60" />}
+                    </Chip>
+                  ))}
+                  {editMode && (
+                    <>
+                      <Chip selected={false} onClick={() => setSpaceSheet('new')} label="Add space">
+                        <Plus className="w-3.5 h-3.5" />
+                      </Chip>
+                      {lists.length > 1 && (
+                        <Chip selected={false} onClick={() => setReordering(true)} label="Reorder spaces">
+                          <ArrowUpDown className="w-3.5 h-3.5" />
+                        </Chip>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+            </div>
             <SyncIndicator online={online} />
             {mode === 'BACKLOG' && (
               <IconButton label={searchOpen ? 'Close search' : 'Search'} onClick={() => (searchOpen ? (setSearchOpen(false), setQuery('')) : setSearchOpen(true))}>
@@ -222,38 +246,6 @@ export function TodoApp() {
             </div>
           )}
 
-          {(lists.length > 0 || editMode) && (
-            <div className="flex gap-2 px-4 pb-2 overflow-x-auto">
-              <Chip selected={selectedListId === null} color={FALLBACK_COLOR} keepFocus onClick={() => setSelectedListId(null)}>
-                All
-              </Chip>
-              {chips.map(({ list, label }) => (
-                <Chip
-                  key={list.id}
-                  keepFocus={!editMode}
-                  selected={selectedListId === list.id}
-                  color={list.colorHex}
-                  onClick={() => (editMode ? setSpaceSheet(list) : setSelectedListId(list.id))}
-                >
-                  {label}
-                  {editMode && <Pencil className="w-3 h-3 opacity-60" />}
-                </Chip>
-              ))}
-              {editMode && (
-                <>
-                  <Chip selected={false} onClick={() => setSpaceSheet('new')} label="Add space">
-                    <Plus className="w-3.5 h-3.5" />
-                  </Chip>
-                  {lists.length > 1 && (
-                    <Chip selected={false} onClick={() => setReordering(true)} label="Reorder spaces">
-                      <ArrowUpDown className="w-3.5 h-3.5" />
-                    </Chip>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-
           {mode === 'PLANNING' && !showCompleted && <PlanningStrip value={planningDate} onChange={setPlanningDate} today={today} />}
         </header>
 
@@ -274,11 +266,9 @@ export function TodoApp() {
 
         {showInput && (
           <InputBar
-            placeholder={mode === 'PLANNING' ? `Add for ${dateBucketLabel(planningDate, now)}` : 'Add a task'}
             composing={keyboardUp}
             onComposingChange={setComposing}
-            space={selectedList ? { name: selectedList.name, color: selectedList.colorHex } : null}
-            day={mode === 'PLANNING' ? dateBucketLabel(planningDate, now) : null}
+            spaceColor={selectedList?.colorHex ?? null}
             onAdd={(title) => todo.addItem(title, { scheduledDate: mode === 'PLANNING' ? planningDate : null })}
           />
         )}
@@ -317,10 +307,7 @@ export function TodoApp() {
       {menuOpen && <AppMenu onClose={() => setMenuOpen(false)} />}
       {confirmClear && (
         <Sheet title="Clear all tasks?" onClose={() => setConfirmClear(false)}>
-          <p className="text-sm text-text-secondary">
-            This will permanently delete all tasks in the database for your account. This action cannot be undone.
-          </p>
-          <div className="flex gap-2 justify-end mt-4">
+          <div className="flex gap-2 justify-end">
             <button type="button" className={quietButtonClass} onClick={() => setConfirmClear(false)}>
               Cancel
             </button>
@@ -417,7 +404,7 @@ function PlanningStrip({ value, onChange, today }: { value: string; onChange: (i
   const label = (iso: string, index: number) =>
     index === 0 ? 'TODAY' : index === 1 ? 'TMRW' : parseIso(iso).toLocaleDateString(undefined, { weekday: 'short' }).toUpperCase()
   return (
-    <div className="flex gap-1.5 px-4 pb-3 overflow-x-auto">
+    <div className="flex gap-1.5 px-4 pb-3">
       {days.map((iso, index) => (
         <button
           key={iso}
@@ -425,14 +412,14 @@ function PlanningStrip({ value, onChange, today }: { value: string; onChange: (i
           aria-pressed={value === iso}
           onMouseDown={keepFocusHandler}
           onClick={() => onChange(iso)}
-          className={`clipped shrink-0 w-12 py-1.5 flex flex-col items-center cursor-pointer ${value === iso ? 'bg-primary text-on-primary' : 'bg-surface-tile text-text-secondary hover:bg-surface-hover'}`}
+          className={`clipped flex-1 min-w-0 py-1.5 flex flex-col items-center cursor-pointer ${value === iso ? 'bg-primary text-on-primary' : 'bg-surface-tile text-text-secondary hover:bg-surface-hover'}`}
         >
           <span className="text-[9px] font-bold tracking-wider">{label(iso, index)}</span>
           <span className="text-base font-black leading-tight">{parseIso(iso).getDate()}</span>
         </button>
       ))}
       <label
-        className={`clipped shrink-0 w-12 flex items-center justify-center cursor-pointer relative ${days.includes(value) ? 'bg-surface-tile text-text-secondary' : 'bg-primary text-on-primary'}`}
+        className={`clipped flex-1 min-w-0 flex items-center justify-center cursor-pointer relative ${days.includes(value) ? 'bg-surface-tile text-text-secondary' : 'bg-primary text-on-primary'}`}
         title="Pick a date"
       >
         <CalendarDays className="w-5 h-5" />
@@ -451,22 +438,18 @@ function PlanningStrip({ value, onChange, today }: { value: string; onChange: (i
 
 /**
  * The add-task field. While it has focus it sits on the keyboard rather than on the tab bar,
- * and says where the task will land: the space picked in the header (none under "All") and,
- * in Planning, the day picked in the strip. Both stay tappable without closing the keyboard.
+ * edged in the colour of the space the task will land in (the one picked in the header).
+ * The header's spaces and days stay tappable without closing the keyboard.
  */
 function InputBar({
-  placeholder,
   composing,
   onComposingChange,
-  space,
-  day,
+  spaceColor,
   onAdd,
 }: {
-  placeholder: string
   composing: boolean
   onComposingChange: (composing: boolean) => void
-  space: { name: string; color: string } | null
-  day: string | null
+  spaceColor: string | null
   onAdd: (title: string) => void
 }) {
   const [value, setValue] = useState('')
@@ -487,60 +470,36 @@ function InputBar({
           : 'calc(var(--app-nav-height) + env(safe-area-inset-bottom) + 0.75rem)',
       }}
     >
-      <div className="app-frame flex flex-col gap-1 pointer-events-auto bg-surface-raised border border-line-strong rounded-xl p-1.5 shadow-[var(--shadow-sheet)]">
-        {composing && (
-          <p className="flex items-center gap-1.5 px-2 pt-0.5 text-[11px] font-semibold text-text-muted app-chrome" aria-live="polite">
-            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: space?.color ?? 'var(--palette-text-faint)' }} />
-            <span className="truncate">
-              {space ? `In ${space.name}` : 'No space'}
-              {day && ` · ${day}`}
-            </span>
-          </p>
-        )}
-        <div className="flex gap-2">
-          <PlainTextField
-            label={placeholder}
-            placeholder={placeholder}
-            value={value}
-            onChange={setValue}
-            onFocus={() => onComposingChange(true)}
-            onBlur={() => onComposingChange(false)}
-            className="flex-1 min-w-0 self-center bg-transparent outline-none text-sm px-2 py-1 text-text-primary"
-          />
-          {/* Keeps focus too, so several tasks can go in without the keyboard dropping between them. */}
-          <button
-            type="submit"
-            aria-label="Add task"
-            disabled={!value.trim()}
-            onMouseDown={keepFocusHandler}
-            className={`${primaryButtonClass} px-3 py-2`}
-          >
-            <Plus className="w-4 h-4" />
-          </button>
-        </div>
+      <div
+        className="app-frame flex gap-2 pointer-events-auto bg-surface-raised border border-line-strong rounded-xl p-1.5 shadow-[var(--shadow-sheet)]"
+        style={composing && spaceColor ? { borderColor: spaceColor } : undefined}
+      >
+        <PlainTextField
+          label="Add a task"
+          placeholder="Add a task"
+          value={value}
+          onChange={setValue}
+          onFocus={() => onComposingChange(true)}
+          onBlur={() => onComposingChange(false)}
+          className="flex-1 min-w-0 self-center bg-transparent outline-none text-sm px-2 py-1 text-text-primary"
+        />
+        {/* Keeps focus too, so several tasks can go in without the keyboard dropping between them. */}
+        <button
+          type="submit"
+          aria-label="Add task"
+          disabled={!value.trim()}
+          onMouseDown={keepFocusHandler}
+          className={`${primaryButtonClass} px-3 py-2`}
+        >
+          <Plus className="w-4 h-4" />
+        </button>
       </div>
     </form>
   )
 }
 
-function EmptyState({ mode, completed, searching }: { mode: TodoMode; completed: boolean; searching: boolean }) {
-  let text = 'Nothing here yet.'
-  if (searching) text = 'No tasks match.'
-  else if (completed) text = 'Nothing completed here yet.'
-  else if (mode === 'TODAY') text = 'All clear for today! Time to relax.'
-  else if (mode === 'SCHEDULED') text = 'Nothing planned beyond today.'
-  else if (mode === 'BACKLOG') text = 'The backlog is empty. Add something below.'
-  else if (mode === 'PLANNING') text = 'Tick a task to plan it for the day above.'
-  return (
-    <div className="flex flex-col items-center gap-3 py-16 text-text-muted">
-      <ListChecks className="w-10 h-10 text-text-faint" />
-      <p className="text-sm text-center">{text}</p>
-    </div>
-  )
-}
-
 function SyncIndicator({ online }: { online: boolean }) {
-  const { syncing, syncError, pendingCount } = useTodo()
+  const { syncing, syncError, pendingCount, syncNow } = useTodo()
   if (!online) {
     return (
       <span className="p-2 text-warning" title="Offline. Changes will sync when you reconnect." aria-label="Offline">
@@ -548,11 +507,12 @@ function SyncIndicator({ online }: { online: boolean }) {
       </span>
     )
   }
+  // Sync runs on its own; the one time a person needs a hand on it is after it failed.
   if (syncError) {
     return (
-      <span className="p-2 text-danger" title={syncError} aria-label={syncError}>
+      <button type="button" onClick={syncNow} className="p-2 text-danger cursor-pointer" title={syncError} aria-label={`Retry sync: ${syncError}`}>
         <CloudOff className="w-4 h-4" />
-      </span>
+      </button>
     )
   }
   if (syncing || pendingCount > 0) {
@@ -567,24 +527,11 @@ function SyncIndicator({ online }: { online: boolean }) {
 
 function AppMenu({ onClose }: { onClose: () => void }) {
   const { user, logout } = useAuth()
-  const { syncNow, lastSyncedAt, pendingCount } = useTodo()
   return (
-    <Sheet title="Todo" onClose={onClose}>
-      {user && <p className="text-xs text-text-muted mb-2 truncate">Signed in as {user.email}</p>}
+    <Sheet title={user?.email ?? 'Todo'} onClose={onClose}>
       <div className="flex flex-col">
-        <SheetAction
-          icon={<RefreshCw className="w-4 h-4" />}
-          label="Sync now"
-          detail={pendingCount > 0 ? `${pendingCount} waiting` : lastSyncedAt ? `Last ${new Date(lastSyncedAt).toLocaleTimeString()}` : null}
-          onClick={() => {
-            syncNow()
-            onClose()
-          }}
-        />
         <SheetAction icon={<LogOut className="w-4 h-4" />} label="Sign out" onClick={() => void logout()} />
-      </div>
-      <div className="mt-4">
-        <InstallCard />
+        <InstallAction />
       </div>
     </Sheet>
   )

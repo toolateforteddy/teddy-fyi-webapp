@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   addDays,
+  dayLabel,
   formatTitle,
   nextRecurrenceTime,
   parseIso,
@@ -194,5 +195,24 @@ describe('iconLigature', () => {
     expect(iconLigature('MedicalInformation')).toBe('medical_information')
     expect(iconLigature('NotAnIcon')).toBeNull()
     expect(iconLigature(null)).toBeNull()
+  })
+})
+
+describe('dayLabel', () => {
+  // Noon local time on Tuesday 3 November 2026.
+  const now = new Date(2026, 10, 3, 12).getTime()
+
+  it('names the nearby days', () => {
+    expect(dayLabel('2026-11-03', now)).toBe('Today')
+    expect(dayLabel('2026-11-04', now)).toBe('Tomorrow')
+    expect(dayLabel('2026-11-02', now)).toBe('Yesterday')
+    expect(dayLabel('2026-11-07', now)).toBe(new Date(2026, 10, 7).toLocaleDateString(undefined, { weekday: 'long' }))
+  })
+
+  it('gives a short date further out, with the year only when it differs', () => {
+    expect(dayLabel('2026-11-23', now)).toBe(new Date(2026, 10, 23).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }))
+    expect(dayLabel('2027-01-05', now)).toBe(
+      new Date(2027, 0, 5).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }),
+    )
   })
 })
