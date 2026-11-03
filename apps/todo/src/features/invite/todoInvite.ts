@@ -3,8 +3,9 @@ import api from '@/lib/axios'
 /**
  * The invite this browser holds for the todo web app.
  *
- * The app is invite-only: the API refuses a sign-in from this origin unless the browser carries
- * a todo-web invite for the address signing in. The invite lives in an `HttpOnly` cookie the
+ * Anybody with a teddy.fyi account may sign in here. Somebody without one needs a todo-web
+ * invite for the address signing in, carried by this browser, and the API creates their
+ * account from it. The invite lives in an `HttpOnly` cookie the
  * API sets on its own host, so this page can neither read nor forge it — it can only ask the
  * API what it holds (`GET /auth/todo-web/status`) and hand it a code to hold
  * (`POST /auth/todo-web/redeem`). The contract is `todo-web/invite-api.md` in the project's
