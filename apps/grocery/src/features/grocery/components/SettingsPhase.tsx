@@ -1,19 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
-import { 
-  Database, 
-  RefreshCw, 
-  Trash2, 
-  ShieldAlert, 
-  HardDrive, 
-  CheckCircle2, 
-  User, 
+import {
+  Trash2,
+  CheckCircle2,
   LogOut,
   ChevronRight,
   MapPin,
   Tag,
-  Smartphone,
-  HelpCircle,
-  Palette
+  HelpCircle
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { storage } from '@/utils/storage'
@@ -22,18 +15,11 @@ import { useAuth } from '@/features/auth/hooks/useAuth'
 import { useGrocery } from '@/features/grocery/context/GroceryContext'
 import { StoreConfigPanel } from './StoreConfigPanel'
 import { CategoryConfigPanel } from './CategoryConfigPanel'
-import { ConnectionConfigPanel } from './ConnectionConfigPanel'
 import { InstallCard } from '@/features/pwa/components/InstallCard'
 import { ThemeCard } from '@/features/theme/components/ThemeCard'
 
 export function SettingsPhase() {
-  const { 
-    items, 
-    lists, 
-    stores, 
-    categories,
-    handleManualSync
-  } = useGrocery()
+  const { handleManualSync } = useGrocery()
 
   const checkAndSync = (key: string) => {
     try {
@@ -50,7 +36,6 @@ export function SettingsPhase() {
 
   const { user, logout } = useAuth()
   const [loggingOut, setLoggingOut] = useState(false)
-  const [syncInterval, setSyncInterval] = useState('auto')
   const [clearing, setClearing] = useState(false)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
@@ -68,18 +53,6 @@ export function SettingsPhase() {
     }
   }, [])
 
-  const pendingChanges = 
-    (items || []).filter(i => i.sync_state !== 'SYNCED').length +
-    (lists || []).filter(l => l.sync_state !== 'SYNCED').length +
-    (stores || []).filter(s => s.sync_state !== 'SYNCED').length +
-    (categories || []).filter(c => c.sync_state !== 'SYNCED').length
-
-  const totalCached = 
-    (items || []).length +
-    (lists || []).length +
-    (stores || []).length +
-    (categories || []).length
-
   const showToast = (msg: string) => {
     setSuccessMessage(msg)
     if (timeoutId.current !== null) clearTimeout(timeoutId.current)
@@ -90,6 +63,7 @@ export function SettingsPhase() {
   }
 
   const handleClearLocal = () => {
+    if (!window.confirm('Clear this device? Changes that have not synced yet will be lost.')) return
     setClearing(true)
     if (timeoutId.current !== null) clearTimeout(timeoutId.current)
     timeoutId.current = setTimeout(() => {
@@ -181,12 +155,11 @@ export function SettingsPhase() {
         </div>
       )}
 
-      {/* Account Info Section */}
+      {/* Account */}
       <div className="space-y-3">
-        <div className="flex items-center gap-2 px-1">
-          <User className="w-4 h-4 text-primary" />
+        <div className="px-1">
           <h4 className="text-xs font-bold tracking-widest text-text-muted uppercase">
-            Account Info
+            Account
           </h4>
         </div>
 
@@ -226,8 +199,7 @@ export function SettingsPhase() {
 
       {/* This Device */}
       <div className="space-y-3">
-        <div className="flex items-center gap-2 px-1">
-          <Smartphone className="w-4 h-4 text-primary" />
+        <div className="px-1">
           <h4 className="text-xs font-bold tracking-widest text-text-muted uppercase">
             This Device
           </h4>
@@ -238,8 +210,7 @@ export function SettingsPhase() {
 
       {/* Appearance */}
       <div className="space-y-3">
-        <div className="flex items-center gap-2 px-1">
-          <Palette className="w-4 h-4 text-primary" />
+        <div className="px-1">
           <h4 className="text-xs font-bold tracking-widest text-text-muted uppercase">
             Appearance
           </h4>
@@ -248,12 +219,11 @@ export function SettingsPhase() {
         <ThemeCard />
       </div>
 
-      {/* Grocery Configurations Section */}
+      {/* Grocery Section */}
       <div className="space-y-3">
-        <div className="flex items-center gap-2 px-1">
-          <Database className="w-4 h-4 text-primary" />
+        <div className="px-1">
           <h4 className="text-xs font-bold tracking-widest text-text-muted uppercase">
-            Grocery Configurations
+            Grocery
           </h4>
         </div>
 
@@ -296,67 +266,9 @@ export function SettingsPhase() {
         </div>
       </div>
 
-      {/* Synchronization Engine Section */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2 px-1">
-          <RefreshCw className="w-4 h-4 text-primary" />
-          <h4 className="text-xs font-bold tracking-widest text-text-muted uppercase">
-            Sync Engine Configuration
-          </h4>
-        </div>
-
-        <ConnectionConfigPanel
-          syncInterval={syncInterval}
-          onChangeSyncInterval={setSyncInterval}
-          pendingChanges={pendingChanges}
-        />
-      </div>
-
-      {/* Database & Caching Statistics */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2 px-1">
-          <Database className="w-4 h-4 text-primary" />
-          <h4 className="text-xs font-bold tracking-widest text-text-muted uppercase">
-            Local Database Info
-          </h4>
-        </div>
-
-        <div className="bg-surface-tile border border-line-faint rounded-xl p-4 divide-y divide-line-faint text-sm">
-          <div className="flex justify-between py-2.5">
-            <span className="text-text-muted">Database Framework</span>
-            <span className="font-semibold text-text-primary">IndexedDB (LocalForage)</span>
-          </div>
-          <div className="flex justify-between py-2.5">
-            <span className="text-text-muted">Database Version</span>
-            <span className="font-semibold text-text-primary">v1.0 (Schema Sync Enabled)</span>
-          </div>
-          <div className="flex justify-between py-2.5">
-            <span className="text-text-muted">Total Cached Items</span>
-            <span className="font-semibold text-text-primary">{totalCached} records</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Danger Zone */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2 px-1">
-          <ShieldAlert className="w-4 h-4 text-danger" />
-          <h4 className="text-xs font-bold tracking-widest text-danger uppercase">
-            Danger Zone
-          </h4>
-        </div>
-
-        <div className="bg-surface-tile border border-danger/25 rounded-xl p-4 space-y-4">
-          <div className="flex items-start gap-3">
-            <HardDrive className="w-8 h-8 text-text-subtle shrink-0" />
-            <div>
-              <h5 className="font-semibold text-sm text-text-primary">Clear Caching Tables</h5>
-              <p className="text-[11px] text-text-muted mt-0.5">
-                Resets the local cache. Any changes that are not synced to the remote server will be permanently deleted.
-              </p>
-            </div>
-          </div>
-
+      {/* Destructive, so the warning is a confirm at the moment it matters rather
+          than a paragraph that is on screen every time Settings opens. */}
+      <div>
           <button
             onClick={handleClearLocal}
             disabled={clearing}
@@ -365,7 +277,6 @@ export function SettingsPhase() {
             <Trash2 className="w-3.5 h-3.5" />
             {clearing ? 'Clearing Storage...' : 'Clear Local Cache'}
           </button>
-        </div>
       </div>
 
     </div>

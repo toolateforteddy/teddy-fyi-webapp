@@ -271,11 +271,6 @@ export function NeedPhase() {
             <ShoppingBag className="w-8 h-8" />
           </div>
           <h3 className="text-lg font-semibold text-text-secondary mb-1">Your list is empty</h3>
-          <p className="text-sm text-text-muted max-w-[240px]">
-            {dockAddPane
-              ? 'Use the form beside this list to add items you need.'
-              : 'Tap the floating action button below to add items you need.'}
-          </p>
         </div>
       ) : (
         <div className="space-y-4">

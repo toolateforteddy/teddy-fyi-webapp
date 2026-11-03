@@ -111,8 +111,8 @@ export const GroceryItemTile = memo(function GroceryItemTile({
           <div className="flex items-center justify-between gap-4 pt-2 border-t border-line/60">
             {/* Category Selector */}
             <div className="flex items-center gap-1.5 flex-1 min-w-0">
-              <span className="text-[10px] uppercase font-bold text-text-muted shrink-0">Cat:</span>
               <select
+                aria-label="Category"
                 value={item.categoryId && activeCategories.some(c => c.id === item.categoryId) ? item.categoryId : ''}
                 onChange={(e) => {
                   const newCatId = e.target.value ? e.target.value : undefined
@@ -131,7 +131,7 @@ export const GroceryItemTile = memo(function GroceryItemTile({
 
             {/* Quantity Controls */}
             <div className="flex items-center gap-2 shrink-0">
-              <span className="text-xs font-medium text-text-muted">Qty: {item.quantity}</span>
+              <span className="text-xs font-medium text-text-muted" aria-label={`Quantity ${item.quantity}`}>x{item.quantity}</span>
               <div className="flex items-center gap-1 bg-inset rounded-lg p-0.5 border border-line">
                 <button 
                   onClick={() => onUpdateQuantity(item.id, false)}
@@ -153,8 +153,7 @@ export const GroceryItemTile = memo(function GroceryItemTile({
 
           {/* Row 3: Store Selector */}
           <div className="flex items-center gap-1.5 pt-2 border-t border-line/60 overflow-x-auto scrollbar-none">
-            <span className="text-[10px] uppercase font-bold text-text-muted shrink-0">Stores:</span>
-            <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+            <div role="group" aria-label="Stores" className="flex gap-1.5 overflow-x-auto pb-0.5">
               {activeStores.length === 0 ? (
                 <span className="text-[10px] text-text-subtle italic">No stores configured</span>
               ) : (

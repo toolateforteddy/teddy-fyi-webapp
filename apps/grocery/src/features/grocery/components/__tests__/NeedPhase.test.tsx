@@ -102,7 +102,6 @@ describe('NeedPhase Component', () => {
     renderNeedPhase()
 
     expect(screen.getByText('Your list is empty')).toBeInTheDocument()
-    expect(screen.getByText(/Tap the floating action button below/)).toBeInTheDocument()
   })
 
   it('should render items grouped by category', () => {
@@ -139,7 +138,7 @@ describe('NeedPhase Component', () => {
     // Verify expanded controls are visible
     expect(screen.getByRole('button', { name: /Close edit/ })).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: /Delete item/ })[0]).toBeInTheDocument()
-    expect(screen.getByText('Qty: 3')).toBeInTheDocument()
+    expect(screen.getByLabelText('Quantity 3')).toBeInTheDocument()
     expect(screen.getByText('Trader Joes')).toBeInTheDocument()
     expect(screen.getByText('Costco')).toBeInTheDocument()
   })
@@ -209,7 +208,7 @@ describe('NeedPhase Component', () => {
     const fabBtn = screen.getByRole('button', { name: 'Add grocery item' })
     fireEvent.click(fabBtn)
 
-    expect(screen.getByPlaceholderText('What is needed? (e.g. Milk, Eggs)')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Add an item')).toBeInTheDocument()
   })
 
 
@@ -217,7 +216,7 @@ describe('NeedPhase Component', () => {
     renderNeedPhase()
 
     fireEvent.click(screen.getByRole('button', { name: 'Add grocery item' }))
-    const field = screen.getByPlaceholderText('What is needed? (e.g. Milk, Eggs)')
+    const field = screen.getByPlaceholderText('Add an item')
 
     fireEvent.change(field, { target: { value: 'eggs' } })
     const chips = within(screen.getByRole('listbox', { name: 'Autocomplete suggestions' }))
@@ -228,7 +227,7 @@ describe('NeedPhase Component', () => {
     renderNeedPhase()
 
     fireEvent.click(screen.getByRole('button', { name: 'Add grocery item' }))
-    fireEvent.change(screen.getByPlaceholderText('What is needed? (e.g. Milk, Eggs)'), { target: { value: 'milk' } })
+    fireEvent.change(screen.getByPlaceholderText('Add an item'), { target: { value: 'milk' } })
     fireEvent.click(screen.getByRole('button', { name: /Add Item/ }))
 
     const update = mockSetItems.mock.calls[0][0]
@@ -241,7 +240,7 @@ describe('NeedPhase Component', () => {
     renderNeedPhase()
 
     fireEvent.click(screen.getByRole('button', { name: 'Add grocery item' }))
-    fireEvent.change(screen.getByPlaceholderText('What is needed? (e.g. Milk, Eggs)'), { target: { value: 'Bread' } })
+    fireEvent.change(screen.getByPlaceholderText('Add an item'), { target: { value: 'Bread' } })
     fireEvent.click(screen.getByRole('button', { name: /Add Item/ }))
 
     const next: GroceryItem[] = mockSetItems.mock.calls[0][0](mockItems)

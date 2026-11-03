@@ -1,12 +1,11 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useGrocery } from '@/features/grocery/context/GroceryContext'
-import { Plus, Check, MapPin, Sparkles, AlertCircle, ChevronDown } from 'lucide-react'
+import { Plus, Check, Sparkles, AlertCircle } from 'lucide-react'
 import { cn } from '@/utils/cn'
-import { DEFAULT_STORES, DEFAULT_RECOMMENDATIONS } from '../config/constants'
+import { DEFAULT_RECOMMENDATIONS } from '../config/constants'
 import { recommendationsFromHistory } from '../utils/recommendations'
 import { MIN_RECOMMENDATIONS, TRAY_MIN_HEIGHT_PX, recommendationsThatFit } from '../utils/recommendationLimit'
-import { addOrReuseItem, findReusableItem } from '../utils/addItem'
-import { addStoreMapping } from '../utils/storeMapping'
+import { addOrReuseItem } from '../utils/addItem'
 import { generateUuid } from '@/utils/uuid'
 
 // Custom hook to manage items temporarily marked as "added" with self-cleaning timeouts
@@ -68,20 +67,9 @@ function useRecommendationLimit(): [(el: HTMLDivElement | null) => void, number]
 }
 
 export function PlanningPhase() {
-  const { activeListId, items, setItems, stores, setItemStoreInfos } = useGrocery()
+  const { activeListId, items, setItems } = useGrocery()
 
-  const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null)
   const [addedItems, triggerAdded] = useTimeoutState<string>(2000)
-
-  // Memoize active stores list
-  const activeStores = useMemo(() => {
-    const list = stores && stores.length > 0 ? stores : DEFAULT_STORES
-    return [...list]
-      .filter(s => s.listId === activeListId && !s.is_deleted)
-      .sort((a, b) => a.position - b.position)
-  }, [stores, activeListId])
-
-  const selectedStoreName = activeStores.find(s => s.id === selectedStoreId)?.name ?? 'All Stores'
 
   // Memoize currently planned items names
   const plannedItems = useMemo(() => {
@@ -94,11 +82,8 @@ export function PlanningPhase() {
   // last 36 hours is left out.
   const now = useNow(RECENT_PURCHASE_REFRESH_MS)
   const dynamicRecs = useMemo(
-    () => recommendationsFromHistory(items, activeListId, now).map(rec => ({
-      ...rec,
-      storeId: selectedStoreId || '',
-    })),
-    [items, activeListId, selectedStoreId, now]
+    () => recommendationsFromHistory(items, activeListId, now),
+    [items, activeListId, now]
   )
 
   // Memoize recommendation merging & sorting operations
@@ -112,9 +97,8 @@ export function PlanningPhase() {
 
     return recs
       .filter(rec => !plannedItems.some(pName => pName.toLowerCase() === rec.name.toLowerCase()))
-      .filter(rec => selectedStoreId === null || rec.storeId === selectedStoreId)
       .sort((a, b) => b.timesBought - a.timesBought)
-  }, [dynamicRecs, plannedItems, selectedStoreId])
+  }, [dynamicRecs, plannedItems])
 
   const [trayRef, recLimit] = useRecommendationLimit()
   const shownRecs = useMemo(() => filteredRecs.slice(0, recLimit), [filteredRecs, recLimit])
@@ -127,21 +111,19 @@ export function PlanningPhase() {
 
     triggerAdded(itemName)
 
-    // Resolved against this render's items so the store mapping below can name the row;
-    // the updater resolves again against the latest state, and finds the same row.
-    const itemId = findReusableItem(items, activeListId, itemName)?.id ?? generateUuid()
-
+    // Where an item is bought is not a question while planning -- there is one list -- so
+    // adding from here tags no store. Shopping's checkout is where a store mapping is made.
     setItems(prev => addOrReuseItem(
       prev,
       { name: itemName, listId: activeListId },
       () => ({
-        id: itemId,
+        id: generateUuid(),
         name: itemName,
         quantity: '1',
         isBought: false,
         createdAt: Date.now(),
         position: prev.length + 1,
-        categoryId: '1',
+        categoryId: undefined,
         timesBought: 1,
         isActive: true,
         listId: activeListId,
@@ -150,14 +132,7 @@ export function PlanningPhase() {
         is_deleted: false,
       })
     ).items)
-
-    if (selectedStoreId !== null) {
-      // A reused row may already be mapped to this store, or have been unmapped from it;
-      // addStoreMapping revives the one row the server keys by the pair instead of adding a
-      // second.
-      setItemStoreInfos(prev => addStoreMapping(prev, itemId, selectedStoreId, activeListId))
-    }
-  }, [addedItems, items, setItems, activeListId, selectedStoreId, setItemStoreInfos, triggerAdded])
+  }, [addedItems, setItems, activeListId, triggerAdded])
 
   return (
     // flex-1 down to the tray: the page fills the shell's column, the list takes the height
@@ -171,33 +146,11 @@ export function PlanningPhase() {
 
         {/* Recommendation Tray */}
         <div className="flex flex-col gap-2.5 min-h-0">
-          {/* The store picker lives in the tray's heading. It replaced a row of a chip per
-              store, which said one thing in a whole row of the screen. */}
-          <div className="flex items-center justify-between gap-2 px-1">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
-              <h4 className="text-xs font-bold tracking-widest text-text-muted uppercase truncate">
-                Recommendations
-              </h4>
-            </div>
-            <label className="relative flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-semibold border border-line bg-surface-tile text-text-primary hover:border-line-strong cursor-pointer min-w-0 max-w-[60%]">
-              <MapPin className="w-3 h-3 text-primary shrink-0" />
-              <span className="truncate">{selectedStoreName}</span>
-              <ChevronDown className="w-3.5 h-3.5 text-text-muted shrink-0" />
-              {/* The native control, transparent over the chip: the phone's own picker,
-                  and a keyboard and screen reader get a real select. */}
-              <select
-                aria-label="Store"
-                value={selectedStoreId ?? ''}
-                onChange={e => setSelectedStoreId(e.target.value === '' ? null : e.target.value)}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              >
-                <option value="">All Stores</option>
-                {activeStores.map(store => (
-                  <option key={store.id} value={store.id}>{store.name}</option>
-                ))}
-              </select>
-            </label>
+          <div className="flex items-center gap-1.5 px-1 min-w-0">
+            <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
+            <h4 className="text-xs font-bold tracking-widest text-text-muted uppercase truncate">
+              Recommendations
+            </h4>
           </div>
 
           {/* The recommendation grid's 140px is deliberately below the item tiles'
@@ -206,7 +159,7 @@ export function PlanningPhase() {
           {filteredRecs.length === 0 ? (
             <div className="bg-surface-tile border border-line-faint rounded-xl p-6 text-center">
               <AlertCircle className="w-5 h-5 text-text-subtle mx-auto mb-2" />
-              <p className="text-sm text-text-muted">No recommendations for this store yet.</p>
+              <p className="text-sm text-text-muted">Nothing to recommend yet.</p>
             </div>
           ) : (
             // The grid is absolutely placed so that the box measured is the room the layout
@@ -248,16 +201,13 @@ export function PlanningPhase() {
         {/* Current List Progress */}
         <div className="space-y-2.5">
           <h4 className="text-xs font-bold tracking-widest text-text-muted px-1 uppercase">
-            Planned Items on active trip
+            Your List
           </h4>
 
           <div className="bg-surface-tile border border-line-faint rounded-xl divide-y divide-line-faint overflow-hidden">
             {plannedItems.map((itemName, index) => (
               <div key={index} className="flex items-center justify-between p-3.5 text-sm">
                 <span className="font-medium text-text-primary">{itemName}</span>
-                <span className="text-[10px] text-text-muted bg-inset px-2 py-0.5 rounded border border-line">
-                  Active in Need List
-                </span>
               </div>
             ))}
           </div>

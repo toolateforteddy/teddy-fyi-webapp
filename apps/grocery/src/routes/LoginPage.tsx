@@ -1,4 +1,4 @@
-import { ShoppingBag, ArrowLeft, Terminal, ShieldCheck } from 'lucide-react'
+import { ShoppingBag, ArrowLeft } from 'lucide-react'
 import LoginForm from '@/features/auth/components/LoginForm'
 
 export function LoginPage() {
@@ -18,10 +18,6 @@ export function LoginPage() {
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Back</span>
           </a>
-          <div className="flex items-center gap-1.5 font-mono text-[10px] tracking-wider text-text-faint font-semibold">
-            <Terminal className="w-3 h-3" />
-            <span>teddy.fyi</span>
-          </div>
         </header>
 
         {/* Center Auth Card */}
@@ -35,11 +31,8 @@ export function LoginPage() {
             
             <div className="space-y-1.5">
               <h2 className="text-2xl font-black tracking-tight text-text-primary">
-                Grocery Sync
+                Grocery
               </h2>
-              <p className="text-xs text-text-muted max-w-[280px]">
-                Collaborative local-first grocery checklists. Authenticate to sync across your devices.
-              </p>
             </div>
           </div>
 
@@ -48,18 +41,7 @@ export function LoginPage() {
             <LoginForm />
           </div>
 
-          {/* Privacy badge */}
-          <div className="flex items-center gap-1.5 text-[10px] text-text-subtle font-medium bg-inset/40 border border-line-faint/60 px-3 py-1.5 rounded-full">
-            <ShieldCheck className="w-3.5 h-3.5 text-success" />
-            <span>Secure End-to-End Cookie Sessions</span>
-          </div>
-
         </main>
-
-        {/* Footer */}
-        <footer className="text-center text-[10px] text-text-faint font-mono pt-4">
-          &copy; {new Date().getFullYear()} teddy.fyi. All rights reserved.
-        </footer>
 
       </div>
     </div>

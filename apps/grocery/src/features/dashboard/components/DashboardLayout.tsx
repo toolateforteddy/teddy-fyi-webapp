@@ -266,15 +266,10 @@ function DashboardContent() {
             compact ? "h-11" : "h-14"
           )}
         >
-          {/* Logo / Branding */}
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-7 h-7 shrink-0 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-xs">
-              G
-            </div>
-            <span className="text-sm font-bold tracking-wider text-text-primary truncate">
-              Grocery: {activeList.name}
-            </span>
-          </div>
+          {/* The list name is the title. */}
+          <h1 className="min-w-0 text-base font-bold text-text-primary truncate">
+            {activeList.name}
+          </h1>
 
           {/* Actions & Sync Feedback */}
           <div className="flex items-center gap-2 shrink-0">
@@ -325,7 +320,6 @@ function DashboardContent() {
                   </div>
                   {sync.detail && <p className="mb-1">{sync.detail}</p>}
                   <p>Last synced: {getSyncedTimeString(lastSyncedAt)}</p>
-                  <p className="mt-1 text-[10px] text-text-subtle">Tap icon to force upload/download changes.</p>
                 </div>
               )}
             </div>
@@ -336,15 +330,12 @@ function DashboardContent() {
         {isEditMode && (
           <div className="bg-surface-tile border-b border-line-faint px-4 py-3.5 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
             <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2 min-w-0">
-                <ShoppingBag className="w-4 h-4 text-primary shrink-0" />
-                <span className="text-xs font-bold text-text-muted uppercase tracking-wider truncate">Active List</span>
-              </div>
-              <div className="relative shrink-0">
+              <div className="relative min-w-0 flex-1">
                 <select
                   value={activeListId}
                   onChange={(e) => setActiveListId(e.target.value)}
-                  className="bg-canvas border border-line rounded-lg px-3 py-1.5 text-xs font-semibold focus:outline-none focus:border-primary text-text-primary cursor-pointer active:scale-95 transition-all w-[180px]"
+                  className="bg-canvas border border-line rounded-lg px-3 py-1.5 text-xs font-semibold focus:outline-none focus:border-primary text-text-primary cursor-pointer active:scale-95 transition-all w-full"
+                  aria-label="List"
                 >
                   {lists
                     .filter(l => !l.is_deleted)
@@ -364,7 +355,7 @@ function DashboardContent() {
                 className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 bg-inset border border-line hover:border-line-strong hover:text-text-primary rounded-lg text-xs text-text-muted active:scale-95 transition-all cursor-pointer"
               >
                 <Share2 className="w-3.5 h-3.5 text-primary" />
-                <span>Invite Code</span>
+                <span>Share</span>
               </button>
               <button
                 onClick={() => setIsJoinOpen(true)}
