@@ -1,18 +1,18 @@
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { ListChecks, Loader2, Lock, MailCheck } from 'lucide-react'
+import { ListChecks, MailCheck } from 'lucide-react'
 import LoginForm from '@/features/auth/components/LoginForm'
 import { useAuth } from '@/features/auth/hooks/useAuth'
 import { fetchInviteState, type InviteState } from '@/features/invite/todoInvite'
 
 /**
- * `/login`, for an app that is invite-only.
+ * `/login`.
  *
- * Asks the API which invite this browser holds before it offers anything. With none, the
- * API refuses every sign-in from this origin, so the page says so rather than drawing a
- * Google button that can only lead to a refusal. With one, it names the address so the right
- * Google account is picked. If the API cannot be reached it offers the button anyway: the
- * sign-in itself is the check, and refusing somebody who is invited is the worse mistake.
+ * Google sign-in is always offered: anybody with a teddy.fyi account gets in, and the API is
+ * what refuses a person with no account and no invite (see `LoginForm` for how that refusal
+ * reads). The invite this browser holds, if any, is asked for alongside and only adds a line
+ * naming the address it is for, so the right Google account is picked. It never holds the
+ * button back, so an unreachable status check costs nothing.
  */
 export function LoginPage() {
   const { isAuthenticated, isLoading } = useAuth()
@@ -39,36 +39,19 @@ export function LoginPage() {
           </div>
           <h1 className="text-2xl font-black tracking-tight">Todo</h1>
 
-          {invite === null ? (
-            <Loader2 className="w-5 h-5 text-text-muted animate-spin" />
-          ) : invite.kind === 'none' ? (
-            <NotInvited />
-          ) : (
-            <div className="w-full bg-surface-tile border border-line-faint rounded-2xl p-6 flex flex-col items-center gap-4">
-              {invite.kind === 'invited' && (
-                <p className="flex items-center gap-2 text-xs text-text-secondary">
-                  <MailCheck className="w-4 h-4 text-success" />
-                  <span>
-                    Sign in with Google as <strong>{invite.invite.email}</strong>
-                  </span>
-                </p>
-              )}
-              <LoginForm invitedEmail={invite.kind === 'invited' ? invite.invite.email : undefined} />
-            </div>
-          )}
+          <div className="w-full bg-surface-tile border border-line-faint rounded-2xl p-6 flex flex-col items-center gap-4">
+            {invite?.kind === 'invited' && (
+              <p className="flex items-center gap-2 text-xs text-text-secondary">
+                <MailCheck className="w-4 h-4 text-success" />
+                <span>
+                  Sign in with Google as <strong>{invite.invite.email}</strong>
+                </span>
+              </p>
+            )}
+            <LoginForm invitedEmail={invite?.kind === 'invited' ? invite.invite.email : undefined} />
+          </div>
         </main>
       </div>
-    </div>
-  )
-}
-
-function NotInvited() {
-  return (
-    <div className="w-full bg-surface-tile border border-line-faint rounded-2xl p-6 flex flex-col items-center gap-3">
-      <Lock className="w-6 h-6 text-text-muted" />
-      {/* "This browser" carries the rule that matters: the invite rides in this browser's cookie,
-          so an install from another browser has none. */}
-      <p className="text-sm text-text-secondary">Open your invite link in this browser.</p>
     </div>
   )
 }

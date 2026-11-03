@@ -7,7 +7,7 @@ import { admitInvite, inviteCodeFromRouteParam, type AdmitFailure } from '@/feat
  * `/invite/:code` — where an invite link lands.
  *
  * Its one job is to hand the code to the API, which holds it in this browser's cookie, and
- * then send the recipient on to `/login`, which now knows they are invited and offers Google.
+ * then send the recipient on to `/login`, which now names the address the invite is for.
  * Nothing is signed in here: the invite is only checked against an address at sign-in, and
  * the cookie is what carries it there — across the Google round trip, a closed tab, and an
  * install from this browser.

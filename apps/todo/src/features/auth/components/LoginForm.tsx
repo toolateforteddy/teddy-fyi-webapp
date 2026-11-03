@@ -6,15 +6,14 @@ import { loadGoogleIdentity } from '../utils/googleIdentity'
 import { env } from '@/config/env'
 
 /**
- * The Google button, for a browser that holds an invite.
+ * The Google button.
  *
- * Only ever drawn once the sign-in screen knows there is an invite to sign in with (see
- * `LoginPage`): without one the API refuses every sign-in from this origin, so offering a
- * button would be offering a Google prompt that can only end in a refusal.
+ * Anybody may press it. The API lets in anybody who already has an account; for anybody else
+ * it needs an invite this browser holds, and refuses with `403 todo_web_invite_required` (no
+ * invite) or `todo_web_invite_email_mismatch` (an invite for a different address). Those two
+ * are the only refusals worded here rather than shown as a generic failure.
  *
- * `invitedEmail` is what the refusal is worded around. The one mistake left to make is
- * choosing a different Google account from the one the invite names, which the API answers
- * with `403 todo_web_invite_email_mismatch`.
+ * `invitedEmail` is the address the held invite names, if `LoginPage` knows of one.
  */
 export function LoginForm({ invitedEmail }: { invitedEmail?: string }) {
   const { loginWithGoogle, isLoading, error, needsInvite, refusal } = useLogin()
@@ -79,7 +78,8 @@ export function LoginForm({ invitedEmail }: { invitedEmail?: string }) {
       )}
       {(refusal === 'invite_required' || needsInvite) && !invitedEmail && (
         <p className="text-xs text-danger max-w-[300px] text-center">
-          This browser holds no invite, or it has expired. Open the invite link you were sent, in this browser.
+          That Google account doesn't have a Todo account yet. New accounts need an invite: open the invite link you were
+          sent in this browser, then sign in again.
         </p>
       )}
 
