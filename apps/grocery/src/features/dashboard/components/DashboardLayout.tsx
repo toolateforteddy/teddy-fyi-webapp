@@ -9,9 +9,6 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  Pencil,
-  Share2,
-  Plus,
   WifiOff,
   UploadCloud
 } from 'lucide-react'
@@ -21,6 +18,7 @@ import { useAppLayout } from '@/hooks/useAppLayout'
 import { GroceryProvider, useGrocery, type SyncStatus } from '@/features/grocery/context/GroceryContext'
 import { AppNav, type NavItem } from './AppNav'
 import { ShareListSheet } from './ShareListSheet'
+import { ListMenu } from './ListMenu'
 import { JoinListSheet } from './JoinListSheet'
 import { UpdateBanner } from '@/features/pwa/components/UpdateBanner'
 import { InstallBanner } from '@/features/pwa/components/InstallBanner'
@@ -117,7 +115,6 @@ function DashboardContent() {
   const { nav: navPlacement, compact, railLabels, wide } = useAppLayout()
 
   const {
-    activeListId,
     setActiveListId,
     activeList,
     isAwaitingJoinedList,
@@ -143,7 +140,6 @@ function DashboardContent() {
   } = useGrocery()
 
   const [showSyncTooltip, setShowSyncTooltip] = useState(false)
-  const [isEditMode, setIsEditMode] = useState(false)
   const [isShareOpen, setIsShareOpen] = useState(false)
   const [isJoinOpen, setIsJoinOpen] = useState(false)
   const [isSetupOpen, setIsSetupOpen] = useState(false)
@@ -266,28 +262,11 @@ function DashboardContent() {
             compact ? "h-11" : "h-14"
           )}
         >
-          {/* The list name is the title. */}
-          <h1 className="min-w-0 text-base font-bold text-text-primary truncate">
-            {activeList.name}
-          </h1>
+          {/* The list name is the title, and the menu of lists. */}
+          <ListMenu onShare={() => setIsShareOpen(true)} onJoin={() => setIsJoinOpen(true)} />
 
           {/* Actions & Sync Feedback */}
           <div className="flex items-center gap-2 shrink-0">
-            {/* Edit List Selector Button */}
-            <button
-              onClick={() => setIsEditMode(!isEditMode)}
-              className={cn(
-                "p-2 rounded-lg border transition-all duration-200 cursor-pointer active:scale-95",
-                isEditMode
-                  ? "bg-primary/20 border-primary/40 text-primary"
-                  : "bg-surface-tile border-line hover:border-line-strong text-text-muted hover:text-text-primary"
-              )}
-              aria-label="Manage lists"
-              title="Manage lists"
-            >
-              <Pencil className="w-4 h-4" />
-            </button>
-
             {/* Sync Status Button */}
             <div className="relative">
               <button
@@ -325,48 +304,6 @@ function DashboardContent() {
             </div>
           </div>
         </header>
-
-        {/* List Selector / Management Panel (Edit Mode) */}
-        {isEditMode && (
-          <div className="bg-surface-tile border-b border-line-faint px-4 py-3.5 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
-            <div className="flex items-center justify-between gap-3">
-              <div className="relative min-w-0 flex-1">
-                <select
-                  value={activeListId}
-                  onChange={(e) => setActiveListId(e.target.value)}
-                  className="bg-canvas border border-line rounded-lg px-3 py-1.5 text-xs font-semibold focus:outline-none focus:border-primary text-text-primary cursor-pointer active:scale-95 transition-all w-full"
-                  aria-label="List"
-                >
-                  {lists
-                    .filter(l => !l.is_deleted)
-                    .sort((a, b) => a.name.localeCompare(b.name))
-                    .map(list => (
-                      <option key={list.id} value={list.id} className="bg-surface-tile text-text-primary">
-                        {list.name}
-                      </option>
-                    ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={() => setIsShareOpen(true)}
-                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 bg-inset border border-line hover:border-line-strong hover:text-text-primary rounded-lg text-xs text-text-muted active:scale-95 transition-all cursor-pointer"
-              >
-                <Share2 className="w-3.5 h-3.5 text-primary" />
-                <span>Share</span>
-              </button>
-              <button
-                onClick={() => setIsJoinOpen(true)}
-                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 bg-inset border border-line hover:border-line-strong hover:text-text-primary rounded-lg text-xs text-text-muted active:scale-95 transition-all cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5 text-primary" />
-                <span>Join List</span>
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Primary Page Outlet -- the one scroll container in the shell. */}
         <main

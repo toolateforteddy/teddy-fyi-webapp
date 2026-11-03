@@ -34,7 +34,7 @@ export const HELP_TABS: { name: string; blurb: string }[] = [
   { name: 'Need', blurb: 'The list itself. Add items, adjust them, remove them.' },
   { name: 'Planning', blurb: "Re-add things you've bought before, one tap each." },
   { name: 'Shopping', blurb: "Pick the store you're standing in, then check items off." },
-  { name: 'Settings', blurb: 'Stores, categories, your account, and the local cache.' },
+  { name: 'Settings', blurb: 'Your account, stores, categories, and deleting your data.' },
 ]
 
 export const HELP_SECTIONS: HelpSection[] = [
@@ -143,7 +143,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       },
       {
         kind: 'note',
-        body: '"No stores configured" in the store row means you have not added any yet. Settings, then Manage Stores.',
+        body: '"No stores configured" in the store row means you have not added any yet. Settings, then Stores.',
       },
     ],
   },
@@ -184,7 +184,7 @@ export const HELP_SECTIONS: HelpSection[] = [
           {
             term: 'Settings',
             detail:
-              'Manage Stores: add, rename, reorder, delete. The order you set here is the order stores appear everywhere else.',
+              'Stores: add, rename, reorder, delete. The order you set here is the order stores appear everywhere else.',
           },
           {
             term: 'Need tab',
@@ -254,32 +254,36 @@ export const HELP_SECTIONS: HelpSection[] = [
   },
   {
     id: 'sharing',
-    title: 'Sharing a list',
+    title: 'Lists and sharing',
     blocks: [
       {
         kind: 'gesture',
         gesture: 'tap',
-        verb: 'Tap the pencil',
-        what: 'Drops down the list panel in the top bar',
-        then: 'It holds the active-list dropdown, Share List, and Join List. Tap the pencil again to close it.',
+        verb: "Tap the list's name",
+        what: 'Opens the list menu from the top bar',
+        then: 'Every list you have, to switch between, then New list, Rename, Share, Join a list and Delete. Delete is not offered for your last list.',
       },
       {
         kind: 'rows',
         rows: [
           {
-            term: 'Share List',
+            term: 'Share',
             detail:
               'Makes an invite link for the list you are on. Send invite link hands it to your phone\u2019s share sheet, or copy it. Whoever opens it signs in and joins \u2014 nothing to install first. It works once, and lasts an hour.',
           },
           {
             term: 'The code under the link',
             detail:
-              'The same invite, as 8 characters, for somebody you cannot send a link to. Read it out and they type it into Join List.',
+              'The same invite, as 8 characters, for somebody you cannot send a link to. Read it out and they type it into Join a list.',
           },
-          { term: 'Join List', detail: 'Paste the link or type the 8 characters. The app joins, pulls everything down, and switches you to it.' },
+          { term: 'Join a list', detail: 'Paste the link or type the 8 characters. The app joins, pulls everything down, and switches you to it.' },
           {
-            term: 'The list picker',
-            detail: 'Switches which list the whole app shows. Stores and categories belong to a list, so they change too.',
+            term: 'Switching lists',
+            detail: 'Changes which list the whole app shows. Stores and categories belong to a list, so they change too.',
+          },
+          {
+            term: 'Delete',
+            detail: 'Asks first, then removes the list for everyone on it once it syncs.',
           },
         ],
       },
@@ -361,15 +365,15 @@ export const HELP_SECTIONS: HelpSection[] = [
             detail:
               'System, Light or Dark. System follows whatever the phone or computer is set to, and is what you get until you choose otherwise. The choice is per device -- it is not synced, so a phone and a laptop can differ.',
           },
-          { term: 'Manage Stores', detail: 'Add, rename, reorder, delete.' },
+          { term: 'Stores', detail: 'Add, rename, reorder, delete.' },
           {
-            term: 'Manage Categories',
+            term: 'Categories',
             detail:
               'The same, plus an emoji each. Category order here sets the order of the headings on Need and Shopping. A list with no categories offers a recommended set in one tap.',
           },
           {
-            term: 'Clear Local Cache',
-            detail: 'Deletes anything not yet synced, then reloads. Check the sync light in the top bar first.',
+            term: 'Delete my data',
+            detail: 'Erases your account and everything in it, from the server and from this device, and signs you out. It asks first and cannot be undone. If the server cannot be reached, nothing is deleted.',
           },
         ],
       },

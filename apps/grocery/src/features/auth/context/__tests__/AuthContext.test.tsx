@@ -7,8 +7,12 @@ import { STORAGE_KEYS } from '@/config/storageKeys'
 import type { User } from '../../types'
 
 const mockPost = vi.fn()
+const mockDelete = vi.fn()
 vi.mock('@/lib/axios', () => ({
-  default: { post: (...args: unknown[]) => mockPost(...args) },
+  default: {
+    post: (...args: unknown[]) => mockPost(...args),
+    delete: (...args: unknown[]) => mockDelete(...args),
+  },
   registerUnauthorizedListener: vi.fn(),
 }))
 
@@ -30,6 +34,8 @@ function Consumer() {
       <div data-testid="loading">{String(ctx.isLoading)}</div>
       <div data-testid="authed">{String(ctx.isAuthenticated)}</div>
       <div data-testid="user">{ctx.user?.id ?? 'none'}</div>
+      <button onClick={() => { void ctx.logout() }}>logout</button>
+      <button onClick={() => { void ctx.deleteAccount().then(ok => { document.title = String(ok) }) }}>erase</button>
     </div>
   )
 }
@@ -50,6 +56,8 @@ function signedInDevice() {
 
 beforeEach(() => {
   mockPost.mockReset()
+  mockDelete.mockReset()
+  document.title = ''
 })
 
 describe('AuthProvider session bootstrapping', () => {
@@ -134,5 +142,49 @@ describe('AuthProvider session bootstrapping', () => {
 
     expect(mockPost).not.toHaveBeenCalled()
     expect(screen.getByTestId('authed')).toHaveTextContent('false')
+  })
+})
+
+describe('signing out and deleting the account', () => {
+  async function signedIn() {
+    signedInDevice()
+    mockPost.mockResolvedValue({ data: { refresh_token: 'rotated-token', user_uuid: SURROGATE } })
+    await renderProvider()
+    expect(screen.getByTestId('authed')).toHaveTextContent('true')
+  }
+
+  // The route lives under /auth. A bare /logout matched nothing, so the session survived.
+  it('ends the session at /auth/logout', async () => {
+    await signedIn()
+    mockPost.mockClear()
+    mockPost.mockResolvedValue({})
+
+    screen.getByText('logout').click()
+
+    await waitFor(() => expect(screen.getByTestId('authed')).toHaveTextContent('false'))
+    expect(mockPost).toHaveBeenCalledWith('/auth/logout')
+  })
+
+  it('erases the account, then this device, and signs out', async () => {
+    await signedIn()
+    mockDelete.mockResolvedValue({ status: 204 })
+
+    screen.getByText('erase').click()
+
+    await waitFor(() => expect(screen.getByTestId('authed')).toHaveTextContent('false'))
+    expect(mockDelete).toHaveBeenCalledWith('/api/user/data')
+    expect(storage.getItem(STORAGE_KEYS.REFRESH_TOKEN, null)).toBeNull()
+    expect(document.title).toBe('true')
+  })
+
+  it('deletes nothing locally and stays signed in when the request fails', async () => {
+    await signedIn()
+    mockDelete.mockRejectedValue(networkError())
+
+    screen.getByText('erase').click()
+
+    await waitFor(() => expect(document.title).toBe('false'))
+    expect(screen.getByTestId('authed')).toHaveTextContent('true')
+    expect(storage.getItem(STORAGE_KEYS.REFRESH_TOKEN, '')).toBe('rotated-token')
   })
 })

@@ -23,37 +23,36 @@ const OPTIONS: Record<ThemePreference, { label: string; Icon: LucideIcon }> = {
 export function ThemeCard() {
   const { preference, setPreference } = useTheme()
 
+  // A segmented control sized to sit at the end of a Settings row.
   return (
-    <div className="bg-surface-tile border border-line-faint rounded-xl p-4">
-      <div
-        role="radiogroup"
-        aria-label="Colour scheme"
-        className="grid grid-cols-3 gap-2"
-      >
-        {THEME_PREFERENCES.map((option) => {
-          const { label, Icon } = OPTIONS[option]
-          const isSelected = preference === option
+    <div
+      role="radiogroup"
+      aria-label="Colour scheme"
+      className="flex shrink-0 rounded-lg border border-line bg-inset p-0.5"
+    >
+      {THEME_PREFERENCES.map((option) => {
+        const { label, Icon } = OPTIONS[option]
+        const isSelected = preference === option
 
-          return (
-            <button
-              key={option}
-              type="button"
-              role="radio"
-              aria-checked={isSelected}
-              onClick={() => setPreference(option)}
-              className={cn(
-                'flex flex-col items-center justify-center gap-1.5 py-3 rounded-lg border text-xs font-bold transition-all active:scale-[0.99] cursor-pointer',
-                isSelected
-                  ? 'bg-primary/10 border-primary text-primary'
-                  : 'bg-surface-raised border-line text-text-muted hover:bg-surface-hover hover:text-text-primary'
-              )}
-            >
-              <Icon className="w-4 h-4" />
-              {label}
-            </button>
-          )
-        })}
-      </div>
+        return (
+          <button
+            key={option}
+            type="button"
+            role="radio"
+            aria-checked={isSelected}
+            onClick={() => setPreference(option)}
+            className={cn(
+              'flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer',
+              isSelected
+                ? 'bg-surface-tile text-primary shadow-sm'
+                : 'text-text-muted hover:text-text-primary'
+            )}
+          >
+            <Icon className="w-3.5 h-3.5" />
+            {label}
+          </button>
+        )
+      })}
     </div>
   )
 }

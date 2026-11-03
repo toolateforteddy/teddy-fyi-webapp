@@ -13,6 +13,12 @@ export interface AuthContextType {
   isLoading: boolean
   setAuthState: (state: { isAuthenticated: boolean; user: User | null }) => void
   logout: () => Promise<void>
+  /**
+   * `DELETE /api/user/data`: erases the account and everything in it on the server, then
+   * this device's copy, and signs out. False means nothing was deleted -- the request never
+   * landed, so the account is intact and this device is still signed in.
+   */
+  deleteAccount: () => Promise<boolean>
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -136,8 +142,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const logout = async () => {
     setAuthStateInternal((prev) => ({ ...prev, isLoading: true }))
     try {
-      // API call to clear HTTP-only cookies on backend
-      await api.post('/logout')
+      // Ends this session on the server and clears its cookie. The route is under /auth;
+      // a bare /logout matched nothing, so signing out used to leave the session alive.
+      await api.post('/auth/logout')
     } catch (error) {
       console.error('Logout request failed on backend:', error)
     } finally {
@@ -150,6 +157,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }
 
+  const deleteAccount = async (): Promise<boolean> => {
+    try {
+      await api.delete('/api/user/data')
+    } catch (error) {
+      console.error('Account deletion failed:', error)
+      return false
+    }
+    // The same transaction dropped every session on the account, so there is nothing left
+    // to log out of on the server: only this device's copy remains.
+    storage.clear()
+    setAuthStateInternal({ isAuthenticated: false, user: null, isLoading: false })
+    return true
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -158,6 +179,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         isLoading: authState.isLoading,
         setAuthState,
         logout,
+        deleteAccount,
       }}
     >
       {children}
