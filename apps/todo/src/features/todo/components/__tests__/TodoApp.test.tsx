@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { TodoProvider } from '../../TodoContext'
 import { TodoApp } from '../TodoApp'
 import { STORAGE_KEYS } from '@/config/storageKeys'
+import type { TodoItem } from '../../types'
 
 const post = vi.fn()
 const get = vi.fn()
@@ -124,29 +125,55 @@ describe('the todo screen', () => {
     expect(name).toHaveFocus()
   })
 
-  it('adds subtasks one after another until Finish', async () => {
+  it('adds subtasks one after another, filing the last one typed when the sheet closes', async () => {
     renderApp()
     await userEvent.type(screen.getByRole('textbox', { name: 'Add a task' }), 'pack{Enter}')
     await userEvent.click(await screen.findByRole('button', { name: 'Pack' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Add subtask' }))
 
-    const field = screen.getByRole('textbox', { name: 'New subtask' })
+    const field = screen.getByRole('textbox', { name: 'Add subtask' })
     await userEvent.type(field, 'socks{Enter}')
-    await userEvent.type(field, 'shirts')
-    await userEvent.click(screen.getByRole('button', { name: 'Add' }))
+    await userEvent.type(field, 'shirts{Enter}')
     expect(field).toHaveFocus()
     const listed = within(screen.getByRole('list', { name: 'Subtasks' }))
     expect(listed.getByText('Socks')).toBeInTheDocument()
     expect(listed.getByText('Shirts')).toBeInTheDocument()
 
     await userEvent.type(field, 'shoes')
-    await userEvent.click(screen.getByRole('button', { name: 'Finish' }))
+    await userEvent.keyboard('{Escape}')
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     type Stored = Array<{ title: string; parentId: string | null }>
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEYS.ITEMS) ?? '[]') as Stored
     const parentId = stored.find((i) => i.title === 'Pack')!.parentId
     expect(parentId).toBeNull()
     expect(stored.filter((i) => i.parentId !== null).map((i) => i.title)).toEqual(['Socks', 'Shirts', 'Shoes'])
+  })
+
+  it('edits a task in its sheet: title and notes in place, when, repeat and space as one control each', async () => {
+    localStorage.setItem(
+      STORAGE_KEYS.LISTS,
+      JSON.stringify([
+        { id: 'work', name: 'Work', colorHex: '#FF0000', userId: 'surrogate', createdAt: 1, syncState: 'SYNCED', version: 1, isDeleted: false },
+      ]),
+    )
+    renderApp()
+    await userEvent.type(screen.getByRole('textbox', { name: 'Add a task' }), 'pay rent{Enter}')
+    await userEvent.click(await screen.findByRole('button', { name: 'Pay Rent' }))
+
+    const title = screen.getByRole('textbox', { name: 'Title' })
+    await userEvent.clear(title)
+    await userEvent.type(title, 'pay the rent')
+    await userEvent.type(screen.getByRole('textbox', { name: 'Notes' }), 'by transfer')
+    const when = within(screen.getByRole('group', { name: 'When' }))
+    await userEvent.click(when.getByRole('button', { name: 'Tomorrow' }))
+    expect(when.getByRole('button', { name: 'Tomorrow' })).toHaveAttribute('aria-pressed', 'true')
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Repeat' }), 'Daily at 8:00')
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Space' }), 'Work')
+    await userEvent.click(screen.getByRole('button', { name: 'Star' }))
+    await userEvent.keyboard('{Escape}')
+
+    type Stored = Array<Pick<TodoItem, 'title' | 'description' | 'isDaily' | 'recurrenceRule' | 'listId' | 'priority' | 'scheduledDate'>>
+    const stored = (JSON.parse(localStorage.getItem(STORAGE_KEYS.ITEMS) ?? '[]') as Stored)[0]
+    expect(stored).toMatchObject({ title: 'Pay The Rent', description: 'by transfer', isDaily: true, recurrenceRule: null, listId: 'work', priority: 2 })
   })
 
   it("collapses a parent's subtasks, and remembers it open", async () => {

@@ -5,7 +5,19 @@ import { X } from 'lucide-react'
  * A bottom sheet on a phone, a centred dialog on anything wider. Escape and the scrim close
  * it. Every dialog in the app is one of these, so they all dismiss the same way.
  */
-export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export function Sheet({
+  title,
+  header,
+  onClose,
+  children,
+}: {
+  /** The dialog's name, and its visible heading unless `header` takes that place. */
+  title: string
+  /** Drawn where the heading goes, e.g. a field that edits the title in place. */
+  header?: ReactNode
+  onClose: () => void
+  children: ReactNode
+}) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose()
@@ -24,8 +36,8 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
     >
       <button type="button" aria-label="Close" className="absolute inset-0 bg-scrim/70 cursor-default" onClick={onClose} />
       <div className="relative app-frame max-h-[85%] overflow-y-auto bg-surface-raised border border-line rounded-t-2xl sm:rounded-2xl shadow-[var(--shadow-sheet)] pb-[env(safe-area-inset-bottom)]">
-        <div className="sticky top-0 bg-surface-raised flex items-center justify-between px-5 pt-4 pb-2 app-chrome">
-          <h2 className="text-base font-bold text-text-primary truncate">{title}</h2>
+        <div className="sticky top-0 bg-surface-raised flex items-center justify-between gap-2 px-5 pt-4 pb-2 app-chrome">
+          {header ?? <h2 className="text-base font-bold text-text-primary truncate">{title}</h2>}
           <button type="button" onClick={onClose} aria-label="Close" className="p-2 -mr-2 text-text-muted hover:text-text-primary cursor-pointer">
             <X className="w-5 h-5" />
           </button>
@@ -57,7 +69,8 @@ export function SheetAction({
       className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface-hover text-left cursor-pointer ${danger ? 'text-danger' : 'text-text-primary'}`}
     >
       <span className="w-5 h-5 flex items-center justify-center shrink-0">{icon}</span>
-      <span className="flex-1 text-sm font-medium">{label}</span>
+      {/* 16px on a phone, as every form control there is (index.css), so a sheet of rows and fields reads as one list. */}
+      <span className="flex-1 text-base md:text-sm font-medium">{label}</span>
       {detail && <span className="text-xs text-text-muted truncate max-w-[45%]">{detail}</span>}
     </button>
   )

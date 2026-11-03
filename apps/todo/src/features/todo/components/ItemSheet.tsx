@@ -1,109 +1,64 @@
-import { useState } from 'react'
-import {
-  AlarmClock,
-  ArrowDownToLine,
-  ArrowUpToLine,
-  CalendarDays,
-  CalendarPlus,
-  Inbox,
-  ListPlus,
-  Pencil,
-  RefreshCw,
-  Repeat,
-  Shapes,
-  Star,
-  Sun,
-  Tag,
-  Trash2,
-} from 'lucide-react'
+import { useRef, useState, type ReactNode } from 'react'
+import { CalendarDays, ListPlus, Repeat, Shapes, Star, Tag, Trash2 } from 'lucide-react'
 import type { TodoItem } from '../types'
 import { useTodo } from '../TodoContext'
 import { TODO_ICONS, iconLigature } from '../icons'
-import { RECURRENCE_OPTIONS, addDays, customDaysRule, recurrenceLabel, snoozeMonths, todayIso } from '../rules'
+import { RECURRENCE_OPTIONS, addDays, customDaysRule, dayLabel, recurrenceLabel, todayIso } from '../rules'
 import { Sheet, SheetAction, inputClass, primaryButtonClass, quietButtonClass } from './Sheet'
 import { PlainTextField } from './PlainTextField'
 
-type View = 'menu' | 'edit' | 'schedule' | 'recurrence' | 'snooze' | 'icon' | 'space' | 'subtask' | 'delete'
-
 /**
- * Everything a task can have done to it: the Android row menu (`TodoItemMenu.kt`) and the
- * dialogs it opens, as one sheet whose body swaps between them.
+ * Everything a task can have done to it, on one sheet: its title and notes, edited in place,
+ * then when it is for, how it repeats, its space, its icon, its subtasks, and Delete. Only the
+ * icon grid and the delete confirmation take the sheet over; everything else is a control on
+ * it, so what a task is set to and how to change it are the same thing on screen.
  */
 export function ItemSheet({ item, onClose }: { item: TodoItem; onClose: () => void }) {
-  const { items, lists, updateItem, deleteItem, moveItem, addItem, assignIcon } = useTodo()
-  const [view, setView] = useState<View>('menu')
-  // The sheet is opened on a snapshot; read the live row so the menu shows each change.
+  const { items, lists, updateItem, deleteItem, addItem, assignIcon } = useTodo()
+  const [view, setView] = useState<'main' | 'icon' | 'delete'>('main')
+  // The sheet is opened on a snapshot; read the live row so every control shows each change.
   const live = items.find((i) => i.id === item.id && !i.isDeleted) ?? item
-  const space = lists.find((l) => l.id === live.listId)
-  const today = todayIso()
+  const subtasks = items.filter((i) => i.parentId === live.id && !i.isDeleted).sort((a, b) => a.position - b.position)
   const isChild = live.parentId !== null
 
-  const done = () => setView('menu')
-
-  if (view === 'edit') return <EditView item={live} onDone={done} onClose={onClose} save={(patch) => updateItem(live.id, patch)} />
-
-  if (view === 'subtask') {
-    return (
-      <SubtaskView
-        parent={live}
-        subtasks={items.filter((i) => i.parentId === live.id && !i.isDeleted)}
-        onAdd={(title) => addItem(title, { parentId: live.id })}
-        onClose={onClose}
-      />
-    )
+  // Title and notes are saved when they lose focus and when the sheet closes, so typing is
+  // never a burst of edits to sync. An emptied title keeps the old one.
+  const [title, setTitle] = useState(live.title)
+  const [notes, setNotes] = useState(live.description ?? '')
+  const saved = useRef({ title: live.title, notes: live.description ?? '' })
+  const save = () => {
+    const patch: Partial<TodoItem> = {}
+    if (title.trim() && title !== saved.current.title) patch.title = title
+    if (notes !== saved.current.notes) patch.description = notes.trim() ? notes.trim() : null
+    if (Object.keys(patch).length === 0) return
+    saved.current = { title, notes }
+    updateItem(live.id, patch)
   }
-
-  if (view === 'schedule') {
-    return (
-      <Sheet title="Schedule" onClose={onClose}>
-        <input
-          type="date"
-          aria-label="Date"
-          defaultValue={live.scheduledDate ?? today}
-          className={inputClass}
-          onChange={(event) => {
-            if (event.target.value) updateItem(live.id, { scheduledDate: event.target.value })
-          }}
-        />
-        <div className="flex gap-2 justify-end mt-4">
-          <button type="button" className={quietButtonClass} onClick={() => (updateItem(live.id, { scheduledDate: null }), done())}>
-            Clear
-          </button>
-          <button type="button" className={primaryButtonClass} onClick={done}>
-            Done
-          </button>
-        </div>
-      </Sheet>
-    )
+  // A subtask typed but not yet entered is filed when the sheet closes, not dropped.
+  const [subtask, setSubtask] = useState('')
+  const addSubtask = () => {
+    if (!subtask.trim()) return
+    addItem(subtask, { parentId: live.id })
+    setSubtask('')
   }
-
-  if (view === 'recurrence') return <RecurrenceView item={live} onClose={onClose} onDone={done} save={(rule) => updateItem(live.id, { recurrenceRule: rule })} />
-
-  if (view === 'snooze') {
-    return (
-      <SnoozeView
-        onClose={onClose}
-        onSnooze={(amount, unit) => {
-          const base = live.scheduledDate ?? today
-          updateItem(live.id, { scheduledDate: unit === 'days' ? addDays(base, amount) : snoozeMonths(base, amount) })
-          done()
-        }}
-      />
-    )
+  const close = () => {
+    save()
+    addSubtask()
+    onClose()
   }
 
   if (view === 'icon') {
     return (
-      <Sheet title="Icon" onClose={onClose}>
+      <Sheet title="Icon" onClose={close}>
         <IconGrid
           selected={live.icon}
           onPick={(icon) => {
             updateItem(live.id, { icon })
-            done()
+            setView('main')
           }}
           onAuto={async () => {
             const ok = await assignIcon(live)
-            if (ok) done()
+            if (ok) setView('main')
             return ok
           }}
         />
@@ -111,36 +66,14 @@ export function ItemSheet({ item, onClose }: { item: TodoItem; onClose: () => vo
     )
   }
 
-  if (view === 'space') {
-    return (
-      <Sheet title="Space" onClose={onClose}>
-        <div className="flex flex-col">
-          {[{ id: null as string | null, name: 'No space', colorHex: 'var(--palette-primary)' }, ...lists].map((l) => (
-            <SheetAction
-              key={l.id ?? 'none'}
-              icon={<span className="w-3 h-3 rounded-full" style={{ background: l.colorHex }} />}
-              label={l.name}
-              detail={l.id === live.listId ? 'Current' : null}
-              onClick={() => {
-                updateItem(live.id, { listId: l.id })
-                done()
-              }}
-            />
-          ))}
-        </div>
-      </Sheet>
-    )
-  }
-
   if (view === 'delete') {
     return (
-      <Sheet title="Delete task?" onClose={onClose}>
+      <Sheet title="Delete task?" onClose={close}>
         <p className="text-sm text-text-secondary">
-          “{live.title}”{items.some((i) => i.parentId === live.id && !i.isDeleted) ? ' and its subtasks' : ''} will be deleted on
-          every device.
+          “{live.title}”{subtasks.length > 0 ? ' and its subtasks' : ''} will be deleted on every device.
         </p>
         <div className="flex gap-2 justify-end mt-4">
-          <button type="button" className={quietButtonClass} onClick={done}>
+          <button type="button" className={quietButtonClass} onClick={() => setView('main')}>
             Cancel
           </button>
           <button
@@ -158,244 +91,258 @@ export function ItemSheet({ item, onClose }: { item: TodoItem; onClose: () => vo
     )
   }
 
+  const starred = live.priority >= 2
+  const icon = iconLigature(live.icon)
+
   return (
-    <Sheet title={live.title} onClose={onClose}>
-      {live.description && <p className="text-sm text-text-muted whitespace-pre-wrap mb-3">{live.description}</p>}
+    <Sheet
+      title={live.title}
+      onClose={close}
+      header={
+        <form
+          className="flex-1 min-w-0 flex items-center gap-1"
+          onSubmit={(event) => {
+            event.preventDefault()
+            save()
+          }}
+        >
+          <PlainTextField
+            label="Title"
+            value={title}
+            onChange={setTitle}
+            onBlur={save}
+            className="flex-1 min-w-0 bg-transparent outline-none text-base font-bold text-text-primary py-1"
+          />
+          <button
+            type="button"
+            aria-label={starred ? 'Remove star' : 'Star'}
+            aria-pressed={starred}
+            onClick={() => updateItem(live.id, { priority: starred ? 0 : 2 })}
+            className="p-2 cursor-pointer"
+          >
+            <Star className={`w-5 h-5 ${starred ? 'text-priority-high fill-current' : 'text-text-faint hover:text-text-primary'}`} />
+          </button>
+        </form>
+      }
+    >
+      <textarea
+        aria-label="Notes"
+        autoComplete="off"
+        placeholder="Notes"
+        rows={2}
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        onBlur={save}
+        className={`${inputClass} resize-none mb-3`}
+      />
+
       <div className="flex flex-col">
-        <SheetAction icon={<Pencil className="w-4 h-4" />} label="Edit title and notes" onClick={() => setView('edit')} />
-        {live.scheduledDate !== today && (
-          <SheetAction icon={<Sun className="w-4 h-4" />} label="Do today" onClick={() => (updateItem(live.id, { scheduledDate: today }), onClose())} />
+        <Row icon={<CalendarDays className="w-4 h-4" />}>
+          <WhenPicker item={live} onChange={(scheduledDate) => updateItem(live.id, { scheduledDate })} />
+        </Row>
+        <Row icon={<Repeat className="w-4 h-4" />}>
+          <RepeatPicker item={live} onChange={(patch) => updateItem(live.id, patch)} />
+        </Row>
+        {!isChild && (
+          <Row icon={<Tag className="w-4 h-4" />}>
+            <select
+              aria-label="Space"
+              value={live.listId ?? ''}
+              onChange={(e) => updateItem(live.id, { listId: e.target.value || null })}
+              className={selectClass}
+            >
+              <option value="">No space</option>
+              {lists.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.name}
+                </option>
+              ))}
+            </select>
+          </Row>
         )}
         <SheetAction
-          icon={<CalendarPlus className="w-4 h-4" />}
-          label="Tomorrow"
-          onClick={() => (updateItem(live.id, { scheduledDate: addDays(live.scheduledDate ?? today, 1) }), onClose())}
-        />
-        <SheetAction icon={<CalendarDays className="w-4 h-4" />} label="Schedule" detail={live.scheduledDate} onClick={() => setView('schedule')} />
-        {live.scheduledDate !== null && (
-          <SheetAction icon={<Inbox className="w-4 h-4" />} label="Back to backlog" onClick={() => (updateItem(live.id, { scheduledDate: null }), onClose())} />
-        )}
-        <SheetAction icon={<AlarmClock className="w-4 h-4" />} label="Snooze for…" onClick={() => setView('snooze')} />
-        <SheetAction icon={<Repeat className="w-4 h-4" />} label="Repeat" detail={recurrenceLabel(live.recurrenceRule)} onClick={() => setView('recurrence')} />
-        <SheetAction
-          icon={<RefreshCw className="w-4 h-4" />}
-          label={live.isDaily ? 'Stop repeating daily' : 'Repeat daily at 8:00'}
-          onClick={() => updateItem(live.id, live.isDaily ? { isDaily: false } : { isDaily: true, scheduledDate: today, isCompleted: false })}
-        />
-        <SheetAction
-          icon={<Star className={`w-4 h-4 ${live.priority >= 2 ? 'text-priority-high fill-current' : ''}`} />}
-          label={live.priority >= 2 ? 'Remove star' : 'Star'}
-          onClick={() => updateItem(live.id, { priority: live.priority >= 2 ? 0 : 2 })}
-        />
-        <SheetAction
-          icon={iconLigature(live.icon) ? <span className="material-symbols-rounded text-[18px]">{iconLigature(live.icon)}</span> : <Shapes className="w-4 h-4" />}
+          icon={icon ? <span className="material-symbols-rounded text-[18px]">{icon}</span> : <Shapes className="w-4 h-4" />}
           label="Icon"
-          detail={live.icon}
-          onClick={() => setView('icon')}
+          onClick={() => {
+            save()
+            setView('icon')
+          }}
         />
-        {!isChild && <SheetAction icon={<Tag className="w-4 h-4" />} label="Space" detail={space?.name ?? 'None'} onClick={() => setView('space')} />}
-        {!isChild && <SheetAction icon={<ListPlus className="w-4 h-4" />} label="Add subtask" onClick={() => setView('subtask')} />}
-        <SheetAction icon={<ArrowUpToLine className="w-4 h-4" />} label="Move to top" onClick={() => (moveItem(live, 'top'), onClose())} />
-        <SheetAction icon={<ArrowDownToLine className="w-4 h-4" />} label="Move to bottom" onClick={() => (moveItem(live, 'bottom'), onClose())} />
-        <SheetAction icon={<Trash2 className="w-4 h-4" />} label="Delete" danger onClick={() => setView('delete')} />
+      </div>
+
+      {!isChild && <Subtasks subtasks={subtasks} value={subtask} onChange={setSubtask} onAdd={addSubtask} />}
+
+      <div className="mt-2">
+        <SheetAction
+          icon={<Trash2 className="w-4 h-4" />}
+          label="Delete"
+          danger
+          onClick={() => {
+            save()
+            setView('delete')
+          }}
+        />
       </div>
     </Sheet>
   )
 }
 
-function EditView({
-  item,
-  save,
-  onDone,
-  onClose,
-}: {
-  item: TodoItem
-  save: (patch: Partial<TodoItem>) => void
-  onDone: () => void
-  onClose: () => void
-}) {
-  const [title, setTitle] = useState(item.title)
-  const [description, setDescription] = useState(item.description ?? '')
+const selectClass =
+  'w-full bg-transparent outline-none text-sm font-medium text-text-primary py-3 cursor-pointer appearance-none [&>option]:bg-surface-raised'
+
+/** A sheet row whose right-hand side is a control rather than a label. */
+function Row({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
-    <Sheet title="Edit task" onClose={onClose}>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault()
-          save({ title, description: description.trim() ? description.trim() : null })
-          onDone()
-        }}
-        className="flex flex-col gap-3"
-      >
-        <PlainTextField label="Title" autoFocus value={title} onChange={setTitle} className={inputClass} />
-        <textarea
-          aria-label="Notes"
-          autoComplete="off"
-          placeholder="Notes"
-          rows={4}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          className={inputClass}
-        />
-        <div className="flex gap-2 justify-end">
-          <button type="button" className={quietButtonClass} onClick={onDone}>
-            Cancel
-          </button>
-          <button type="submit" className={primaryButtonClass} disabled={!title.trim()}>
-            Save
-          </button>
-        </div>
-      </form>
-    </Sheet>
+    <div className="flex items-center gap-3 px-3 rounded-lg hover:bg-surface-hover">
+      <span className="w-5 h-5 flex items-center justify-center shrink-0 text-text-primary">{icon}</span>
+      <div className="flex-1 min-w-0">{children}</div>
+    </div>
   )
 }
 
 /**
- * Adding subtasks, several at a time. Add (or Enter) files the one typed and clears the field
- * with the keyboard still up, so the next can follow straight away; the ones added so far are
- * listed above it. Finish files anything still typed and closes the sheet.
+ * When the task is for: today, tomorrow, any other day, or the backlog. The one that holds is
+ * pressed, so the row is both the setting and the way to change it.
  */
-function SubtaskView({
-  parent,
-  subtasks,
-  onAdd,
-  onClose,
-}: {
-  parent: TodoItem
-  subtasks: TodoItem[]
-  onAdd: (title: string) => void
-  onClose: () => void
-}) {
-  const [value, setValue] = useState('')
-  const add = () => {
-    if (!value.trim()) return
-    onAdd(value)
-    setValue('')
-  }
+function WhenPicker({ item, onChange }: { item: TodoItem; onChange: (scheduledDate: string | null) => void }) {
+  const today = todayIso()
+  const tomorrow = addDays(today, 1)
+  const date = item.scheduledDate
+  const other = date !== null && date !== today && date !== tomorrow
+  const chip = (pressed: boolean) =>
+    `flex-auto min-w-0 truncate text-center px-2.5 py-1.5 rounded-full border text-xs font-semibold cursor-pointer ${pressed ? 'border-primary bg-surface-hover-strong text-text-primary' : 'border-line text-text-secondary hover:bg-surface-hover'}`
   return (
-    <Sheet title={`Subtasks of ${parent.title}`} onClose={onClose}>
+    <div className="flex gap-1.5 py-2" role="group" aria-label="When">
+      <button type="button" aria-pressed={date === today} className={chip(date === today)} onClick={() => onChange(today)}>
+        Today
+      </button>
+      <button type="button" aria-pressed={date === tomorrow} className={chip(date === tomorrow)} onClick={() => onChange(tomorrow)}>
+        Tomorrow
+      </button>
+      <label className={`relative ${chip(other)}`}>
+        {other ? dayLabel(date) : 'Date'}
+        <input
+          type="date"
+          aria-label="Pick a date"
+          value={date ?? ''}
+          min={today}
+          onChange={(e) => e.target.value && onChange(e.target.value)}
+          className="absolute inset-0 opacity-0 cursor-pointer"
+        />
+      </label>
+      <button type="button" aria-pressed={date === null} className={chip(date === null)} onClick={() => onChange(null)}>
+        Backlog
+      </button>
+    </div>
+  )
+}
+
+const DAILY_AT_8 = 'daily-8'
+const CUSTOM = 'custom'
+
+/**
+ * How the task repeats, as one choice. The data keeps two settings, `isDaily` (re-armed for
+ * today at 08:00) and `recurrenceRule` (comes back after it is done), and Android shows them
+ * as two; picking one here clears the other.
+ */
+function RepeatPicker({ item, onChange }: { item: TodoItem; onChange: (patch: Partial<TodoItem>) => void }) {
+  const rule = item.recurrenceRule
+  const preset = RECURRENCE_OPTIONS.find((o) => o.rule === rule)
+  const customDays = rule?.match(/^FREQ=DAILY;INTERVAL=(\d+)$/)?.[1]
+  // A rule this picker cannot make (another client's) still shows as itself, and stays.
+  const foreign = rule !== null && !preset && !customDays
+  const value = item.isDaily ? DAILY_AT_8 : preset ? (preset.rule ?? '') : foreign ? rule : CUSTOM
+  const [days, setDays] = useState(customDays ?? '3')
+  return (
+    <div className="flex items-center gap-2">
+      <select
+        aria-label="Repeat"
+        value={value}
+        onChange={(e) => {
+          const next = e.target.value
+          if (next === DAILY_AT_8) onChange({ isDaily: true, recurrenceRule: null, scheduledDate: todayIso(), isCompleted: false })
+          else if (next === CUSTOM) onChange({ isDaily: false, recurrenceRule: customDaysRule(parseInt(days, 10)) })
+          else onChange({ isDaily: false, recurrenceRule: next || null })
+        }}
+        className={selectClass}
+      >
+        {RECURRENCE_OPTIONS.map((o) => (
+          <option key={o.label} value={o.rule ?? ''}>
+            {o.rule === null ? "Doesn't repeat" : recurrenceLabel(o.rule)}
+          </option>
+        ))}
+        <option value={DAILY_AT_8}>Daily at 8:00</option>
+        {foreign && <option value={rule}>{recurrenceLabel(rule)}</option>}
+        <option value={CUSTOM}>Every few days</option>
+      </select>
+      {value === CUSTOM && (
+        <input
+          aria-label="Days between"
+          type="number"
+          min={1}
+          inputMode="numeric"
+          value={days}
+          onChange={(e) => {
+            setDays(e.target.value)
+            const n = parseInt(e.target.value, 10)
+            if (n > 0) onChange({ recurrenceRule: customDaysRule(n) })
+          }}
+          className={`${inputClass} w-20 shrink-0`}
+        />
+      )}
+    </div>
+  )
+}
+
+/**
+ * A parent's subtasks, and a field that adds the next one. Enter files it and clears the
+ * field with the keyboard still up, so several can go in one after another.
+ */
+function Subtasks({
+  subtasks,
+  value,
+  onChange,
+  onAdd,
+}: {
+  subtasks: TodoItem[]
+  value: string
+  onChange: (value: string) => void
+  onAdd: () => void
+}) {
+  return (
+    <div className="mt-2 flex flex-col gap-1">
       {subtasks.length > 0 && (
-        <ul className="flex flex-col gap-1 mb-3" aria-label="Subtasks">
-          {[...subtasks]
-            .sort((a, b) => a.position - b.position)
-            .map((subtask) => (
-              <li key={subtask.id} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-inset text-sm text-text-secondary">
-                <span className={`hex w-3 h-3 shrink-0 ${subtask.isCompleted ? 'bg-primary' : 'bg-line-strong'}`} />
-                <span className={`truncate ${subtask.isCompleted ? 'line-through text-text-muted' : ''}`}>{subtask.title}</span>
-              </li>
-            ))}
+        <ul className="flex flex-col gap-1" aria-label="Subtasks">
+          {subtasks.map((subtask) => (
+            <li key={subtask.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-inset text-sm text-text-secondary">
+              <span className="w-5 flex justify-center shrink-0">
+                <span className={`hex w-3 h-3 ${subtask.isCompleted ? 'bg-primary' : 'bg-line-strong'}`} />
+              </span>
+              <span className={`truncate ${subtask.isCompleted ? 'line-through text-text-muted' : ''}`}>{subtask.title}</span>
+            </li>
+          ))}
         </ul>
       )}
       <form
+        className="flex items-center gap-3 px-3"
         onSubmit={(event) => {
           event.preventDefault()
-          add()
+          onAdd()
         }}
-        className="flex flex-col gap-3"
       >
+        <span className="w-5 h-5 flex items-center justify-center shrink-0 text-text-primary">
+          <ListPlus className="w-4 h-4" />
+        </span>
         <PlainTextField
-          label="New subtask"
-          autoFocus
-          placeholder="What needs doing?"
+          label="Add subtask"
+          placeholder="Add subtask"
           enterKeyHint="enter"
           value={value}
-          onChange={setValue}
-          className={inputClass}
+          onChange={onChange}
+          className="flex-1 min-w-0 bg-transparent outline-none text-sm font-medium py-3 text-text-primary"
         />
-        <div className="flex gap-2 justify-end">
-          {/* Keeps focus in the field, so the keyboard stays up for the next one. */}
-          <button
-            type="submit"
-            className={`${quietButtonClass} disabled:opacity-40`}
-            disabled={!value.trim()}
-            onMouseDown={(event) => event.preventDefault()}
-          >
-            Add
-          </button>
-          <button
-            type="button"
-            className={primaryButtonClass}
-            onClick={() => {
-              add()
-              onClose()
-            }}
-          >
-            Finish
-          </button>
-        </div>
       </form>
-    </Sheet>
-  )
-}
-
-function RecurrenceView({
-  item,
-  save,
-  onDone,
-  onClose,
-}: {
-  item: TodoItem
-  save: (rule: string | null) => void
-  onDone: () => void
-  onClose: () => void
-}) {
-  const [custom, setCustom] = useState('3')
-  return (
-    <Sheet title="Repeat" onClose={onClose}>
-      <div className="flex flex-col">
-        {RECURRENCE_OPTIONS.map((option) => (
-          <SheetAction
-            key={option.label}
-            icon={<Repeat className="w-4 h-4" />}
-            label={option.label}
-            detail={option.rule === item.recurrenceRule ? 'Current' : null}
-            onClick={() => {
-              save(option.rule)
-              onDone()
-            }}
-          />
-        ))}
-      </div>
-      <form
-        className="flex items-center gap-2 mt-3"
-        onSubmit={(event) => {
-          event.preventDefault()
-          save(customDaysRule(parseInt(custom, 10)))
-          onDone()
-        }}
-      >
-        <span className="text-sm text-text-secondary shrink-0">Every</span>
-        <input aria-label="Days" type="number" min={1} inputMode="numeric" value={custom} onChange={(e) => setCustom(e.target.value)} className={`${inputClass} w-20`} />
-        <span className="text-sm text-text-secondary flex-1">days</span>
-        <button type="submit" className={primaryButtonClass}>
-          Set
-        </button>
-      </form>
-    </Sheet>
-  )
-}
-
-function SnoozeView({ onSnooze, onClose }: { onSnooze: (amount: number, unit: 'days' | 'months') => void; onClose: () => void }) {
-  const [amount, setAmount] = useState('1')
-  const [unit, setUnit] = useState<'days' | 'months'>('days')
-  return (
-    <Sheet title="Snooze for" onClose={onClose}>
-      <form
-        className="flex items-center gap-2"
-        onSubmit={(event) => {
-          event.preventDefault()
-          onSnooze(Math.max(0, parseInt(amount, 10) || 0), unit)
-        }}
-      >
-        <input aria-label="Amount" type="number" min={0} inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} className={`${inputClass} w-20`} />
-        <select aria-label="Unit" value={unit} onChange={(e) => setUnit(e.target.value as 'days' | 'months')} className={`${inputClass} flex-1`}>
-          <option value="days">Days</option>
-          <option value="months">Months</option>
-        </select>
-        <button type="submit" className={primaryButtonClass}>
-          Snooze
-        </button>
-      </form>
-    </Sheet>
+    </div>
   )
 }
 
