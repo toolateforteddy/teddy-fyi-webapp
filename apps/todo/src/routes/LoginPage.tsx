@@ -37,12 +37,7 @@ export function LoginPage() {
           <div className="p-4 rounded-2xl bg-surface-raised border border-line/60 text-primary">
             <ListChecks className="w-10 h-10" />
           </div>
-          <div className="space-y-1.5">
-            <h1 className="text-2xl font-black tracking-tight">Todo</h1>
-            <p className="text-xs text-text-muted max-w-[300px]">
-              Your teddy.fyi todo list, synced with the Android app.
-            </p>
-          </div>
+          <h1 className="text-2xl font-black tracking-tight">Todo</h1>
 
           {invite === null ? (
             <Loader2 className="w-5 h-5 text-text-muted animate-spin" />
@@ -71,11 +66,9 @@ function NotInvited() {
   return (
     <div className="w-full bg-surface-tile border border-line-faint rounded-2xl p-6 flex flex-col items-center gap-3">
       <Lock className="w-6 h-6 text-text-muted" />
-      <p className="text-sm font-semibold">Todo on the web is invite-only</p>
-      <p className="text-xs text-text-muted max-w-[280px]">
-        Open the invite link you were sent, in this browser. If you install the app, install it
-        from the same browser you opened the link in.
-      </p>
+      {/* "This browser" carries the rule that matters: the invite rides in this browser's cookie,
+          so an install from another browser has none. */}
+      <p className="text-sm text-text-secondary">Open your invite link in this browser.</p>
     </div>
   )
 }

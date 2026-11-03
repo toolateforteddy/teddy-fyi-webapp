@@ -89,16 +89,19 @@ export function snoozeMonths(iso: string, months: number): string {
 }
 
 /**
- * How a date reads in a header: Today, Tomorrow, a weekday within the week, else the date
- * itself (`formatDateBucket` in `TodoScreen.kt`).
+ * How a date reads anywhere it is shown: Today, Tomorrow, Yesterday, a weekday within the
+ * coming week, else a short date ("Nov 23", with the year when it is not this year).
  */
-export function dateBucketLabel(iso: string, now: number = Date.now()): string {
+export function dayLabel(iso: string, now: number = Date.now()): string {
   const today = todayIso(now)
-  if (iso === today) return 'Today'
-  if (iso === addDays(today, 1)) return 'Tomorrow'
   const diff = Math.round((parseIso(iso).getTime() - parseIso(today).getTime()) / 86_400_000)
-  if (diff > 1 && diff < 7) return parseIso(iso).toLocaleDateString(undefined, { weekday: 'long' })
-  return iso
+  if (diff === 0) return 'Today'
+  if (diff === 1) return 'Tomorrow'
+  if (diff === -1) return 'Yesterday'
+  const date = parseIso(iso)
+  if (diff > 1 && diff < 7) return date.toLocaleDateString(undefined, { weekday: 'long' })
+  const sameYear = date.getFullYear() === parseIso(today).getFullYear()
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' }) })
 }
 
 // --- recurrence -----------------------------------------------------------------------
