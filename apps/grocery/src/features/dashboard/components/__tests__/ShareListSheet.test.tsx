@@ -16,6 +16,7 @@ vi.mock('@/lib/axios', () => ({
 
 // jsdom implements neither of these on <dialog>.
 beforeEach(() => {
+  vi.spyOn(window, 'confirm').mockReturnValue(true)
   HTMLDialogElement.prototype.showModal = vi.fn(function (this: HTMLDialogElement) {
     this.setAttribute('open', '')
   })

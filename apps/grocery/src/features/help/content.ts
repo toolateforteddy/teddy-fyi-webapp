@@ -212,16 +212,12 @@ export const HELP_SECTIONS: HelpSection[] = [
         gesture: 'tap',
         verb: 'Tap a recommendation',
         what: 'Adds it to your Need list and removes the card from the tray',
-        then: 'It arrives with quantity 1 and no category. If a store filter is selected, the new item is tagged as available at that store.',
+        then: 'It arrives with quantity 1 and no category, and no store: where something is bought is settled while shopping, not while planning.',
       },
       {
         kind: 'note',
         tone: 'warn',
         body: 'There is no swipe-to-dismiss here. A card leaves the tray when you add it, or when the item is already on your list.',
-      },
-      {
-        kind: 'text',
-        body: 'The store picker beside Recommendations does not narrow them: the same cards show under All Stores as under any one store. What they change is the item you get, which is tagged as available at the store you picked.',
       },
     ],
   },
@@ -234,7 +230,7 @@ export const HELP_SECTIONS: HelpSection[] = [
         rows: [
           {
             term: '1. Pick a store',
-            detail: 'Until you do, the tab is an empty screen. Your choice is remembered between launches.',
+            detail: 'Until you do, the tab shows only the store chips. Your choice is remembered between launches.',
           },
           {
             term: '2. Tap items',
@@ -248,7 +244,7 @@ export const HELP_SECTIONS: HelpSection[] = [
         gesture: 'tap',
         verb: 'Tap Complete Shopping Trip',
         what: 'Asks before doing anything',
-        then: 'Yes, Archive Trip files every checked item away and counts it as bought, which is what feeds the recommendation tray. Unchecked items stay exactly where they are.',
+        then: 'That\u2019s a wrap files every checked item away and counts it as bought, which is what feeds the recommendation tray. Unchecked items stay exactly where they are.',
       },
       {
         kind: 'note',
@@ -282,7 +278,7 @@ export const HELP_SECTIONS: HelpSection[] = [
           },
           { term: 'Join List', detail: 'Paste the link or type the 8 characters. The app joins, pulls everything down, and switches you to it.' },
           {
-            term: 'Active List',
+            term: 'The list picker',
             detail: 'Switches which list the whole app shows. Stores and categories belong to a list, so they change too.',
           },
         ],
@@ -371,11 +367,9 @@ export const HELP_SECTIONS: HelpSection[] = [
             detail:
               'The same, plus an emoji each. Category order here sets the order of the headings on Need and Shopping. A list with no categories offers a recommended set in one tap.',
           },
-          { term: 'Pending Local Mutations', detail: 'Changes still queued for the server. Should return to 0 within a second or two.' },
-          { term: 'Auto-Sync Frequency', detail: 'Has no effect today. Sync is always automatic, whatever this says.' },
           {
             term: 'Clear Local Cache',
-            detail: 'Deletes anything not yet synced, then reloads. Check that Pending Local Mutations reads 0 first.',
+            detail: 'Deletes anything not yet synced, then reloads. Check the sync light in the top bar first.',
           },
         ],
       },

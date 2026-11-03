@@ -118,7 +118,7 @@ export function JoinListSheet({ isOpen, onClose }: JoinListSheetProps) {
         <form onSubmit={handleJoin} className="space-y-4">
           <div>
             <label htmlFor="join-code" className="text-[10px] uppercase tracking-wider font-bold text-text-muted block mb-1.5">
-              Invite Code (or paste the invite link)
+              Invite code or link
             </label>
             <input
               id="join-code"

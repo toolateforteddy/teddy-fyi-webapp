@@ -31,7 +31,6 @@ describe('the scheme picker', () => {
     renderCard()
 
     expect(document.documentElement.dataset.theme).toBe('dark')
-    expect(screen.getByText(/currently dark/)).toBeInTheDocument()
   })
 
   it('flips the document as soon as a scheme is picked', async () => {

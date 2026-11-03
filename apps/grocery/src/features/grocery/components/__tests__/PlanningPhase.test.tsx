@@ -68,26 +68,27 @@ describe('PlanningPhase recommendations', () => {
     expect(next.find(i => i.isActive)?.sync_state).toBe('PENDING_UPDATE')
   })
 
-  it('picks the store from one dropdown rather than a chip per store', () => {
+  // One list: where something is bought is not a question while planning, so there is no
+  // store picker, and adding a recommendation tags no store.
+  it('has no store picker, and adding tags no store', () => {
+    const setItemStoreInfos = vi.fn()
     vi.mocked(useGrocery).mockReturnValue({
       activeListId: 'list-1',
-      items: [],
+      items: [archived('a', 'Salt')],
       setItems: vi.fn(),
       stores: [
-        { id: 's2', name: 'Costco', listId: 'list-1', position: 2, is_deleted: false },
         { id: 's1', name: 'H Mart', listId: 'list-1', position: 1, is_deleted: false },
       ],
-      setItemStoreInfos: vi.fn(),
+      setItemStoreInfos,
     } as unknown as ReturnType<typeof useGrocery>)
 
     render(<PlanningPhase />)
 
-    const picker = screen.getByRole('combobox', { name: 'Store' })
-    expect(screen.getAllByRole('option').map(o => o.textContent)).toEqual(['All Stores', 'H Mart', 'Costco'])
-    expect(screen.queryByRole('button', { name: /costco/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+    expect(screen.queryByText('H Mart')).not.toBeInTheDocument()
 
-    fireEvent.change(picker, { target: { value: 's2' } })
-
-    expect(picker).toHaveValue('s2')
+    fireEvent.click(screen.getByRole('button', { name: /salt/i }))
+    expect(setItemStoreInfos).not.toHaveBeenCalled()
   })
+
 })

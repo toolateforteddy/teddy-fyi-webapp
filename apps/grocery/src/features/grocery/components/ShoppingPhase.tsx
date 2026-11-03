@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { flushSync } from 'react-dom'
 import { useGrocery } from '@/features/grocery/context/GroceryContext'
-import { Check, MapPin, MapPinOff, ClipboardList, ChevronDown } from 'lucide-react'
+import { Check, MapPin, MapPinOff, ChevronDown } from 'lucide-react'
 import type { GroceryItem } from '@/types/grocery'
 import { cn } from '@/utils/cn'
 import { DEFAULT_STORES, DEFAULT_CATEGORIES } from '../config/constants'
@@ -300,11 +300,8 @@ export function ShoppingPhase() {
   return (
     <div className="space-y-5 flex-1 flex flex-col min-h-0 animate-in fade-in duration-200">
       {activeStores.length > 0 && (
-      <div className="space-y-2">
-        <label className="text-[10px] uppercase tracking-wider font-bold text-text-muted px-1 block mb-1">
-          Active Store Isolation
-        </label>
-        <div className="flex flex-wrap gap-2 animate-in fade-in duration-200">
+      <div>
+        <div aria-label="Store" role="group" className="flex flex-wrap gap-2 animate-in fade-in duration-200">
           {activeStores.map((store) => {
             const isSelected = store.id === selectedStoreId
             return (
@@ -348,38 +345,30 @@ export function ShoppingPhase() {
           )}
         </div>
       ) : !selectedStoreId ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-center p-8 mt-12 animate-in fade-in duration-200">
-          <div className="w-16 h-16 rounded-full bg-surface-tile border border-line flex items-center justify-center text-text-faint mb-4">
-            <ClipboardList className="w-8 h-8" />
-          </div>
-          <h3 className="text-lg font-semibold text-text-secondary mb-1">High-Velocity Mode</h3>
-          <p className="text-sm text-text-muted max-w-[240px]">Select which store you are physically at above to filter items and begin checkout.</p>
-        </div>
+        // Nothing to say: the store chips above are the whole of this state.
+        null
       ) : (
         <div className="space-y-6 flex-1 flex flex-col min-h-0">
           
-          {/* Progress Bar */}
-          <div className="bg-surface-raised border border-line rounded-xl p-3.5 space-y-2 shrink-0">
-            <div className="flex justify-between items-center text-xs">
-              <span className="font-semibold text-text-muted">Trip Progress</span>
-              <span className="font-bold text-primary">{inCartItems.length} of {activeItems.length} items ({progressPercent}%)</span>
-            </div>
-            <div className="w-full bg-inset h-2 rounded-full overflow-hidden border border-line">
-              <div 
-                className="bg-primary h-full transition-all duration-300 ease-out" 
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
+          {/* Trip progress: a bar, no caption. The count is the In Cart heading below. */}
+          <div
+            role="progressbar"
+            aria-label="Trip progress"
+            aria-valuenow={progressPercent}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            className="w-full bg-inset h-1 rounded-full overflow-hidden shrink-0"
+          >
+            <div
+              className="bg-primary h-full transition-all duration-300 ease-out"
+              style={{ width: `${progressPercent}%` }}
+            />
           </div>
 
           {/* Active Needed Items */}
           <div className="space-y-4 flex-1 overflow-y-auto overscroll-contain">
             {toBuyItems.length === 0 ? (
-              <div className="text-center py-8">
-                <Check className="w-10 h-10 text-success mx-auto mb-2" />
-                <h4 className="font-semibold text-text-primary">All items captured!</h4>
-                <p className="text-xs text-text-muted">Nice work. Proceed to complete your trip.</p>
-              </div>
+              <Check aria-label="Everything is in the cart" className="w-10 h-10 text-success mx-auto my-8" />
             ) : (
               toBuyByCategory.map(({ category, items: categoryItems }) => (
                 <div key={category.id} className="space-y-2">
@@ -422,9 +411,6 @@ export function ShoppingPhase() {
 
                 {isOffMappingOpen && (
                   <div className="space-y-2 animate-in fade-in duration-200">
-                    <p className="text-[10px] text-text-subtle px-1">
-                      Tap to buy one here anyway. Your mapping stays as it is unless you say otherwise when you complete the trip.
-                    </p>
                     <div className="tile-grid gap-2">
                       {offMappingItems.map(({ item, usuallyAt }) => (
                         <ShoppingItemTile
@@ -480,21 +466,16 @@ export function ShoppingPhase() {
         onClose={() => setIsConfirmTripOpen(false)}
         className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-32px)] max-w-sm bg-surface-tile border border-line p-6 rounded-2xl z-50 shadow-2xl backdrop:bg-scrim/75 backdrop:backdrop-blur-sm animate-in scale-in duration-200 focus:outline-none"
       >
-        <h3 className="text-base font-bold text-text-primary mb-2">Complete Grocery Trip?</h3>
-        <p className={cn("text-xs text-text-muted", offMappingInCart.length > 0 ? "mb-4" : "mb-6")}>
-          This will archive and clear all {inCartItems.length} checked items from the current shopping cart. Unchecked items will remain on your list.
+        <h3 className="text-base font-bold text-text-primary mb-2">Call it a trip?</h3>
+        <p className="text-xs text-text-muted mb-4">
+          Everything in your cart gets checked off and filed away.
         </p>
 
         {offMappingInCart.length > 0 && (
           <div className="mb-6 space-y-2.5 rounded-xl border border-line bg-inset p-3">
-            <div className="flex items-start gap-1.5">
-              <MapPinOff className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
-              <p className="text-[11px] leading-relaxed text-text-muted">
-                You bought {offMappingInCart.length === 1 ? 'one thing' : `${offMappingInCart.length} things`}{' '}
-                {selectedStore ? `${selectedStore.name} isn't mapped for` : 'this store is not mapped for'}. Tick anything
-                you want to buy here from now on. Leave it unticked and your mapping does not change.
-              </p>
-            </div>
+            <p className="text-[11px] font-semibold text-text-muted">
+              Buy at {selectedStore ? selectedStore.name : 'this store'} from now on
+            </p>
 
             <div className="space-y-1.5 max-h-40 overflow-y-auto overscroll-contain">
               {offMappingInCart.map(item => (
@@ -512,9 +493,6 @@ export function ShoppingPhase() {
                     className="w-4 h-4 shrink-0 accent-success cursor-pointer"
                   />
                   <span className="text-xs font-semibold text-text-primary truncate">{item.name}</span>
-                  <span className="ml-auto text-[10px] text-text-subtle shrink-0">
-                    {selectedStore ? `Add ${selectedStore.name}` : 'Add this store'}
-                  </span>
                 </label>
               ))}
             </div>
@@ -525,13 +503,13 @@ export function ShoppingPhase() {
             onClick={() => setIsConfirmTripOpen(false)}
             className="bg-surface-raised border border-line hover:bg-surface-hover text-text-primary text-xs font-semibold py-2.5 rounded-lg transition-colors cursor-pointer"
           >
-            Keep Shopping
+            Not yet
           </button>
           <button
             onClick={handleCompleteTrip}
             className="bg-success hover:bg-success-hover text-on-success text-xs font-bold py-2.5 rounded-lg transition-colors cursor-pointer"
           >
-            Yes, Archive Trip
+            That&apos;s a wrap
           </button>
         </div>
       </dialog>

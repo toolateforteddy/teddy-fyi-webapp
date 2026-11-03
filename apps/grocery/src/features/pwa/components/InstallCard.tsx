@@ -25,13 +25,10 @@ export function InstallCard() {
 
   if (standalone) {
     return (
-      <div className="bg-surface-tile border border-line-faint rounded-xl p-4 flex items-start gap-3">
+      <div className="bg-surface-tile border border-line-faint rounded-xl p-4 flex items-center gap-3">
         <CheckCircle2 className="w-8 h-8 text-success shrink-0" />
         <div>
-          <h5 className="font-semibold text-sm text-text-primary">Running as an installed app</h5>
-          <p className="text-[11px] text-text-muted mt-0.5">
-            Your lists open without a browser and load with no signal.
-          </p>
+          <h5 className="font-semibold text-sm text-text-primary">Installed</h5>
         </div>
       </div>
     )
@@ -39,14 +36,10 @@ export function InstallCard() {
 
   if (kind === 'none') {
     return (
-      <div className="bg-surface-tile border border-line-faint rounded-xl p-4 flex items-start gap-3">
+      <div className="bg-surface-tile border border-line-faint rounded-xl p-4 flex items-center gap-3">
         <Smartphone className="w-8 h-8 text-text-subtle shrink-0" />
         <div>
-          <h5 className="font-semibold text-sm text-text-primary">Install from your browser</h5>
-          <p className="text-[11px] text-text-muted mt-0.5">
-            This browser has not offered an install for Grocery. Most browsers keep the
-            option in their own menu, usually as "Install app" or "Add to Home screen".
-          </p>
+          <h5 className="font-semibold text-sm text-text-primary">Install from your browser&apos;s menu</h5>
         </div>
       </div>
     )
@@ -60,11 +53,6 @@ export function InstallCard() {
           <h5 className="font-semibold text-sm text-text-primary">
             {handheld ? 'Add Grocery to your home screen' : 'Install Grocery on this computer'}
           </h5>
-          <p className="text-[11px] text-text-muted mt-0.5">
-            {handheld
-              ? 'Opens full screen, without the browser bars, and launches with no signal.'
-              : 'Opens in its own window, without the browser bars, and works with no network.'}
-          </p>
         </div>
       </div>
 

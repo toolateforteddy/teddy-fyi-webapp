@@ -59,12 +59,6 @@ describe('HelpPage', () => {
     expect(screen.getByText('Not used anywhere in this app')).toBeInTheDocument()
   })
 
-  it('warns that the sync frequency control is inert', () => {
-    renderPage()
-
-    expect(screen.getByText(/Has no effect today/)).toBeInTheDocument()
-  })
-
   it('offers a way back to the list', () => {
     renderPage()
 

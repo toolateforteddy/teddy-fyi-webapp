@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import type { FormEvent } from 'react'
-import { Sparkles, X, Plus } from 'lucide-react'
+import { X, Plus } from 'lucide-react'
 
 const SUGGESTIONS = [
   'Apples', 'Almond Milk', 'Butter', 'Broccoli', 'Blueberries',
@@ -81,7 +81,7 @@ function AddNeededItemForm({
           <input
             id="item-name"
             type="text"
-            placeholder="What is needed? (e.g. Milk, Eggs)"
+            placeholder="Add an item"
             value={newItemName}
             onChange={(e) => setNewItemName(e.target.value)}
             autoFocus={autoFocus}
@@ -190,12 +190,9 @@ export function AddNeededItemSheet({ isOpen, onClose, activeCategories, onAddIte
       onClose={onClose}
       className="app-frame fixed top-auto bottom-0 left-1/2 -translate-x-1/2 max-h-[85dvh] overflow-y-auto overscroll-contain bg-surface-tile border-t border-line rounded-t-2xl z-50 px-4 pt-4 pb-[calc(2rem+env(safe-area-inset-bottom))] shadow-2xl backdrop:bg-scrim/60 backdrop:backdrop-blur-sm animate-in slide-in-from-bottom duration-250 ease-out focus:outline-none"
     >
-      <div className="flex items-center justify-between mb-4 border-b border-line pb-3">
-        <div className="flex items-center gap-1.5">
-          <Sparkles className="w-4 h-4 text-primary" />
-          <h3 className="font-semibold text-text-primary">Add Needed Item</h3>
-        </div>
-        <button 
+      <div className="flex justify-end mb-2">
+        <button
+          aria-label="Close"
           onClick={onClose}
           className="p-1 text-text-muted hover:text-text-primary rounded-md cursor-pointer"
         >
@@ -231,11 +228,6 @@ interface AddNeededItemPaneProps {
 export function AddNeededItemPane({ activeCategories, onAddItem, initialName }: AddNeededItemPaneProps) {
   return (
     <aside className="w-80 shrink-0 self-start sticky top-0 bg-surface-tile border border-line-faint rounded-xl p-4">
-      <div className="flex items-center gap-1.5 mb-4 border-b border-line pb-3">
-        <Sparkles className="w-4 h-4 text-primary" />
-        <h3 className="font-semibold text-text-primary">Add Needed Item</h3>
-      </div>
-
       <AddNeededItemForm
         activeCategories={activeCategories}
         onAddItem={onAddItem}

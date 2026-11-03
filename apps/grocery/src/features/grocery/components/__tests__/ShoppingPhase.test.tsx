@@ -80,12 +80,12 @@ describe('ShoppingPhase Component', () => {
     mockGroceryContext()
   })
 
-  it('should render high velocity mode instructions when no store is isolated', () => {
+  it('shows only the store chips until a store is picked', () => {
     render(<ShoppingPhase />)
 
-    expect(screen.getByText('High-Velocity Mode')).toBeInTheDocument()
-    expect(screen.getByText(/Select which store you are physically at/i)).toBeInTheDocument()
-    expect(screen.queryByText('Trip Progress')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Trader Joes/ })).toBeInTheDocument()
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+    expect(screen.queryByText('Apples')).not.toBeInTheDocument()
   })
 
   it('should render items when a store chip is selected and isolate to that store', () => {
@@ -96,7 +96,7 @@ describe('ShoppingPhase Component', () => {
     fireEvent.click(traderJoesBtn)
 
     // Active store list should be visible now, with apples (Trader Joes) and bananas (mockItemStoreInfos has no mapping for bananas, so it displays everywhere)
-    expect(screen.getByText('Trip Progress')).toBeInTheDocument()
+    expect(screen.getByRole('progressbar', { name: 'Trip progress' })).toBeInTheDocument()
     expect(screen.getByText('Apples')).toBeInTheDocument()
     expect(screen.getByText('Bananas')).toBeInTheDocument()
     
@@ -140,7 +140,7 @@ describe('ShoppingPhase Component', () => {
     expect(dialog).toHaveAttribute('open')
 
     // Confirm archiving trip
-    const archiveBtn = screen.getByRole('button', { name: /Yes, Archive Trip/ })
+    const archiveBtn = screen.getByRole('button', { name: /That's a wrap/ })
     const before = Date.now()
     fireEvent.click(archiveBtn)
 
@@ -175,7 +175,7 @@ describe('ShoppingPhase Component', () => {
     render(<ShoppingPhase />)
     fireEvent.click(screen.getByRole('button', { name: /Trader Joes/ }))
     fireEvent.click(screen.getByRole('button', { name: /Complete Shopping Trip/ }))
-    fireEvent.click(screen.getByRole('button', { name: /Yes, Archive Trip/ }))
+    fireEvent.click(screen.getByRole('button', { name: /That's a wrap/ }))
 
     const updated: GroceryItem[] = mockSetItems.mock.calls[0][0](history)
     const byId = (id: string) => updated.find(i => i.id === id)!
@@ -235,7 +235,7 @@ describe('ShoppingPhase Component', () => {
       const optIn = screen.getByRole('checkbox', { name: /Milk/ })
       expect(optIn).not.toBeChecked()
 
-      fireEvent.click(screen.getByRole('button', { name: /Yes, Archive Trip/ }))
+      fireEvent.click(screen.getByRole('button', { name: /That's a wrap/ }))
 
       expect(mockSetItems).toHaveBeenCalled()
       expect(mockSetItemStoreInfos).not.toHaveBeenCalled()
@@ -248,7 +248,7 @@ describe('ShoppingPhase Component', () => {
 
       fireEvent.click(screen.getByRole('button', { name: /Complete Shopping Trip/ }))
       fireEvent.click(screen.getByRole('checkbox', { name: /Milk/ }))
-      fireEvent.click(screen.getByRole('button', { name: /Yes, Archive Trip/ }))
+      fireEvent.click(screen.getByRole('button', { name: /That's a wrap/ }))
 
       expect(mockSetItemStoreInfos).toHaveBeenCalledTimes(1)
       const updated = mockSetItemStoreInfos.mock.calls[0][0](mockItemStoreInfos)
@@ -273,7 +273,7 @@ describe('ShoppingPhase Component', () => {
       fireEvent.click(screen.getByRole('button', { name: /Complete Shopping Trip/ }))
 
       expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
-      expect(screen.getByText(/This will archive and clear all 1 checked items/)).toBeInTheDocument()
+      expect(screen.getByText(/checked off and filed away/)).toBeInTheDocument()
     })
   })
 
@@ -288,7 +288,7 @@ describe('ShoppingPhase Component', () => {
       )
 
       expect(screen.getByText('No stores yet')).toBeInTheDocument()
-      expect(screen.queryByText(/Active Store Isolation/)).not.toBeInTheDocument()
+      expect(screen.queryByRole('group', { name: 'Store' })).not.toBeInTheDocument()
       fireEvent.click(screen.getByRole('button', { name: 'Add a store' }))
       expect(openSetup).toHaveBeenCalledTimes(1)
     })

@@ -168,10 +168,6 @@ export function ShareListSheet({ isOpen, onClose, activeListId }: ShareListSheet
           </div>
         ) : inviteCode && inviteLink ? (
           <div className="space-y-4">
-            <p className="text-xs text-text-muted text-center">
-              Send this link. Whoever opens it signs in and joins the list — nothing to
-              install, nothing to type. It works once, and lasts an hour.
-            </p>
 
             {/* The link, and the two ways to move it. Sending is the primary action: the
                 code below it is the fallback for somebody you cannot send a link to. */}
@@ -211,10 +207,7 @@ export function ShareListSheet({ isOpen, onClose, activeListId }: ShareListSheet
             {/* The code the link carries. Still here because a link is no use to somebody on
                 a tablet with no messaging app, or somebody you are reading it to down the
                 phone -- and because it is the same credential either way. */}
-            <div className="pt-1 border-t border-line/60 space-y-2">
-              <p className="text-[10px] text-text-muted text-center pt-3">
-                Or read out the code, and they can type it into Join List.
-              </p>
+            <div className="pt-3 border-t border-line/60">
               <div className="flex items-center justify-center gap-2">
                 <span className="text-xl font-mono font-bold tracking-widest text-primary">
                   {inviteCode}
@@ -235,16 +228,15 @@ export function ShareListSheet({ isOpen, onClose, activeListId }: ShareListSheet
 
             {error && <p className="text-[11px] text-danger text-center">{error}</p>}
 
-            <div className="flex flex-col items-center gap-1.5">
+            <div className="flex flex-col items-center">
               <button
-                onClick={generateCode}
+                onClick={() => {
+                  if (window.confirm('Get a new link? The current one stops working.')) void generateCode()
+                }}
                 className="text-[11px] text-text-muted underline underline-offset-2 hover:text-text-primary transition-colors cursor-pointer"
               >
                 Get a new link
               </button>
-              <p className="text-[10px] text-text-muted text-center">
-                A new link replaces this one, so anyone still holding it will not get in.
-              </p>
             </div>
           </div>
         ) : null}

@@ -21,10 +21,10 @@ const OPTIONS: Record<ThemePreference, { label: string; Icon: LucideIcon }> = {
  * exactly as before unless their OS says light.
  */
 export function ThemeCard() {
-  const { preference, resolved, setPreference } = useTheme()
+  const { preference, setPreference } = useTheme()
 
   return (
-    <div className="bg-surface-tile border border-line-faint rounded-xl p-4 space-y-3">
+    <div className="bg-surface-tile border border-line-faint rounded-xl p-4">
       <div
         role="radiogroup"
         aria-label="Colour scheme"
@@ -54,12 +54,6 @@ export function ThemeCard() {
           )
         })}
       </div>
-
-      <p className="text-[11px] text-text-muted">
-        {preference === 'system'
-          ? `Following this device, which is currently ${resolved}.`
-          : `Always ${preference}, on this device. Other devices keep their own setting.`}
-      </p>
     </div>
   )
 }
