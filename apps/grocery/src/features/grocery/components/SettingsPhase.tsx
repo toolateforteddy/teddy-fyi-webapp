@@ -8,6 +8,7 @@ import {
   Tag,
   HelpCircle
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { storage } from '@/utils/storage'
 import { STORAGE_KEYS } from '@/config/storageKeys'
@@ -34,22 +35,20 @@ export function SettingsPhase() {
     }
   }
 
-  const { user, logout } = useAuth()
+  const { user, logout, deleteAccount } = useAuth()
   const [loggingOut, setLoggingOut] = useState(false)
-  const [clearing, setClearing] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   // Sub-view State
   const [activeSubView, setActiveSubView] = useState<'main' | 'stores' | 'categories'>('main')
 
   const timeoutId = useRef<number | null>(null)
-  const reloadTimeoutId = useRef<number | null>(null)
 
   // Clear timeouts on unmount
   useEffect(() => {
     return () => {
       if (timeoutId.current !== null) clearTimeout(timeoutId.current)
-      if (reloadTimeoutId.current !== null) clearTimeout(reloadTimeoutId.current)
     }
   }, [])
 
@@ -62,28 +61,17 @@ export function SettingsPhase() {
     }, 3000) as unknown as number
   }
 
-  const handleClearLocal = () => {
-    if (!window.confirm('Clear this device? Changes that have not synced yet will be lost.')) return
-    setClearing(true)
-    if (timeoutId.current !== null) clearTimeout(timeoutId.current)
-    timeoutId.current = setTimeout(() => {
-      storage.removeItem(STORAGE_KEYS.ITEMS)
-      storage.removeItem(STORAGE_KEYS.LISTS)
-      storage.removeItem(STORAGE_KEYS.STORES)
-      storage.removeItem(STORAGE_KEYS.CATEGORIES)
-      storage.removeItem(STORAGE_KEYS.LAST_SYNCED)
-      storage.removeItem(STORAGE_KEYS.ACTIVE_LIST_ID)
-      storage.removeItem(STORAGE_KEYS.ITEM_STORE_INFOS)
-      storage.removeItem(STORAGE_KEYS.LIST_MEMBERS)
-      storage.removeItem(STORAGE_KEYS.SELECTED_STORE_ID)
-      setClearing(false)
-      showToast('Local cache cleared successfully. Reloading...')
-      
-      // Delay reload to let user see success toast
-      reloadTimeoutId.current = setTimeout(() => {
-        window.location.reload()
-      }, 1500) as unknown as number
-    }, 1000) as unknown as number
+  // Erasing the account is the one thing here that cannot be undone, so it asks first, and
+  // a request that never landed says so rather than pretending: nothing was deleted, and
+  // this device is still signed in.
+  const handleDeleteData = async () => {
+    if (!window.confirm(
+      'Delete everything? Your account, your lists and everything in them are erased from the server and this device. This cannot be undone.'
+    )) return
+    setDeleting(true)
+    const ok = await deleteAccount()
+    setDeleting(false)
+    if (!ok) window.alert('Nothing was deleted. Check the connection and try again.')
   }
 
   const handleLogout = async () => {
@@ -141,13 +129,10 @@ export function SettingsPhase() {
 
   // --- Main Settings View ---
 
+  // One list of rows, in the order a person reaches for them: who you are, what the list is
+  // made of, how it looks, and the one thing that cannot be undone, last.
   return (
-    // Settings is a stack of rows and short prose, and neither reads better at
-    // 1200px than at 700px -- so it caps itself and centres inside the wide frame
-    // rather than stretching to it.
-    <div className="reading-column space-y-6 animate-in fade-in duration-200">
-      
-      {/* Premium Success Toast */}
+    <div className="reading-column space-y-4 animate-in fade-in duration-200">
       {successMessage && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 bg-surface-raised/90 backdrop-blur-md border border-success/30 text-success-strong text-xs px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 z-50 animate-in fade-in slide-in-from-top-4 duration-300">
           <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
@@ -155,130 +140,87 @@ export function SettingsPhase() {
         </div>
       )}
 
-      {/* Account */}
-      <div className="space-y-3">
-        <div className="px-1">
-          <h4 className="text-xs font-bold tracking-widest text-text-muted uppercase">
-            Account
-          </h4>
-        </div>
-
-        <div className="bg-surface-tile border border-line-faint rounded-xl p-4 space-y-4">
-          <div className="flex items-center gap-3">
-            {user?.picture ? (
-              <img 
-                src={user.picture} 
-                alt={user.name || 'User avatar'} 
-                className="w-10 h-10 rounded-full border border-line object-cover" 
-              />
-            ) : (
-              <div className="w-10 h-10 rounded-full bg-surface-raised border border-line flex items-center justify-center text-primary font-bold">
-                {user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || '?'}
-              </div>
-            )}
-            <div className="min-w-0 flex-1">
-              <h5 className="font-semibold text-sm text-text-primary truncate">
-                {user?.name || 'Authenticated User'}
-              </h5>
-              <p className="text-xs text-text-muted truncate">
-                {user?.email || 'No email associated'}
-              </p>
+      <Group>
+        <div className="flex items-center gap-3 px-4 py-3">
+          {user?.picture ? (
+            <img
+              src={user.picture}
+              alt=""
+              className="w-9 h-9 rounded-full border border-line object-cover"
+            />
+          ) : (
+            <div className="w-9 h-9 rounded-full bg-surface-raised border border-line flex items-center justify-center text-primary font-bold text-sm">
+              {user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || '?'}
             </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-sm text-text-primary truncate">{user?.name || user?.email}</p>
+            {user?.name && user?.email && <p className="text-xs text-text-muted truncate">{user.email}</p>}
           </div>
-
           <button
             onClick={handleLogout}
             disabled={loggingOut}
-            className="w-full bg-surface-raised hover:bg-surface-hover text-text-primary border border-line py-2.5 rounded-lg text-xs font-bold transition-all active:scale-[0.99] flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-55"
+            className="shrink-0 flex items-center gap-1.5 text-xs font-semibold text-text-muted hover:text-text-primary px-2 py-1.5 rounded-lg hover:bg-surface-hover cursor-pointer disabled:opacity-55"
           >
             <LogOut className="w-3.5 h-3.5" />
-            {loggingOut ? 'Signing out...' : 'Sign Out'}
+            {loggingOut ? 'Signing out...' : 'Sign out'}
           </button>
         </div>
-      </div>
+      </Group>
 
-      {/* This Device */}
-      <div className="space-y-3">
-        <div className="px-1">
-          <h4 className="text-xs font-bold tracking-widest text-text-muted uppercase">
-            This Device
-          </h4>
+      <Group>
+        <Row icon={MapPin} label="Stores" onClick={() => setActiveSubView('stores')} />
+        <Row icon={Tag} label="Categories" onClick={() => setActiveSubView('categories')} />
+        <Link
+          to="/help"
+          className="flex items-center gap-3 px-4 h-12 text-sm font-medium text-text-primary hover:bg-surface-hover no-underline"
+        >
+          <HelpCircle className="w-4 h-4 text-primary shrink-0" />
+          <span className="flex-1">How this works</span>
+          <ChevronRight className="w-4 h-4 text-text-muted" />
+        </Link>
+      </Group>
+
+      <Group>
+        <div className="flex items-center gap-3 px-4 py-2.5">
+          <span className="flex-1 text-sm font-medium text-text-primary">Appearance</span>
+          <ThemeCard />
         </div>
-
         <InstallCard />
-      </div>
+      </Group>
 
-      {/* Appearance */}
-      <div className="space-y-3">
-        <div className="px-1">
-          <h4 className="text-xs font-bold tracking-widest text-text-muted uppercase">
-            Appearance
-          </h4>
-        </div>
-
-        <ThemeCard />
-      </div>
-
-      {/* Grocery Section */}
-      <div className="space-y-3">
-        <div className="px-1">
-          <h4 className="text-xs font-bold tracking-widest text-text-muted uppercase">
-            Grocery
-          </h4>
-        </div>
-
-        <div className="bg-surface-tile border border-line-faint rounded-xl p-4 space-y-3">
-          <button
-            onClick={() => setActiveSubView('stores')}
-            className="w-full bg-surface-raised hover:bg-surface-hover text-text-primary border border-line py-3 px-4 rounded-lg text-sm font-semibold transition-all active:scale-[0.99] flex items-center justify-between cursor-pointer group"
-          >
-            <div className="flex items-center gap-2.5">
-              <MapPin className="w-4 h-4 text-primary shrink-0" />
-              <span>Manage Stores</span>
-            </div>
-            <ChevronRight className="w-4 h-4 text-text-muted group-hover:text-text-primary transition-colors" />
-          </button>
-
-          <button
-            onClick={() => setActiveSubView('categories')}
-            className="w-full bg-surface-raised hover:bg-surface-hover text-text-primary border border-line py-3 px-4 rounded-lg text-sm font-semibold transition-all active:scale-[0.99] flex items-center justify-between cursor-pointer group"
-          >
-            <div className="flex items-center gap-2.5">
-              <Tag className="w-4 h-4 text-primary shrink-0" />
-              <span>Manage Categories</span>
-            </div>
-            <ChevronRight className="w-4 h-4 text-text-muted group-hover:text-text-primary transition-colors" />
-          </button>
-
-          {/* The gestures this app uses are invisible until somebody explains them, and
-              Settings is where a person goes looking when something will not do what they
-              expect. See /help. */}
-          <Link
-            to="/help"
-            className="w-full bg-surface-raised hover:bg-surface-hover text-text-primary border border-line py-3 px-4 rounded-lg text-sm font-semibold transition-all active:scale-[0.99] flex items-center justify-between cursor-pointer group no-underline"
-          >
-            <div className="flex items-center gap-2.5">
-              <HelpCircle className="w-4 h-4 text-primary shrink-0" />
-              <span>How this works</span>
-            </div>
-            <ChevronRight className="w-4 h-4 text-text-muted group-hover:text-text-primary transition-colors" />
-          </Link>
-        </div>
-      </div>
-
-      {/* Destructive, so the warning is a confirm at the moment it matters rather
-          than a paragraph that is on screen every time Settings opens. */}
-      <div>
-          <button
-            onClick={handleClearLocal}
-            disabled={clearing}
-            className="w-full bg-danger/10 hover:bg-danger/20 text-danger border border-danger/20 py-2.5 rounded-lg text-xs font-bold transition-all active:scale-[0.99] flex items-center justify-center gap-1.5 cursor-pointer"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            {clearing ? 'Clearing Storage...' : 'Clear Local Cache'}
-          </button>
-      </div>
-
+      <Group>
+        <button
+          onClick={() => { void handleDeleteData() }}
+          disabled={deleting}
+          className="w-full flex items-center gap-3 px-4 h-12 text-sm font-medium text-danger hover:bg-danger/10 cursor-pointer disabled:opacity-55"
+        >
+          <Trash2 className="w-4 h-4 shrink-0" />
+          {deleting ? 'Deleting...' : 'Delete my data'}
+        </button>
+      </Group>
     </div>
+  )
+}
+
+/** A card of rows, divided by hairlines: the whole of Settings is a few of these. */
+function Group({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="bg-surface-tile border border-line-faint rounded-xl overflow-hidden divide-y divide-line-faint">
+      {children}
+    </div>
+  )
+}
+
+function Row({ icon: Icon, label, onClick }: { icon: LucideIcon; label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full flex items-center gap-3 px-4 h-12 text-sm font-medium text-text-primary hover:bg-surface-hover cursor-pointer"
+    >
+      <Icon className="w-4 h-4 text-primary shrink-0" />
+      <span className="flex-1 text-left">{label}</span>
+      <ChevronRight className="w-4 h-4 text-text-muted" />
+    </button>
   )
 }
